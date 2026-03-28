@@ -1,0 +1,57 @@
+# 运行时数据
+data/
+!data/.gitkeep
+
+# Go 编译产物
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+/bin/
+/dist/
+
+# Go 测试
+*.test
+*.out
+coverage.html
+
+# 依赖
+/vendor/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# 系统文件
+.DS_Store
+Thumbs.db
+
+# 环境变量
+.env
+.env.local
+.env.*.local
+
+# 日志
+*.log
+logs/
+
+# 数据库文件（运行时生成）
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+
+# 上传文件
+uploads/
+
+# 前端
+node_modules/
+src/frontend/dist/
+src/frontend/.swc/
+
+# 快照文件
+*.snapshot

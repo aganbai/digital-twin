@@ -1,0 +1,605 @@
+package auth
+
+import (
+	"context"
+	"crypto/rand"
+	"database/sql"
+	"encoding/hex"
+	"fmt"
+	"os"
+	"strings"
+	"time"
+
+	"digital-twin/src/backend/database"
+	"digital-twin/src/harness/core"
+
+	"golang.org/x/crypto/bcrypt"
+)
+
+// AuthPlugin 认证插件
+type AuthPlugin struct {
+	*core.BasePlugin
+	db         *sql.DB
+	userRepo   *database.UserRepository
+	jwtManager *JWTManager
+	wxClient   WxClient
+}
+
+// NewAuthPlugin 创建认证插件
+func NewAuthPlugin(name string, db *sql.DB) *AuthPlugin {
+	return &AuthPlugin{
+		BasePlugin: core.NewBasePlugin(name, "1.0.0", core.PluginTypeAuth),
+		db:         db,
+		userRepo:   database.NewUserRepository(db),
+	}
+}
+
+// Init 初始化认证插件
+// 从 config 中读取 jwt.secret, jwt.expiry, jwt.issuer
+func (p *AuthPlugin) Init(config map[string]interface{}) error {
+	// 调用基类 Init
+	if err := p.BasePlugin.Init(config); err != nil {
+		return err
+	}
+
+	// 读取 JWT 配置
+	secret, _ := config["jwt.secret"].(string)
+	if secret == "" {
+		secret = "default-secret-key"
+	}
+
+	issuer, _ := config["jwt.issuer"].(string)
+	if issuer == "" {
+		issuer = "digital-twin"
+	}
+
+	expiryStr, _ := config["jwt.expiry"].(string)
+	expiry := 24 * time.Hour // 默认 24 小时
+	if expiryStr != "" {
+		if d, err := time.ParseDuration(expiryStr); err == nil {
+			expiry = d
+		}
+	}
+
+	p.jwtManager = NewJWTManager(secret, issuer, expiry)
+
+	// 根据 WX_MODE 环境变量初始化微信客户端
+	wxMode := os.Getenv("WX_MODE")
+	if wxMode == "mock" {
+		p.wxClient = &MockWxClient{}
+	} else {
+		p.wxClient = &RealWxClient{
+			AppID:  os.Getenv("WX_APPID"),
+			Secret: os.Getenv("WX_SECRET"),
+		}
+	}
+
+	return nil
+}
+
+// isAuthAction 判断是否是认证插件自己的 action
+func (p *AuthPlugin) isAuthAction(action string) bool {
+	switch action {
+	case "register", "login", "verify", "refresh", "wx-login", "complete-profile":
+		return true
+	default:
+		return false
+	}
+}
+
+// Execute 执行认证操作
+// 根据 input.Data["action"] 分发到不同的处理逻辑
+func (p *AuthPlugin) Execute(ctx context.Context, input *core.PluginInput) (*core.PluginOutput, error) {
+	start := time.Now()
+
+	action, _ := input.Data["action"].(string)
+
+	// 管道透传模式：action 不是 auth 插件的 action 且 UserContext 已填充
+	if !p.isAuthAction(action) {
+		if input.UserContext != nil && input.UserContext.UserID != "" {
+			outputData := mergeData(input.Data, nil)
+			return &core.PluginOutput{
+				Success:  true,
+				Data:     outputData,
+				Duration: time.Since(start),
+				Metadata: map[string]interface{}{"plugin": "auth", "mode": "passthrough"},
+			}, nil
+		}
+		if action == "" {
+			return &core.PluginOutput{
+				Success:  false,
+				Data:     map[string]interface{}{"error_code": 40004},
+				Error:    "缺少 action 参数",
+				Duration: time.Since(start),
+			}, nil
+		}
+	}
+
+	var output *core.PluginOutput
+	var err error
+
+	switch action {
+	case "register":
+		output, err = p.handleRegister(input)
+	case "login":
+		output, err = p.handleLogin(input)
+	case "verify":
+		output, err = p.handleVerify(input)
+	case "refresh":
+		output, err = p.handleRefresh(input)
+	case "wx-login":
+		output, err = p.handleWxLogin(input)
+	case "complete-profile":
+		output, err = p.handleCompleteProfile(input)
+	default:
+		output = &core.PluginOutput{
+			Success: false,
+			Data:    map[string]interface{}{"error_code": 40004},
+			Error:   fmt.Sprintf("不支持的 action: %s", action),
+		}
+	}
+
+	if err != nil {
+		return &core.PluginOutput{
+			Success:  false,
+			Data:     map[string]interface{}{"error_code": 50001},
+			Error:    err.Error(),
+			Duration: time.Since(start),
+		}, nil
+	}
+
+	output.Duration = time.Since(start)
+	return output, nil
+}
+
+// GetJWTManager 获取 JWT 管理器（供外部使用，如中间件）
+func (p *AuthPlugin) GetJWTManager() *JWTManager {
+	return p.jwtManager
+}
+
+// handleRegister 处理用户注册
+func (p *AuthPlugin) handleRegister(input *core.PluginInput) (*core.PluginOutput, error) {
+	// 提取参数
+	username, _ := input.Data["username"].(string)
+	password, _ := input.Data["password"].(string)
+	role, _ := input.Data["role"].(string)
+	nickname, _ := input.Data["nickname"].(string)
+	email, _ := input.Data["email"].(string)
+
+	// 参数校验
+	if username == "" || password == "" {
+		return &core.PluginOutput{
+			Success: false,
+			Data:    map[string]interface{}{"error_code": 40004},
+			Error:   "用户名和密码不能为空",
+		}, nil
+	}
+
+	if role == "" {
+		role = "student"
+	}
+
+	// 检查用户名是否已存在
+	existingUser, err := p.userRepo.GetByUsername(username)
+	if err != nil {
+		return nil, fmt.Errorf("查询用户失败: %w", err)
+	}
+	if existingUser != nil {
+		return &core.PluginOutput{
+			Success: false,
+			Data:    map[string]interface{}{"error_code": 40006},
+			Error:   "用户名已存在",
+		}, nil
+	}
+
+	// 密码 bcrypt 加密
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		return nil, fmt.Errorf("密码加密失败: %w", err)
+	}
+
+	// 创建用户
+	user := &database.User{
+		Username: username,
+		Password: string(hashedPassword),
+		Role:     role,
+		Nickname: nickname,
+		Email:    email,
+	}
+
+	userID, err := p.userRepo.Create(user)
+	if err != nil {
+		// 检查是否为唯一约束冲突
+		if strings.Contains(err.Error(), "UNIQUE") || strings.Contains(err.Error(), "unique") {
+			return &core.PluginOutput{
+				Success: false,
+				Data:    map[string]interface{}{"error_code": 40006},
+				Error:   "用户名已存在",
+			}, nil
+		}
+		return nil, fmt.Errorf("创建用户失败: %w", err)
+	}
+
+	// 生成 token
+	token, expiresAt, err := p.jwtManager.GenerateToken(userID, username, role)
+	if err != nil {
+		return nil, fmt.Errorf("生成 token 失败: %w", err)
+	}
+
+	// 构建输出数据，先 merge 上游 Data
+	outputData := mergeData(input.Data, map[string]interface{}{
+		"user_id":    userID,
+		"token":      token,
+		"role":       role,
+		"nickname":   nickname,
+		"expires_at": expiresAt.Format(time.RFC3339),
+	})
+
+	return &core.PluginOutput{
+		Success:  true,
+		Data:     outputData,
+		Metadata: map[string]interface{}{"plugin": "auth", "action": "register"},
+	}, nil
+}
+
+// handleLogin 处理用户登录
+func (p *AuthPlugin) handleLogin(input *core.PluginInput) (*core.PluginOutput, error) {
+	username, _ := input.Data["username"].(string)
+	password, _ := input.Data["password"].(string)
+
+	// 参数校验
+	if username == "" || password == "" {
+		return &core.PluginOutput{
+			Success: false,
+			Data:    map[string]interface{}{"error_code": 40004},
+			Error:   "用户名和密码不能为空",
+		}, nil
+	}
+
+	// 查询用户
+	user, err := p.userRepo.GetByUsername(username)
+	if err != nil {
+		return nil, fmt.Errorf("查询用户失败: %w", err)
+	}
+	if user == nil {
+		return &core.PluginOutput{
+			Success: false,
+			Data:    map[string]interface{}{"error_code": 40001},
+			Error:   "用户名或密码错误",
+		}, nil
+	}
+
+	// 验证密码
+	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password)); err != nil {
+		return &core.PluginOutput{
+			Success: false,
+			Data:    map[string]interface{}{"error_code": 40001},
+			Error:   "用户名或密码错误",
+		}, nil
+	}
+
+	// 生成 token
+	token, expiresAt, err := p.jwtManager.GenerateToken(user.ID, user.Username, user.Role)
+	if err != nil {
+		return nil, fmt.Errorf("生成 token 失败: %w", err)
+	}
+
+	// 构建输出数据，先 merge 上游 Data
+	outputData := mergeData(input.Data, map[string]interface{}{
+		"user_id":    user.ID,
+		"token":      token,
+		"role":       user.Role,
+		"nickname":   user.Nickname,
+		"expires_at": expiresAt.Format(time.RFC3339),
+	})
+
+	return &core.PluginOutput{
+		Success:  true,
+		Data:     outputData,
+		Metadata: map[string]interface{}{"plugin": "auth", "action": "login"},
+	}, nil
+}
+
+// handleVerify 验证 JWT token
+func (p *AuthPlugin) handleVerify(input *core.PluginInput) (*core.PluginOutput, error) {
+	tokenStr, _ := input.Data["token"].(string)
+	if tokenStr == "" {
+		return &core.PluginOutput{
+			Success: false,
+			Data:    map[string]interface{}{"error_code": 40001},
+			Error:   "缺少 token",
+		}, nil
+	}
+
+	claims, err := p.jwtManager.ValidateToken(tokenStr)
+	if err != nil {
+		if strings.Contains(err.Error(), "expired") {
+			return &core.PluginOutput{
+				Success: false,
+				Data:    map[string]interface{}{"error_code": 40002},
+				Error:   "令牌已过期",
+			}, nil
+		}
+		return &core.PluginOutput{
+			Success: false,
+			Data:    map[string]interface{}{"error_code": 40001},
+			Error:   "令牌无效",
+		}, nil
+	}
+
+	// 填充 UserContext
+	if input.UserContext == nil {
+		input.UserContext = &core.UserContext{}
+	}
+	input.UserContext.UserID = fmt.Sprintf("%d", claims.UserID)
+	input.UserContext.Role = claims.Role
+
+	// 构建输出数据，先 merge 上游 Data
+	outputData := mergeData(input.Data, map[string]interface{}{
+		"user_id":  claims.UserID,
+		"username": claims.Username,
+		"role":     claims.Role,
+	})
+
+	return &core.PluginOutput{
+		Success:  true,
+		Data:     outputData,
+		Metadata: map[string]interface{}{"plugin": "auth", "action": "verify"},
+	}, nil
+}
+
+// handleRefresh 刷新 token
+func (p *AuthPlugin) handleRefresh(input *core.PluginInput) (*core.PluginOutput, error) {
+	tokenStr, _ := input.Data["token"].(string)
+	if tokenStr == "" {
+		return &core.PluginOutput{
+			Success: false,
+			Data:    map[string]interface{}{"error_code": 40001},
+			Error:   "缺少 token",
+		}, nil
+	}
+
+	// 先尝试正常验证
+	claims, err := p.jwtManager.ValidateToken(tokenStr)
+	if err != nil {
+		// 正常验证失败，尝试忽略过期来解析
+		parsedClaims, isExpired, parseErr := p.jwtManager.ParseTokenIgnoreExpiry(tokenStr)
+		if parseErr != nil {
+			// 签名无效等根本性错误
+			return &core.PluginOutput{
+				Success: false,
+				Data:    map[string]interface{}{"error_code": 40001},
+				Error:   "令牌无效，无法刷新",
+			}, nil
+		}
+
+		if isExpired {
+			// 检查是否在宽限期内
+			if parsedClaims.ExpiresAt != nil {
+				expiredDuration := time.Since(parsedClaims.ExpiresAt.Time)
+				if expiredDuration > RefreshGracePeriod {
+					return &core.PluginOutput{
+						Success: false,
+						Data:    map[string]interface{}{"error_code": 40002},
+						Error:   "令牌已过期且超过刷新宽限期",
+					}, nil
+				}
+			}
+		}
+
+		// 宽限期内，使用解析出的 claims
+		claims = parsedClaims
+	}
+
+	// 生成新 token
+	newToken, expiresAt, err := p.jwtManager.GenerateToken(claims.UserID, claims.Username, claims.Role)
+	if err != nil {
+		return nil, fmt.Errorf("生成新 token 失败: %w", err)
+	}
+
+	outputData := mergeData(input.Data, map[string]interface{}{
+		"user_id":    claims.UserID,
+		"token":      newToken,
+		"role":       claims.Role,
+		"expires_at": expiresAt.Format(time.RFC3339),
+	})
+
+	return &core.PluginOutput{
+		Success:  true,
+		Data:     outputData,
+		Metadata: map[string]interface{}{"plugin": "auth", "action": "refresh"},
+	}, nil
+}
+
+// handleWxLogin 处理微信登录
+func (p *AuthPlugin) handleWxLogin(input *core.PluginInput) (*core.PluginOutput, error) {
+	code, _ := input.Data["code"].(string)
+	if code == "" {
+		return &core.PluginOutput{
+			Success: false,
+			Data:    map[string]interface{}{"error_code": 40004},
+			Error:   "缺少 code 参数",
+		}, nil
+	}
+
+	// 调用微信 API 获取 openid
+	session, err := p.wxClient.Code2Session(code)
+	if err != nil {
+		return &core.PluginOutput{
+			Success: false,
+			Data:    map[string]interface{}{"error_code": 50001},
+			Error:   "微信登录失败",
+		}, nil
+	}
+
+	if session.OpenID == "" {
+		return &core.PluginOutput{
+			Success: false,
+			Data:    map[string]interface{}{"error_code": 40004},
+			Error:   "无效的登录凭证",
+		}, nil
+	}
+
+	// 根据 openid 查询用户
+	user, err := p.userRepo.GetByOpenID(session.OpenID)
+	if err != nil {
+		return nil, fmt.Errorf("查询用户失败: %w", err)
+	}
+
+	isNewUser := false
+	if user == nil {
+		// 新用户：自动创建
+		isNewUser = true
+		openidSuffix := session.OpenID
+		if len(openidSuffix) > 6 {
+			openidSuffix = openidSuffix[len(openidSuffix)-6:]
+		}
+
+		// 生成随机密码
+		randomBytes := make([]byte, 16)
+		rand.Read(randomBytes)
+		randomPassword := hex.EncodeToString(randomBytes)
+		hashedPassword, err := bcrypt.GenerateFromPassword([]byte(randomPassword), bcrypt.DefaultCost)
+		if err != nil {
+			return nil, fmt.Errorf("密码加密失败: %w", err)
+		}
+
+		user = &database.User{
+			Username: "wx_用户_" + openidSuffix,
+			Password: string(hashedPassword),
+			Role:     "",
+			Nickname: "",
+			OpenID:   session.OpenID,
+		}
+
+		userID, err := p.userRepo.CreateWithOpenID(user)
+		if err != nil {
+			return nil, fmt.Errorf("创建微信用户失败: %w", err)
+		}
+		user.ID = userID
+	}
+
+	// 生成 JWT token
+	token, expiresAt, err := p.jwtManager.GenerateToken(user.ID, user.Username, user.Role)
+	if err != nil {
+		return nil, fmt.Errorf("生成 token 失败: %w", err)
+	}
+
+	outputData := mergeData(input.Data, map[string]interface{}{
+		"user_id":     user.ID,
+		"token":       token,
+		"role":        user.Role,
+		"nickname":    user.Nickname,
+		"is_new_user": isNewUser,
+		"expires_at":  expiresAt.Format(time.RFC3339),
+	})
+
+	return &core.PluginOutput{
+		Success:  true,
+		Data:     outputData,
+		Metadata: map[string]interface{}{"plugin": "auth", "action": "wx-login"},
+	}, nil
+}
+
+// handleCompleteProfile 处理新用户补全信息（角色+昵称）
+func (p *AuthPlugin) handleCompleteProfile(input *core.PluginInput) (*core.PluginOutput, error) {
+	// 从 input.Data 获取 user_id（由 JWT 中间件解析后传入）
+	userID := int64(0)
+	switch v := input.Data["user_id"].(type) {
+	case int64:
+		userID = v
+	case float64:
+		userID = int64(v)
+	case int:
+		userID = int64(v)
+	}
+	if userID == 0 {
+		return &core.PluginOutput{
+			Success: false,
+			Data:    map[string]interface{}{"error_code": 40001},
+			Error:   "用户信息无效",
+		}, nil
+	}
+
+	role, _ := input.Data["role"].(string)
+	nickname, _ := input.Data["nickname"].(string)
+
+	// 校验 role
+	if role != "teacher" && role != "student" {
+		return &core.PluginOutput{
+			Success: false,
+			Data:    map[string]interface{}{"error_code": 40004},
+			Error:   "角色只能是 teacher 或 student",
+		}, nil
+	}
+
+	// 校验 nickname
+	nickname = strings.TrimSpace(nickname)
+	if nickname == "" {
+		return &core.PluginOutput{
+			Success: false,
+			Data:    map[string]interface{}{"error_code": 40004},
+			Error:   "昵称不能为空",
+		}, nil
+	}
+	nicknameRunes := []rune(nickname)
+	if len(nicknameRunes) > 20 {
+		return &core.PluginOutput{
+			Success: false,
+			Data:    map[string]interface{}{"error_code": 40004},
+			Error:   "昵称长度不能超过20个字符",
+		}, nil
+	}
+
+	// 查询用户，检查 role 是否为空（只有新用户才能补全）
+	user, err := p.userRepo.GetByID(userID)
+	if err != nil {
+		return nil, fmt.Errorf("查询用户失败: %w", err)
+	}
+	if user == nil {
+		return &core.PluginOutput{
+			Success: false,
+			Data:    map[string]interface{}{"error_code": 40005},
+			Error:   "用户不存在",
+		}, nil
+	}
+	if user.Role != "" {
+		return &core.PluginOutput{
+			Success: false,
+			Data:    map[string]interface{}{"error_code": 40004},
+			Error:   "用户信息已完善，无需重复设置",
+		}, nil
+	}
+
+	// 更新角色和昵称
+	if err := p.userRepo.UpdateRoleAndNickname(userID, role, nickname); err != nil {
+		return nil, fmt.Errorf("更新用户信息失败: %w", err)
+	}
+
+	outputData := mergeData(input.Data, map[string]interface{}{
+		"user_id":  userID,
+		"role":     role,
+		"nickname": nickname,
+	})
+
+	return &core.PluginOutput{
+		Success:  true,
+		Data:     outputData,
+		Metadata: map[string]interface{}{"plugin": "auth", "action": "complete-profile"},
+	}, nil
+}
+
+// mergeData 合并上游 Data 和本插件输出字段
+// 先复制 input.Data 所有字段到 outputData，再添加/覆盖本插件的输出字段
+func mergeData(upstream map[string]interface{}, pluginData map[string]interface{}) map[string]interface{} {
+	result := make(map[string]interface{})
+	// 先复制上游数据
+	for k, v := range upstream {
+		result[k] = v
+	}
+	// 再覆盖/添加本插件数据
+	for k, v := range pluginData {
+		result[k] = v
+	}
+	return result
+}

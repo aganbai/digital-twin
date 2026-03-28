@@ -1,0 +1,228 @@
+# Harness模式主配置文件
+# 版本: v1.1.0
+# 最后更新: 2026-03-28
+
+# 系统配置
+system:
+  name: "digital-twin-harness"
+  version: "1.1.0"
+  environment: "development"
+  debug: true
+  
+  # 日志配置
+  logging:
+    level: "info"
+    format: "json"
+    output: "stdout"
+    
+  # 监控配置
+  monitoring:
+    enabled: true
+    metrics_port: 9090
+    health_check_interval: 30s
+
+# 插件配置
+plugins:
+  # 知识库插件
+  knowledge-retrieval:
+    enabled: true
+    type: "knowledge"
+    priority: 10
+    config:
+      vector_db:
+        # provider 可选: "chroma" | "memory"
+        # memory 模式不依赖外部服务，适合开发和测试
+        provider: "${VECTOR_DB_MODE:-memory}"
+        host: "localhost"
+        port: 8000
+        collection: "knowledge_base"
+      
+      retrieval:
+        max_results: 5
+        similarity_threshold: 0.7
+        use_hybrid_search: true
+        
+      document_processing:
+        chunk_size: 1000
+        chunk_overlap: 200
+        supported_formats: ["pdf", "docx", "txt", "md"]
+
+  # 苏格拉底对话插件
+  socratic-dialogue:
+    enabled: true
+    type: "dialogue"
+    priority: 20
+    config:
+      llm_provider:
+        # 模式: "api"(调用真实大模型) 或 "mock"(返回预设回复，零成本测试)
+        mode: "${LLM_MODE:-mock}"
+        # 兼容 OpenAI 格式的 API（通义千问/DeepSeek/SiliconFlow 等均支持）
+        provider: "openai-compatible"
+        model: "${LLM_MODEL:-qwen-turbo}"
+        api_key: "${OPENAI_API_KEY}"
+        base_url: "${OPENAI_BASE_URL:-https://dashscope.aliyuncs.com/compatible-mode/v1}"
+        
+      dialogue_strategy:
+        style: "socratic"
+        max_turns: 10
+        temperature: 0.7
+        max_tokens: 1000
+        
+      context_management:
+        max_context_length: 4000
+        include_memory: true
+        include_knowledge: true
+        
+  # 记忆管理插件
+  memory-management:
+    enabled: true
+    type: "memory"
+    priority: 30
+    config:
+      storage:
+        provider: "sqlite"
+        dsn: "file:memory.db?cache=shared&_fk=1"
+        
+      memory_types:
+        - "conversation"
+        - "learning_progress"
+        - "personality_traits"
+        
+      retention:
+        ttl: "720h"  # 30天
+        max_memories_per_user: 1000
+        
+  # 认证授权插件
+  authentication:
+    enabled: true
+    type: "auth"
+    priority: 5
+    config:
+      jwt:
+        secret: "${JWT_SECRET}"
+        expiry: "24h"
+        issuer: "digital-twin"
+        
+      roles:
+        - "teacher"
+        - "student"
+        - "admin"
+        
+      permissions:
+        teacher:
+          - "manage_knowledge"
+          - "view_students"
+          - "manage_digital_twins"
+        student:
+          - "chat_with_twin"
+          - "view_progress"
+          - "leave_message"
+
+# 管道配置（插件执行顺序）
+pipelines:
+  student_chat:
+    description: "学生与数字分身对话流程"
+    plugins:
+      - "authentication"
+      - "memory-management"
+      - "knowledge-retrieval"
+      - "socratic-dialogue"
+    
+  teacher_management:
+    description: "老师管理知识库流程"
+    plugins:
+      - "authentication"
+      - "knowledge-retrieval"
+
+# 功能开关
+feature_flags:
+  enable_analytics: false
+  enable_export: false
+  enable_multi_tenant: false
+  enable_plugin_marketplace: false
+
+# 性能配置
+performance:
+  max_concurrent_plugins: 10
+  plugin_timeout: 30s
+  cache_ttl: 5m
+  
+  # 限流配置
+  rate_limiting:
+    enabled: true
+    requests_per_minute: 100
+    burst_size: 20
+
+# 安全配置
+security:
+  # CORS配置
+  cors:
+    allowed_origins:
+      - "http://localhost:3000"
+      - "http://localhost:10086"
+      - "https://servicewechat.com"
+      - "https://your-app.com"
+    allowed_methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+    allowed_headers: ["Content-Type", "Authorization", "X-Requested-With"]
+    allow_credentials: true
+    
+  # 数据加密
+  encryption:
+    enabled: true
+    algorithm: "aes-256-gcm"
+    
+  # 审计日志
+  audit:
+    enabled: true
+    log_level: "info"
+    retention_days: 90
+
+# 环境特定配置（通过环境变量覆盖）
+# 开发环境
+development:
+  system:
+    debug: true
+    environment: "development"
+  
+  plugins:
+    knowledge-retrieval:
+      config:
+        vector_db:
+          provider: "memory"  # 开发环境使用内存向量存储
+          host: "localhost"
+    
+    socratic-dialogue:
+      config:
+        llm_provider:
+          mode: "${LLM_MODE:-mock}"  # 开发环境默认 mock 模式
+          model: "${LLM_MODEL:-qwen-turbo}"  # 通义千问 qwen-turbo 免费
+
+# 生产环境  
+production:
+  system:
+    debug: false
+    environment: "production"
+  
+  plugins:
+    knowledge-retrieval:
+      config:
+        vector_db:
+          host: "chroma-prod"
+    
+    socratic-dialogue:
+      config:
+        llm_provider:
+          mode: "api"  # 生产环境必须使用真实 API
+          model: "qwen-max"  # 生产环境使用最高质量模型
+
+# 测试环境
+test:
+  system:
+    debug: true
+    environment: "test"
+  
+  plugins:
+    memory-management:
+      config:
+        storage:
+          dsn: "file:test.db?mode=memory"

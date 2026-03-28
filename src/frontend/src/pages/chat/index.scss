@@ -1,0 +1,178 @@
+/* 对话页样式 */
+
+.chat-page {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background-color: #F3F4F6;
+}
+
+/* ========== 消息列表区域 ========== */
+.chat-page__messages {
+  flex: 1;
+  overflow: hidden;
+  padding-top: 16px;
+}
+
+/* ========== 空状态 ========== */
+.chat-page__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding-top: 200px;
+
+  &-icon {
+    font-size: 80px;
+    margin-bottom: 24px;
+  }
+
+  &-text {
+    font-size: 28px;
+    color: #9CA3AF;
+    text-align: center;
+    padding: 0 48px;
+  }
+}
+
+/* ========== AI 思考中动画 ========== */
+.chat-page__thinking {
+  padding: 0 24px;
+  margin-bottom: 16px;
+}
+
+.chat-page__thinking-bubble {
+  background-color: #FFFFFF;
+  padding: 24px 32px;
+  border-radius: 24px;
+  border-top-left-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.chat-page__thinking-dots {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.chat-page__thinking-dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background-color: #9CA3AF;
+  animation: thinking-bounce 1.4s infinite ease-in-out both;
+
+  &--1 {
+    animation-delay: 0s;
+  }
+
+  &--2 {
+    animation-delay: 0.16s;
+  }
+
+  &--3 {
+    animation-delay: 0.32s;
+  }
+}
+
+@keyframes thinking-bounce {
+  0%,
+  80%,
+  100% {
+    transform: scale(0.6);
+    opacity: 0.4;
+  }
+  40% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* 底部占位 */
+.chat-page__bottom-spacer {
+  height: 16px;
+}
+
+/* ========== 底部输入区域 ========== */
+.chat-page__input-bar {
+  background-color: #FFFFFF;
+  padding: 16px 24px;
+  border-top: 1px solid #E5E7EB;
+}
+
+.chat-page__input-wrapper {
+  display: flex;
+  align-items: center;
+  background-color: #F3F4F6;
+  border-radius: 40px;
+  padding: 8px 8px 8px 24px;
+}
+
+.chat-page__input {
+  flex: 1;
+  height: 80rpx;
+  font-size: 30rpx;
+  color: #1F2937;
+  background-color: transparent;
+}
+
+.chat-page__input-placeholder {
+  color: #9CA3AF;
+  font-size: 30rpx;
+}
+
+/* 发送按钮 */
+.chat-page__send-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 120px;
+  height: 64px;
+  border-radius: 32px;
+  background-color: #1890FF;
+  flex-shrink: 0;
+  transition: opacity 0.2s;
+
+  &:active {
+    opacity: 0.8;
+  }
+
+  /* 禁用状态 */
+  &--disabled {
+    background-color: #D1D5DB;
+    pointer-events: none;
+  }
+
+  &-text {
+    font-size: 26px;
+    color: #FFFFFF;
+    font-weight: 500;
+  }
+}
+
+/* ========== 复用气泡组件中的头像样式（用于思考动画） ========== */
+.chat-page__thinking {
+  .chat-bubble {
+    display: flex;
+    align-items: flex-start;
+    flex-direction: row;
+  }
+
+  .chat-bubble__avatar {
+    width: 72px;
+    height: 72px;
+    min-width: 72px;
+    border-radius: 50%;
+    background-color: #E5E7EB;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 16px;
+
+    &-text {
+      font-size: 28px;
+      font-weight: 600;
+      color: #6B7280;
+    }
+  }
+}

@@ -1,0 +1,151 @@
+/* 引用全局变量 */
+@import '../../app.scss';
+
+.profile-page {
+  min-height: 100vh;
+  background-color: $color-bg-secondary;
+  padding-bottom: $spacing-xl;
+
+  /* ========== 用户信息区域 ========== */
+  &__header {
+    display: flex;
+    align-items: center;
+    padding: $spacing-lg $spacing-base $spacing-md;
+    background: linear-gradient(135deg, $color-primary, $color-primary-light);
+    border-radius: 0 0 $border-radius-lg $border-radius-lg;
+  }
+
+  &__avatar {
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    background-color: rgba(255, 255, 255, 0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  &__avatar-text {
+    font-size: $font-size-xxl;
+    color: #ffffff;
+    font-weight: bold;
+  }
+
+  &__info {
+    margin-left: $spacing-base;
+    display: flex;
+    flex-direction: column;
+  }
+
+  &__nickname {
+    font-size: $font-size-lg;
+    font-weight: bold;
+    color: #ffffff;
+    margin-bottom: $spacing-xs;
+  }
+
+  &__role-tag {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px 16px;
+    border-radius: $border-radius-round;
+    align-self: flex-start;
+
+    &--teacher {
+      background-color: #1890FF;
+    }
+
+    &--student {
+      background-color: #52C41A;
+    }
+  }
+
+  &__role-text {
+    font-size: $font-size-xs;
+    color: #ffffff;
+  }
+
+  /* ========== 统计信息 ========== */
+  &__stats {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: $spacing-base $spacing-base 0;
+    padding: $spacing-md 0;
+    background-color: $color-bg-primary;
+    border-radius: $border-radius-base;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  }
+
+  &__stat-item {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  &__stat-num {
+    font-size: $font-size-xl;
+    font-weight: bold;
+    color: $color-text-primary;
+    margin-bottom: $spacing-xs;
+  }
+
+  &__stat-label {
+    font-size: $font-size-sm;
+    color: $color-text-secondary;
+  }
+
+  &__stat-divider {
+    width: 1px;
+    height: 60px;
+    background-color: $color-border;
+  }
+
+  /* ========== 功能列表 ========== */
+  &__menu {
+    margin: $spacing-base;
+    background-color: $color-bg-primary;
+    border-radius: $border-radius-base;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  }
+
+  &__menu-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: $spacing-md $spacing-base;
+    border-bottom: 1px solid $color-divider;
+    position: relative;
+
+    &:last-child {
+      border-bottom: none;
+    }
+
+    &:active {
+      background-color: $color-bg-secondary;
+    }
+
+    &--danger {
+      justify-content: center;
+    }
+  }
+
+  &__menu-label {
+    font-size: $font-size-base;
+    color: $color-text-primary;
+
+    &--danger {
+      color: $color-danger;
+      text-align: center;
+    }
+  }
+
+  &__menu-arrow {
+    font-size: $font-size-lg;
+    color: $color-text-placeholder;
+  }
+}

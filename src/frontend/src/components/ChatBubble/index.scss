@@ -1,0 +1,107 @@
+/* 消息气泡组件样式 */
+
+.chat-bubble-wrapper {
+  padding: 0 24px;
+  margin-bottom: 16px;
+}
+
+/* 时间戳 - 居中显示 */
+.chat-bubble__timestamp {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 16px;
+  margin-top: 8px;
+
+  &-text {
+    font-size: 22px;
+    color: #9CA3AF;
+    background-color: rgba(0, 0, 0, 0.04);
+    padding: 4px 16px;
+    border-radius: 8px;
+  }
+}
+
+/* 消息行布局 */
+.chat-bubble {
+  display: flex;
+  align-items: flex-start;
+
+  /* 用户消息 - 靠右 */
+  &--user {
+    flex-direction: row-reverse;
+  }
+
+  /* AI 消息 - 靠左 */
+  &--assistant {
+    flex-direction: row;
+  }
+}
+
+/* 头像 - 圆形灰色背景 + 首字母 */
+.chat-bubble__avatar {
+  width: 72px;
+  height: 72px;
+  min-width: 72px;
+  border-radius: 50%;
+  background-color: #E5E7EB;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 16px;
+
+  &-text {
+    font-size: 28px;
+    font-weight: 600;
+    color: #6B7280;
+  }
+}
+
+/* 气泡内容 */
+.chat-bubble__content {
+  max-width: 70%;
+  padding: 20px 24px;
+  border-radius: 24px;
+  word-break: break-all;
+
+  /* 用户消息气泡 - 蓝色 */
+  &--user {
+    background-color: #1890FF;
+    border-top-right-radius: 4px;
+  }
+
+  /* AI 消息气泡 - 白色 */
+  &--assistant {
+    background-color: #FFFFFF;
+    border-top-left-radius: 4px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  }
+}
+
+/* 消息文字 */
+.chat-bubble__text {
+  font-size: 30px;
+  line-height: 1.6;
+
+  /* 用户消息 - 白色文字 */
+  &--user {
+    color: #FFFFFF;
+  }
+
+  /* AI 消息 - 深色文字 */
+  &--assistant {
+    color: #333333;
+  }
+}
+
+/* 发送失败提示 */
+.chat-bubble__failed {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 8px;
+  padding-right: 8px;
+
+  &-text {
+    font-size: 22px;
+    color: #EF4444;
+  }
+}
