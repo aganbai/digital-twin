@@ -25,7 +25,7 @@
   }
 
   &__cards {
-    margin-bottom: 48rpx;
+    margin-bottom: 32rpx;
   }
 
   &__card {
@@ -90,7 +90,16 @@
   }
 
   &__input-wrap {
-    margin-bottom: 48rpx;
+    margin-bottom: 24rpx;
+    position: relative;
+  }
+
+  &__field-label {
+    display: block;
+    font-size: 26rpx;
+    color: #666666;
+    margin-bottom: 12rpx;
+    font-weight: 500;
   }
 
   &__input {
@@ -109,6 +118,26 @@
     font-size: 28rpx;
   }
 
+  &__textarea {
+    width: 100%;
+    min-height: 160rpx;
+    background-color: #ffffff;
+    border-radius: 16rpx;
+    padding: 24rpx 32rpx;
+    font-size: 28rpx;
+    color: #333333;
+    box-sizing: border-box;
+    line-height: 1.6;
+  }
+
+  &__char-count {
+    display: block;
+    text-align: right;
+    font-size: 22rpx;
+    color: #cccccc;
+    margin-top: 8rpx;
+  }
+
   &__btn {
     width: 100%;
     height: 96rpx;
@@ -120,6 +149,7 @@
     border-radius: 48rpx;
     border: none;
     text-align: center;
+    margin-top: 32rpx;
 
     &::after {
       border: none;

@@ -6,6 +6,8 @@ export interface Teacher {
   username: string
   nickname: string
   role: string
+  school: string
+  description: string
   document_count: number
   created_at: string
 }

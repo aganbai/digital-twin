@@ -338,10 +338,20 @@ func (hm *HarnessManager) HealthCheck() map[string]interface{} {
 	hm.mu.RLock()
 	defer hm.mu.RUnlock()
 
-	// 检查插件健康状态
+	// 检查插件健康状态（去重：只统计配置文件中定义的插件名，跳过类型别名）
 	pluginDetails := make(map[string]string)
 	healthyCount := 0
+	configPluginNames := make(map[string]bool)
+	if hm.harnessConfig != nil {
+		for name := range hm.harnessConfig.Plugins {
+			configPluginNames[name] = true
+		}
+	}
 	for name, plugin := range hm.plugins {
+		// 如果有配置信息，只统计配置中定义的插件名
+		if len(configPluginNames) > 0 && !configPluginNames[name] {
+			continue
+		}
 		if err := plugin.HealthCheck(); err != nil {
 			pluginDetails[name] = err.Error()
 		} else {
@@ -381,7 +391,7 @@ func (hm *HarnessManager) HealthCheck() map[string]interface{} {
 		"timestamp":       time.Now().Format(time.RFC3339),
 		"uptime_seconds":  uptimeSeconds,
 		"plugins": map[string]interface{}{
-			"total":   len(hm.plugins),
+			"total":   len(pluginDetails),
 			"healthy": healthyCount,
 			"details": pluginDetails,
 		},
@@ -471,6 +481,12 @@ func (hm *HarnessManager) loadPlugins() error {
 		}
 		hm.plugins[name] = plugin
 		hm.metrics.RecordPluginRegistration(name)
+
+		// 同时按 type 注册别名（如 "dialogue" → socratic-dialogue），
+		// 方便 handler 按类型查找插件
+		if _, exists := hm.plugins[pluginCfg.Type]; !exists {
+			hm.plugins[pluginCfg.Type] = plugin
+		}
 	}
 
 	return nil

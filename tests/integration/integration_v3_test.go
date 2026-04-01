@@ -65,6 +65,19 @@ func v3Setup(t *testing.T) {
 	}
 	v3StudentToken = apiResp.Data["token"].(string)
 	v3StudentID = apiResp.Data["user_id"].(float64)
+
+	// 建立师生关系（教师邀请学生）
+	inviteBody := map[string]interface{}{
+		"student_id": int(v3StudentID),
+	}
+	_, body, err = doRequest("POST", "/api/relations/invite", inviteBody, v3TeacherToken)
+	if err != nil {
+		t.Fatalf("v3Setup 建立师生关系失败: %v", err)
+	}
+	apiResp, _ = parseResponse(body)
+	if apiResp.Code != 0 && apiResp.Code != 40009 { // 40009 = 已存在
+		t.Fatalf("v3Setup 建立师生关系业务码错误: %d, body: %s", apiResp.Code, string(body))
+	}
 }
 
 // ======================== IT-28: 管道编排对话 ========================
@@ -699,6 +712,7 @@ func TestV3_IT36_FullRegressionFlow(t *testing.T) {
 		t.Fatalf("IT-36 步骤2 解析失败: %v, code: %d", err, apiResp.Code)
 	}
 	localStudentToken := apiResp.Data["token"].(string)
+	localStudentID := apiResp.Data["user_id"].(float64)
 	t.Logf("IT-36 步骤2: 学生注册成功")
 
 	// 步骤3：教师登录获取 token
@@ -732,6 +746,20 @@ func TestV3_IT36_FullRegressionFlow(t *testing.T) {
 		t.Fatalf("IT-36 步骤4 业务码错误: %d", apiResp.Code)
 	}
 	t.Logf("IT-36 步骤4: 文档添加成功")
+
+	// 步骤4.5：建立师生关系
+	inviteBody := map[string]interface{}{
+		"student_id": int(localStudentID),
+	}
+	_, body, err = doRequest("POST", "/api/relations/invite", inviteBody, localTeacherToken)
+	if err != nil {
+		t.Fatalf("IT-36 步骤4.5 建立师生关系失败: %v", err)
+	}
+	apiResp, _ = parseResponse(body)
+	if apiResp.Code != 0 && apiResp.Code != 40009 {
+		t.Fatalf("IT-36 步骤4.5 业务码错误: %d", apiResp.Code)
+	}
+	t.Logf("IT-36 步骤4.5: 师生关系建立成功")
 
 	// 步骤5：学生登录获取 token
 	studentLoginBody := map[string]interface{}{
@@ -862,8 +890,10 @@ func TestV3_IT37_WxLoginFullRegression(t *testing.T) {
 
 	// 步骤2：教师补全信息
 	completeBody := map[string]interface{}{
-		"role":     "teacher",
-		"nickname": "微信回归老师",
+		"role":        "teacher",
+		"nickname":    "微信回归老师",
+		"school":      "微信回归学校",
+		"description": "微信回归测试教师",
 	}
 	_, body, err = doRequest("POST", "/api/auth/complete-profile", completeBody, localTeacherToken)
 	if err != nil {
@@ -874,17 +904,12 @@ func TestV3_IT37_WxLoginFullRegression(t *testing.T) {
 		t.Logf("IT-37 步骤2 补全信息返回: code=%d (可能已补全，继续)", apiResp.Code)
 	}
 
-	// 重新登录获取更新后的 token（role 已更新）
-	_, body, err = doRequest("POST", "/api/auth/wx-login", teacherLoginBody, "")
-	if err != nil {
-		t.Fatalf("IT-37 步骤2 重新登录失败: %v", err)
+	// 使用 complete-profile 返回的新 token（不重新登录，模拟真实用户行为）
+	if newToken, ok := apiResp.Data["token"]; ok && newToken != nil && newToken != "" {
+		localTeacherToken = newToken.(string)
 	}
-	apiResp, _ = parseResponse(body)
-	if apiResp.Code != 0 {
-		t.Fatalf("IT-37 步骤2 重新登录业务码错误: %d, body: %s", apiResp.Code, string(body))
-	}
-	localTeacherToken = apiResp.Data["token"].(string)
 
+	// 步骤3：学生微信登录
 	// 步骤3：学生微信登录（后6位为 2xxxxx，与教师不同）
 	studentLoginBody := map[string]interface{}{
 		"code": fmt.Sprintf("2%05d", uniqueNum),
@@ -898,6 +923,7 @@ func TestV3_IT37_WxLoginFullRegression(t *testing.T) {
 		t.Fatalf("IT-37 步骤3 业务码错误: %d, body: %s", apiResp.Code, string(body))
 	}
 	localStudentToken := apiResp.Data["token"].(string)
+	localStudentID := apiResp.Data["user_id"].(float64)
 
 	// 步骤4：学生补全信息
 	studentCompleteBody := map[string]interface{}{
@@ -908,6 +934,19 @@ func TestV3_IT37_WxLoginFullRegression(t *testing.T) {
 	apiResp, _ = parseResponse(body)
 	if apiResp.Code != 0 {
 		t.Logf("IT-37 步骤4 补全信息返回: code=%d (可能已补全，继续)", apiResp.Code)
+	}
+
+	// 步骤4.5：建立师生关系
+	inviteBody := map[string]interface{}{
+		"student_id": int(localStudentID),
+	}
+	_, body, err = doRequest("POST", "/api/relations/invite", inviteBody, localTeacherToken)
+	if err != nil {
+		t.Fatalf("IT-37 步骤4.5 建立师生关系失败: %v", err)
+	}
+	apiResp, _ = parseResponse(body)
+	if apiResp.Code != 0 && apiResp.Code != 40009 {
+		t.Fatalf("IT-37 步骤4.5 业务码错误: %d", apiResp.Code)
 	}
 
 	// 步骤5：教师添加文档

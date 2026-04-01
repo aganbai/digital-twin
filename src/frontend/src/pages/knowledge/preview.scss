@@ -1,0 +1,292 @@
+.knowledge-preview-page {
+  min-height: 100vh;
+  background-color: #f3f4f6;
+  padding: 32rpx;
+  padding-bottom: 180rpx;
+  box-sizing: border-box;
+
+  // ========== 加载状态 ==========
+  &__loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 120rpx 0;
+  }
+
+  &__loading-text {
+    font-size: 28rpx;
+    color: #9ca3af;
+  }
+
+  // ========== 信息卡片 ==========
+  &__info-card {
+    background-color: #ffffff;
+    border-radius: 24rpx;
+    padding: 32rpx;
+    margin-bottom: 24rpx;
+    box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.05);
+  }
+
+  // ========== 字段 ==========
+  &__field {
+    margin-bottom: 28rpx;
+
+    &:last-child {
+      margin-bottom: 0;
+    }
+  }
+
+  &__field-label {
+    display: block;
+    font-size: 24rpx;
+    color: #9ca3af;
+    margin-bottom: 12rpx;
+    font-weight: 500;
+  }
+
+  &__field-label-row {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12rpx;
+  }
+
+  &__field-value-row {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  &__field-value {
+    font-size: 32rpx;
+    font-weight: 600;
+    color: #1f2937;
+    flex: 1;
+  }
+
+  &__field-value--muted {
+    font-size: 28rpx;
+    color: #d1d5db;
+  }
+
+  &__field-edit-icon {
+    font-size: 28rpx;
+    padding: 8rpx;
+    flex-shrink: 0;
+  }
+
+  &__field-edit {
+    width: 100%;
+  }
+
+  &__field-input {
+    width: 100%;
+    height: 72rpx;
+    background-color: #f9fafb;
+    border: 2rpx solid #e5e7eb;
+    border-radius: 12rpx;
+    padding: 0 20rpx;
+    font-size: 30rpx;
+    color: #1f2937;
+    box-sizing: border-box;
+  }
+
+  // ========== 标签 ==========
+  &__tags {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 12rpx;
+  }
+
+  &__tag {
+    background-color: #eef2ff;
+    border-radius: 16rpx;
+    padding: 8rpx 20rpx;
+  }
+
+  &__tag-text {
+    font-size: 24rpx;
+    color: #4f46e5;
+    font-weight: 500;
+  }
+
+  // ========== 统计信息 ==========
+  &__stats {
+    display: flex;
+    flex-direction: row;
+    border-top: 2rpx solid #f3f4f6;
+    padding-top: 24rpx;
+    margin-top: 24rpx;
+  }
+
+  &__stat-item {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  &__stat-label {
+    font-size: 22rpx;
+    color: #9ca3af;
+    margin-bottom: 8rpx;
+  }
+
+  &__stat-value {
+    font-size: 28rpx;
+    font-weight: 600;
+    color: #1f2937;
+  }
+
+  // ========== 切片区域 ==========
+  &__chunks-section {
+    margin-bottom: 24rpx;
+  }
+
+  &__chunks-title {
+    display: block;
+    font-size: 30rpx;
+    font-weight: 600;
+    color: #1f2937;
+    margin-bottom: 20rpx;
+  }
+
+  &__chunk-card {
+    background-color: #ffffff;
+    border-radius: 20rpx;
+    margin-bottom: 16rpx;
+    overflow: hidden;
+    box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.04);
+  }
+
+  &__chunk-header {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20rpx 24rpx;
+    border-bottom: 2rpx solid #f3f4f6;
+  }
+
+  &__chunk-index {
+    font-size: 26rpx;
+    font-weight: 600;
+    color: #4f46e5;
+  }
+
+  &__chunk-count {
+    font-size: 22rpx;
+    color: #9ca3af;
+  }
+
+  &__chunk-content {
+    padding: 20rpx 24rpx;
+    background-color: #f9fafb;
+  }
+
+  &__chunk-text {
+    font-size: 26rpx;
+    color: #4b5563;
+    line-height: 1.6;
+    word-break: break-all;
+  }
+
+  // ========== 底部操作栏 ==========
+  &__bottom-bar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    display: flex;
+    flex-direction: row;
+    padding: 24rpx 32rpx;
+    padding-bottom: calc(24rpx + env(safe-area-inset-bottom));
+    background-color: #ffffff;
+    box-shadow: 0 -4rpx 16rpx rgba(0, 0, 0, 0.06);
+    gap: 24rpx;
+  }
+
+  &__bottom-btn {
+    flex: 1;
+    height: 88rpx;
+    border-radius: 44rpx;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    &--cancel {
+      background-color: #f3f4f6;
+    }
+
+    &--confirm {
+      background: linear-gradient(135deg, #818cf8, #4f46e5);
+    }
+
+    &--disabled {
+      opacity: 0.6;
+    }
+  }
+
+  &__bottom-btn-text--cancel {
+    font-size: 30rpx;
+    color: #6b7280;
+    font-weight: 500;
+  }
+
+  &__bottom-btn-text--confirm {
+    font-size: 30rpx;
+    color: #ffffff;
+    font-weight: 600;
+  }
+
+  // ========== LLM 提示 ==========
+  &__llm-hint {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 12rpx;
+    padding: 12rpx 16rpx;
+    background-color: #eff6ff;
+    border-radius: 12rpx;
+    border: 2rpx solid #bfdbfe;
+  }
+
+  &__llm-hint-text {
+    flex: 1;
+    font-size: 22rpx;
+    color: #1d4ed8;
+    line-height: 1.4;
+    margin-right: 12rpx;
+  }
+
+  &__llm-hint-use {
+    flex-shrink: 0;
+    padding: 6rpx 20rpx;
+    background-color: #3b82f6;
+    border-radius: 12rpx;
+  }
+
+  &__llm-hint-use-text {
+    font-size: 22rpx;
+    color: #ffffff;
+    font-weight: 500;
+  }
+
+  // ========== 摘要文本域 ==========
+  &__field-textarea {
+    width: 100%;
+    min-height: 160rpx;
+    background-color: #f9fafb;
+    border: 2rpx solid #e5e7eb;
+    border-radius: 12rpx;
+    padding: 16rpx 20rpx;
+    font-size: 28rpx;
+    color: #1f2937;
+    line-height: 1.5;
+    box-sizing: border-box;
+  }
+}

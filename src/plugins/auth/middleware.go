@@ -55,8 +55,46 @@ func JWTAuthMiddleware(jwtManager *JWTManager) gin.HandlerFunc {
 
 		// 将用户信息存入上下文
 		c.Set("user_id", claims.UserID)
+		c.Set("persona_id", claims.PersonaID) // V2.0 迭代2：分身ID
 		c.Set("username", claims.Username)
 		c.Set("role", claims.Role)
+
+		c.Next()
+	}
+}
+
+// OptionalJWTAuthMiddleware 可选 JWT 认证中间件
+// 有 Token 时验证并注入用户信息，无 Token 时不中断请求
+func OptionalJWTAuthMiddleware(jwtManager *JWTManager) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		authHeader := c.GetHeader("Authorization")
+		if authHeader == "" {
+			// 无 Token，继续处理
+			c.Next()
+			return
+		}
+
+		parts := strings.SplitN(authHeader, " ", 2)
+		if len(parts) != 2 || strings.ToLower(parts[0]) != "bearer" {
+			// Token 格式无效，继续处理（不中断）
+			c.Next()
+			return
+		}
+
+		tokenString := parts[1]
+		claims, err := jwtManager.ValidateToken(tokenString)
+		if err != nil {
+			// Token 无效，继续处理（不中断）
+			c.Next()
+			return
+		}
+
+		// 将用户信息存入上下文
+		c.Set("user_id", claims.UserID)
+		c.Set("persona_id", claims.PersonaID)
+		c.Set("username", claims.Username)
+		c.Set("role", claims.Role)
+		c.Set("authenticated", true)
 
 		c.Next()
 	}

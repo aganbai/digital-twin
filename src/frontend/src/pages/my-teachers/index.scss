@@ -1,0 +1,118 @@
+.my-teachers-page {
+  min-height: 100vh;
+  background-color: #f5f5f5;
+  padding: 32rpx;
+  box-sizing: border-box;
+
+  &__title {
+    margin-bottom: 32rpx;
+  }
+
+  &__title-text {
+    font-size: 40rpx;
+    font-weight: bold;
+    color: #333333;
+  }
+
+  &__loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 120rpx 0;
+    color: #999999;
+    font-size: 28rpx;
+  }
+
+  &__section {
+    margin-bottom: 32rpx;
+  }
+
+  &__section-title {
+    display: block;
+    font-size: 28rpx;
+    font-weight: 500;
+    color: #666666;
+    margin-bottom: 16rpx;
+  }
+
+  &__card {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    background-color: #ffffff;
+    border-radius: 16rpx;
+    padding: 32rpx;
+    margin-bottom: 16rpx;
+  }
+
+  &__card-avatar {
+    width: 80rpx;
+    height: 80rpx;
+    border-radius: 50%;
+    background-color: #e8f0fe;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    margin-right: 24rpx;
+  }
+
+  &__card-avatar-text {
+    font-size: 32rpx;
+    font-weight: bold;
+    color: #1890ff;
+  }
+
+  &__card-info {
+    flex: 1;
+    overflow: hidden;
+  }
+
+  &__card-name {
+    display: block;
+    font-size: 30rpx;
+    font-weight: 500;
+    color: #333333;
+  }
+
+  &__card-school {
+    display: block;
+    font-size: 24rpx;
+    color: #666666;
+    margin-top: 4rpx;
+  }
+
+  &__card-desc {
+    display: block;
+    font-size: 22rpx;
+    color: #999999;
+    margin-top: 4rpx;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__card-btn {
+    flex-shrink: 0;
+    padding: 12rpx 28rpx;
+    background-color: #1890ff;
+    border-radius: 32rpx;
+  }
+
+  &__card-btn-text {
+    font-size: 24rpx;
+    color: #ffffff;
+  }
+
+  &__card-status {
+    flex-shrink: 0;
+    padding: 12rpx 24rpx;
+    background-color: #fff7e6;
+    border-radius: 32rpx;
+  }
+
+  &__card-status-text {
+    font-size: 22rpx;
+    color: #fa8c16;
+  }
+}

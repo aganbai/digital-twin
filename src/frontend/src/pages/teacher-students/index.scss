@@ -1,0 +1,431 @@
+.teacher-students-page {
+  min-height: 100vh;
+  background-color: #f5f5f5;
+  padding: 32rpx;
+  padding-bottom: 200rpx;
+  box-sizing: border-box;
+
+  /* Tab 切换 */
+  &__tabs {
+    display: flex;
+    flex-direction: row;
+    background-color: #ffffff;
+    border-radius: 12rpx;
+    padding: 6rpx;
+    margin-bottom: 24rpx;
+  }
+
+  &__tab {
+    flex: 1;
+    height: 72rpx;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8rpx;
+
+    &--active {
+      background-color: #1890ff;
+    }
+  }
+
+  &__tab-text {
+    font-size: 28rpx;
+    color: #666666;
+
+    &--active {
+      color: #ffffff;
+      font-weight: 500;
+    }
+  }
+
+  &__title {
+    margin-bottom: 32rpx;
+  }
+
+  &__title-text {
+    font-size: 40rpx;
+    font-weight: bold;
+    color: #333333;
+  }
+
+  &__loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 120rpx 0;
+    color: #999999;
+    font-size: 28rpx;
+  }
+
+  &__section {
+    margin-bottom: 32rpx;
+  }
+
+  &__section-title {
+    display: block;
+    font-size: 28rpx;
+    font-weight: 500;
+    color: #666666;
+    margin-bottom: 16rpx;
+  }
+
+  &__empty-text {
+    display: block;
+    font-size: 26rpx;
+    color: #cccccc;
+    padding: 24rpx 0;
+  }
+
+  &__card {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    background-color: #ffffff;
+    border-radius: 16rpx;
+    padding: 32rpx;
+    margin-bottom: 16rpx;
+  }
+
+  &__card-info {
+    flex: 1;
+  }
+
+  &__card-name {
+    display: block;
+    font-size: 30rpx;
+    font-weight: 500;
+    color: #333333;
+  }
+
+  &__card-desc {
+    display: block;
+    font-size: 24rpx;
+    color: #999999;
+    margin-top: 4rpx;
+  }
+
+  &__card-actions {
+    display: flex;
+    flex-direction: row;
+    gap: 16rpx;
+    flex-shrink: 0;
+  }
+
+  &__action-btn {
+    padding: 12rpx 28rpx;
+    border-radius: 32rpx;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    &--approve {
+      background-color: #1890ff;
+    }
+
+    &--reject {
+      background-color: #f5f5f5;
+    }
+  }
+
+  &__action-btn-text {
+    font-size: 24rpx;
+    color: #ffffff;
+  }
+
+  &__action-btn-text--reject {
+    font-size: 24rpx;
+    color: #999999;
+  }
+
+  &__link {
+    flex-shrink: 0;
+
+    &--chat {
+      margin-right: 8rpx;
+      padding: 6rpx 16rpx;
+      background-color: #f0f9ff;
+      border-radius: 16rpx;
+    }
+  }
+
+  &__link-text {
+    font-size: 26rpx;
+    color: #1890ff;
+
+    &--chat {
+      font-size: 24rpx;
+      color: #0284c7;
+    }
+  }
+
+  // ========== 启停按钮 ==========
+  &__toggle-btn {
+    padding: 8rpx 20rpx;
+    border-radius: 20rpx;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    &--active {
+      background-color: #f0fdf4;
+      border: 2rpx solid #86efac;
+    }
+
+    &--inactive {
+      background-color: #fef2f2;
+      border: 2rpx solid #fca5a5;
+    }
+
+    &--loading {
+      opacity: 0.6;
+      pointer-events: none;
+    }
+  }
+
+  &__toggle-btn-text {
+    font-size: 22rpx;
+    font-weight: 500;
+
+    &--active {
+      color: #16a34a;
+    }
+
+    &--inactive {
+      color: #dc2626;
+    }
+  }
+
+  &__invite-btn {
+    position: fixed;
+    bottom: 64rpx;
+    left: 32rpx;
+    right: 32rpx;
+    height: 96rpx;
+    background-color: #1890ff;
+    border-radius: 48rpx;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  &__invite-btn-text {
+    font-size: 32rpx;
+    color: #ffffff;
+    font-weight: 500;
+  }
+
+  /* 底部操作按钮组 */
+  &__bottom-actions {
+    position: fixed;
+    bottom: 64rpx;
+    left: 32rpx;
+    right: 32rpx;
+    display: flex;
+    flex-direction: row;
+    gap: 16rpx;
+  }
+
+  &__bottom-btn {
+    flex: 1;
+    height: 88rpx;
+    border-radius: 44rpx;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    &--primary {
+      background-color: #1890ff;
+    }
+
+    &--secondary {
+      background-color: #ffffff;
+      border: 2rpx solid #1890ff;
+    }
+  }
+
+  &__bottom-btn-text {
+    font-size: 28rpx;
+    color: #ffffff;
+    font-weight: 500;
+  }
+
+  &__bottom-btn-text--secondary {
+    font-size: 28rpx;
+    color: #1890ff;
+    font-weight: 500;
+  }
+
+  /* 班级卡片 */
+  &__class-card {
+    background-color: #ffffff;
+    border-radius: 16rpx;
+    margin-bottom: 16rpx;
+    overflow: hidden;
+  }
+
+  &__class-header {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    padding: 32rpx;
+  }
+
+  &__class-info {
+    flex: 1;
+  }
+
+  &__class-arrow {
+    font-size: 24rpx;
+    color: #999999;
+    flex-shrink: 0;
+  }
+
+  &__class-header-actions {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 16rpx;
+    flex-shrink: 0;
+  }
+
+  &__class-members {
+    padding: 0 32rpx 24rpx;
+    border-top: 1rpx solid #f0f0f0;
+  }
+
+  &__member-item {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    padding: 16rpx 0;
+    border-bottom: 1rpx solid #f5f5f5;
+  }
+
+  &__member-name {
+    flex: 1;
+    font-size: 28rpx;
+    color: #333333;
+  }
+
+  &__member-remove {
+    padding: 8rpx 20rpx;
+  }
+
+  &__member-remove-text {
+    font-size: 24rpx;
+    color: #ff4d4f;
+  }
+
+  &__class-actions {
+    display: flex;
+    flex-direction: row;
+    justify-content: flex-end;
+    padding-top: 16rpx;
+  }
+
+  &__class-action-btn {
+    padding: 8rpx 24rpx;
+  }
+
+  &__class-action-text--danger {
+    font-size: 24rpx;
+    color: #ff4d4f;
+  }
+
+  // 弹窗样式
+  &__modal-mask {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+  }
+
+  &__modal {
+    width: 80%;
+    background-color: #ffffff;
+    border-radius: 24rpx;
+    padding: 48rpx;
+  }
+
+  &__modal-title {
+    display: block;
+    font-size: 34rpx;
+    font-weight: bold;
+    color: #333333;
+    text-align: center;
+    margin-bottom: 32rpx;
+  }
+
+  &__modal-input {
+    width: 100%;
+    height: 88rpx;
+    background-color: #f5f5f5;
+    border-radius: 12rpx;
+    padding: 0 24rpx;
+    font-size: 28rpx;
+    color: #333333;
+    box-sizing: border-box;
+    margin-bottom: 32rpx;
+  }
+
+  &__modal-actions {
+    display: flex;
+    flex-direction: row;
+    gap: 24rpx;
+  }
+
+  &__modal-btn {
+    flex: 1;
+    height: 80rpx;
+    border-radius: 40rpx;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    &--cancel {
+      background-color: #f5f5f5;
+      color: #666666;
+    }
+
+    &--confirm {
+      background-color: #1890ff;
+    }
+  }
+
+  &__modal-btn-text--confirm {
+    color: #ffffff;
+    font-size: 28rpx;
+  }
+
+  &__modal-desc {
+    display: block;
+    font-size: 26rpx;
+    color: #999999;
+    text-align: center;
+    margin-bottom: 24rpx;
+  }
+
+  &__modal-class-list {
+    margin-bottom: 24rpx;
+  }
+
+  &__modal-class-item {
+    padding: 20rpx 24rpx;
+    border-radius: 8rpx;
+    margin-bottom: 8rpx;
+    background-color: #f5f5f5;
+    font-size: 28rpx;
+    color: #333333;
+
+    &--active {
+      background-color: #e6f7ff;
+      border: 2rpx solid #1890ff;
+    }
+  }
+}

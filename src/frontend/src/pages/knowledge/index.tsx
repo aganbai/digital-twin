@@ -3,20 +3,38 @@ import { View, Text } from '@tarojs/components'
 import Taro, { useDidShow, usePullDownRefresh } from '@tarojs/taro'
 import { getDocuments, deleteDocument } from '@/api/knowledge'
 import type { Document } from '@/api/knowledge'
+import { getClasses } from '@/api/class'
+import type { ClassInfo } from '@/api/class'
 import Empty from '@/components/Empty'
 import { formatTime } from '@/utils/format'
 import './index.scss'
+
+/** scope 筛选类型 */
+type ScopeFilter = 'all' | 'global' | 'class'
 
 export default function Knowledge() {
   const [documents, setDocuments] = useState<Document[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(false)
+  const [scopeFilter, setScopeFilter] = useState<ScopeFilter>('all')
+  const [classes, setClasses] = useState<ClassInfo[]>([])
+  const [selectedClassId, setSelectedClassId] = useState<number | undefined>(undefined)
 
   /** 获取文档列表 */
   const fetchDocuments = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await getDocuments(1, 20)
+      let scope: string | undefined
+      let scopeId: number | undefined
+
+      if (scopeFilter === 'global') {
+        scope = 'global'
+      } else if (scopeFilter === 'class' && selectedClassId) {
+        scope = 'class'
+        scopeId = selectedClassId
+      }
+
+      const res = await getDocuments(1, 20, scope, scopeId)
       setDocuments(res.data.items || [])
       setTotal(res.data.total || 0)
     } catch (error) {
@@ -24,11 +42,22 @@ export default function Knowledge() {
     } finally {
       setLoading(false)
     }
+  }, [scopeFilter, selectedClassId])
+
+  /** 获取班级列表 */
+  const fetchClasses = useCallback(async () => {
+    try {
+      const res = await getClasses()
+      setClasses(res.data || [])
+    } catch (error) {
+      console.error('获取班级列表失败:', error)
+    }
   }, [])
 
-  /** 每次页面显示时刷新列表（从添加页返回后也会触发） */
+  /** 每次页面显示时刷新列表 */
   useDidShow(() => {
     fetchDocuments()
+    fetchClasses()
   })
 
   /** 下拉刷新 */
@@ -36,6 +65,22 @@ export default function Knowledge() {
     await fetchDocuments()
     Taro.stopPullDownRefresh()
   })
+
+  /** 切换 scope 筛选 */
+  const handleScopeChange = (scope: ScopeFilter) => {
+    setScopeFilter(scope)
+    if (scope !== 'class') {
+      setSelectedClassId(undefined)
+    }
+    // 延迟触发刷新（等待状态更新）
+    setTimeout(() => fetchDocuments(), 0)
+  }
+
+  /** 选择班级 */
+  const handleClassSelect = (classId: number) => {
+    setSelectedClassId(classId)
+    setTimeout(() => fetchDocuments(), 0)
+  }
 
   /** 长按文档 → 删除确认 */
   const handleLongPress = (doc: Document) => {
@@ -57,9 +102,9 @@ export default function Knowledge() {
     })
   }
 
-  /** 跳转添加文档页 */
+  /** 跳转添加文档页（使用 redirectTo 避免 E2E 测试中页面栈溢出） */
   const handleAdd = () => {
-    Taro.navigateTo({ url: '/pages/knowledge/add' })
+    Taro.redirectTo({ url: '/pages/knowledge/add' })
   }
 
   return (
@@ -69,6 +114,51 @@ export default function Knowledge() {
         <Text className='knowledge-page__title'>我的知识库</Text>
         <Text className='knowledge-page__count'>共 {total} 篇文档</Text>
       </View>
+
+      {/* Scope 筛选 */}
+      <View className='knowledge-page__scope-tabs'>
+        <View
+          className={`knowledge-page__scope-tab ${scopeFilter === 'all' ? 'knowledge-page__scope-tab--active' : ''}`}
+          onClick={() => handleScopeChange('all')}
+        >
+          <Text className={`knowledge-page__scope-tab-text ${scopeFilter === 'all' ? 'knowledge-page__scope-tab-text--active' : ''}`}>
+            全部
+          </Text>
+        </View>
+        <View
+          className={`knowledge-page__scope-tab ${scopeFilter === 'global' ? 'knowledge-page__scope-tab--active' : ''}`}
+          onClick={() => handleScopeChange('global')}
+        >
+          <Text className={`knowledge-page__scope-tab-text ${scopeFilter === 'global' ? 'knowledge-page__scope-tab-text--active' : ''}`}>
+            全局
+          </Text>
+        </View>
+        <View
+          className={`knowledge-page__scope-tab ${scopeFilter === 'class' ? 'knowledge-page__scope-tab--active' : ''}`}
+          onClick={() => handleScopeChange('class')}
+        >
+          <Text className={`knowledge-page__scope-tab-text ${scopeFilter === 'class' ? 'knowledge-page__scope-tab-text--active' : ''}`}>
+            班级
+          </Text>
+        </View>
+      </View>
+
+      {/* 班级选择（仅在 scope=class 时显示） */}
+      {scopeFilter === 'class' && classes.length > 0 && (
+        <View className='knowledge-page__class-filter'>
+          {classes.map((cls) => (
+            <View
+              key={cls.id}
+              className={`knowledge-page__class-chip ${selectedClassId === cls.id ? 'knowledge-page__class-chip--active' : ''}`}
+              onClick={() => handleClassSelect(cls.id)}
+            >
+              <Text className={`knowledge-page__class-chip-text ${selectedClassId === cls.id ? 'knowledge-page__class-chip-text--active' : ''}`}>
+                {cls.name}
+              </Text>
+            </View>
+          ))}
+        </View>
+      )}
 
       {/* 文档列表 / 空状态 / 加载状态 */}
       <View className='knowledge-page__content'>

@@ -18,7 +18,7 @@ interface MenuItem {
 }
 
 export default function Profile() {
-  const { userInfo, logout } = useUserStore()
+  const { userInfo, logout, setUserInfo } = useUserStore()
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(false)
 
@@ -28,6 +28,14 @@ export default function Profile() {
     try {
       const res = await getUserProfile()
       setProfile(res.data)
+      // 同步更新 Zustand store 中的 userInfo，确保角色等信息与 API 返回一致
+      if (res.data) {
+        setUserInfo({
+          id: res.data.id,
+          nickname: res.data.nickname,
+          role: res.data.role,
+        })
+      }
     } catch (error) {
       console.error('获取用户信息失败:', error)
     } finally {
@@ -46,14 +54,16 @@ export default function Profile() {
     return name.charAt(0).toUpperCase()
   }
 
-  /** 判断是否为教师角色 */
+  /** 判断是否为教师角色（优先使用 API 返回的 profile 数据） */
   const isTeacher = (): boolean => {
-    return (profile?.role || userInfo?.role) === 'teacher'
+    const role = profile?.role ?? userInfo?.role
+    return role === 'teacher'
   }
 
-  /** 判断是否为学生角色 */
+  /** 判断是否为学生角色（优先使用 API 返回的 profile 数据） */
   const isStudent = (): boolean => {
-    return (profile?.role || userInfo?.role) === 'student'
+    const role = profile?.role ?? userInfo?.role
+    return role === 'student'
   }
 
   /** 获取角色显示文本 */
@@ -90,22 +100,34 @@ export default function Profile() {
   /** 功能列表配置 */
   const menuItems: MenuItem[] = [
     {
+      key: 'persona-overview',
+      label: '分身概览',
+      roles: ['teacher'],
+      action: () => Taro.navigateTo({ url: '/pages/persona-overview/index' }),
+    },
+    {
+      key: 'assignments',
+      label: '作业管理',
+      roles: ['teacher'],
+      action: () => Taro.navigateTo({ url: '/pages/assignment-list/index' }),
+    },
+    {
+      key: 'share-manage',
+      label: '分享管理',
+      roles: ['teacher'],
+      action: () => Taro.navigateTo({ url: '/pages/share-manage/index' }),
+    },
+    {
       key: 'memories',
       label: '我的记忆',
       roles: ['student'],
       action: () => Taro.navigateTo({ url: '/pages/memories/index' }),
     },
     {
-      key: 'history',
-      label: '对话历史',
+      key: 'my-assignments',
+      label: '我的作业',
       roles: ['student'],
-      action: () => Taro.switchTab({ url: '/pages/history/index' }),
-    },
-    {
-      key: 'knowledge',
-      label: '我的知识库',
-      roles: ['teacher'],
-      action: () => Taro.navigateTo({ url: '/pages/knowledge/index' }),
+      action: () => Taro.navigateTo({ url: '/pages/my-assignments/index' }),
     },
     {
       key: 'about',
@@ -120,10 +142,10 @@ export default function Profile() {
     },
   ]
 
-  /** 根据角色过滤可见的菜单项 */
+  /** 根据角色过滤可见的菜单项（优先使用 API 返回的 profile 数据） */
   const visibleMenuItems = menuItems.filter((item) => {
     if (!item.roles) return true
-    const role = profile?.role || userInfo?.role || ''
+    const role = profile?.role ?? userInfo?.role ?? ''
     return item.roles.includes(role)
   })
 

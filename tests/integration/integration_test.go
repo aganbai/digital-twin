@@ -502,6 +502,29 @@ func TestIT10_DeleteDocument(t *testing.T) {
 	t.Logf("IT-10 通过: 文档删除成功, document_id=%v", documentID)
 }
 
+// ======================== IT-10b: 建立师生关系（教师邀请学生） ========================
+func TestIT10b_EstablishRelation(t *testing.T) {
+	if teacherToken == "" || studentID == 0 {
+		t.Skip("IT-10b 跳过: 教师 token 或学生 ID 未获取")
+	}
+
+	reqBody := map[string]interface{}{
+		"student_id": int(studentID),
+	}
+
+	resp, body, err := doRequest("POST", "/api/relations/invite", reqBody, teacherToken)
+	if err != nil {
+		t.Fatalf("IT-10b 请求失败: %v", err)
+	}
+
+	// 允许 200（新建）或 409（已存在）
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusConflict {
+		t.Fatalf("IT-10b HTTP 状态码错误: 期望 200 或 409, 实际 %d, body: %s", resp.StatusCode, string(body))
+	}
+
+	t.Logf("IT-10b 通过: 师生关系建立成功, status=%d", resp.StatusCode)
+}
+
 // ======================== IT-11: 学生对话（全链路） ========================
 func TestIT11_StudentChat(t *testing.T) {
 	if studentToken == "" {

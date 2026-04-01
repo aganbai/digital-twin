@@ -31,6 +31,12 @@
     overflow: hidden;
   }
 
+  &__name-row {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+  }
+
   &__name {
     font-size: 32rpx;
     font-weight: 500;
@@ -40,10 +46,36 @@
     white-space: nowrap;
   }
 
-  &__doc-count {
+  &__auth-badge {
     font-size: 24rpx;
+    margin-left: 8rpx;
+  }
+
+  &__school {
+    display: block;
+    font-size: 24rpx;
+    color: #666666;
+    margin-top: 4rpx;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__desc {
+    display: block;
+    font-size: 22rpx;
     color: #999999;
-    margin-top: 8rpx;
+    margin-top: 4rpx;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__doc-count {
+    display: block;
+    font-size: 22rpx;
+    color: #bbbbbb;
+    margin-top: 4rpx;
   }
 
   &__action {
@@ -52,8 +84,6 @@
 
   &__btn {
     font-size: 24rpx;
-    color: #ffffff;
-    background-color: #1890ff;
     border: none;
     border-radius: 32rpx;
     padding: 12rpx 32rpx;
@@ -62,5 +92,29 @@
     &::after {
       border: none;
     }
+
+    &--primary {
+      color: #ffffff;
+      background-color: #1890ff;
+    }
+
+    &--outline {
+      color: #1890ff;
+      background-color: #e8f0fe;
+    }
+  }
+
+  &__status {
+    padding: 12rpx 24rpx;
+    border-radius: 32rpx;
+
+    &--pending {
+      background-color: #fff7e6;
+    }
+  }
+
+  &__status-text {
+    font-size: 22rpx;
+    color: #fa8c16;
   }
 }

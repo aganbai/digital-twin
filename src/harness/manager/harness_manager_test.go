@@ -72,7 +72,7 @@ func TestHarnessManagerLifecycle(t *testing.T) {
 
 	// 测试健康检查
 	health := manager.HealthCheck()
-	if health["status"] != ManagerStatusRunning {
+	if health["status"] != string(ManagerStatusRunning) {
 		t.Errorf("Expected status 'running', got '%v'", health["status"])
 	}
 

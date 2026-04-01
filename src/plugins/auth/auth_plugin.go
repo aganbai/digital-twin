@@ -19,18 +19,20 @@ import (
 // AuthPlugin 认证插件
 type AuthPlugin struct {
 	*core.BasePlugin
-	db         *sql.DB
-	userRepo   *database.UserRepository
-	jwtManager *JWTManager
-	wxClient   WxClient
+	db          *sql.DB
+	userRepo    *database.UserRepository
+	personaRepo *database.PersonaRepository // V2.0 迭代2：分身仓库
+	jwtManager  *JWTManager
+	wxClient    WxClient
 }
 
 // NewAuthPlugin 创建认证插件
 func NewAuthPlugin(name string, db *sql.DB) *AuthPlugin {
 	return &AuthPlugin{
-		BasePlugin: core.NewBasePlugin(name, "1.0.0", core.PluginTypeAuth),
-		db:         db,
-		userRepo:   database.NewUserRepository(db),
+		BasePlugin:  core.NewBasePlugin(name, "1.0.0", core.PluginTypeAuth),
+		db:          db,
+		userRepo:    database.NewUserRepository(db),
+		personaRepo: database.NewPersonaRepository(db),
 	}
 }
 
@@ -391,8 +393,8 @@ func (p *AuthPlugin) handleRefresh(input *core.PluginInput) (*core.PluginOutput,
 		claims = parsedClaims
 	}
 
-	// 生成新 token
-	newToken, expiresAt, err := p.jwtManager.GenerateToken(claims.UserID, claims.Username, claims.Role)
+	// 生成新 token（含 persona_id）
+	newToken, expiresAt, err := p.jwtManager.GenerateToken(claims.UserID, claims.Username, claims.Role, claims.PersonaID)
 	if err != nil {
 		return nil, fmt.Errorf("生成新 token 失败: %w", err)
 	}
@@ -412,6 +414,7 @@ func (p *AuthPlugin) handleRefresh(input *core.PluginInput) (*core.PluginOutput,
 }
 
 // handleWxLogin 处理微信登录
+// V2.0 迭代2 改造：返回分身列表和当前分身
 func (p *AuthPlugin) handleWxLogin(input *core.PluginInput) (*core.PluginOutput, error) {
 	code, _ := input.Data["code"].(string)
 	if code == "" {
@@ -479,19 +482,52 @@ func (p *AuthPlugin) handleWxLogin(input *core.PluginInput) (*core.PluginOutput,
 		user.ID = userID
 	}
 
-	// 生成 JWT token
-	token, expiresAt, err := p.jwtManager.GenerateToken(user.ID, user.Username, user.Role)
+	// V2.0 迭代2：查询用户的分身列表
+	personas, err := p.personaRepo.ListByUserID(user.ID, "")
+	if err != nil {
+		return nil, fmt.Errorf("查询分身列表失败: %w", err)
+	}
+
+	// 确定当前分身和角色
+	var currentPersona interface{}
+	personaID := int64(0)
+	role := user.Role
+
+	if len(personas) > 0 {
+		// 有分身，找默认分身
+		if user.DefaultPersonaID > 0 {
+			for _, persona := range personas {
+				if persona.ID == user.DefaultPersonaID {
+					currentPersona = persona
+					personaID = persona.ID
+					role = persona.Role
+					break
+				}
+			}
+		}
+		// 如果默认分身未找到，使用第一个
+		if currentPersona == nil {
+			currentPersona = personas[0]
+			personaID = personas[0].ID
+			role = personas[0].Role
+		}
+	}
+
+	// 生成 JWT token（含 persona_id）
+	token, expiresAt, err := p.jwtManager.GenerateToken(user.ID, user.Username, role, personaID)
 	if err != nil {
 		return nil, fmt.Errorf("生成 token 失败: %w", err)
 	}
 
 	outputData := mergeData(input.Data, map[string]interface{}{
-		"user_id":     user.ID,
-		"token":       token,
-		"role":        user.Role,
-		"nickname":    user.Nickname,
-		"is_new_user": isNewUser,
-		"expires_at":  expiresAt.Format(time.RFC3339),
+		"user_id":         user.ID,
+		"token":           token,
+		"role":            role,
+		"nickname":        user.Nickname,
+		"is_new_user":     isNewUser,
+		"expires_at":      expiresAt.Format(time.RFC3339),
+		"personas":        personas,
+		"current_persona": currentPersona,
 	})
 
 	return &core.PluginOutput{
@@ -502,6 +538,7 @@ func (p *AuthPlugin) handleWxLogin(input *core.PluginInput) (*core.PluginOutput,
 }
 
 // handleCompleteProfile 处理新用户补全信息（角色+昵称）
+// V2.0 迭代2 改造：内部转为创建分身
 func (p *AuthPlugin) handleCompleteProfile(input *core.PluginInput) (*core.PluginOutput, error) {
 	// 从 input.Data 获取 user_id（由 JWT 中间件解析后传入）
 	userID := int64(0)
@@ -523,6 +560,8 @@ func (p *AuthPlugin) handleCompleteProfile(input *core.PluginInput) (*core.Plugi
 
 	role, _ := input.Data["role"].(string)
 	nickname, _ := input.Data["nickname"].(string)
+	school, _ := input.Data["school"].(string)
+	description, _ := input.Data["description"].(string)
 
 	// 校验 role
 	if role != "teacher" && role != "student" {
@@ -551,7 +590,6 @@ func (p *AuthPlugin) handleCompleteProfile(input *core.PluginInput) (*core.Plugi
 		}, nil
 	}
 
-	// 查询用户，检查 role 是否为空（只有新用户才能补全）
 	user, err := p.userRepo.GetByID(userID)
 	if err != nil {
 		return nil, fmt.Errorf("查询用户失败: %w", err)
@@ -563,23 +601,78 @@ func (p *AuthPlugin) handleCompleteProfile(input *core.PluginInput) (*core.Plugi
 			Error:   "用户不存在",
 		}, nil
 	}
-	if user.Role != "" {
-		return &core.PluginOutput{
-			Success: false,
-			Data:    map[string]interface{}{"error_code": 40004},
-			Error:   "用户信息已完善，无需重复设置",
-		}, nil
+
+	// V2.0 迭代2 改造：不再检查 user.Role != ""，改为创建分身
+	if role == "teacher" {
+		school = strings.TrimSpace(school)
+		if school == "" {
+			return &core.PluginOutput{
+				Success: false,
+				Data:    map[string]interface{}{"error_code": 40004},
+				Error:   "教师角色必须填写学校名称",
+			}, nil
+		}
+		description = strings.TrimSpace(description)
+		if description == "" {
+			return &core.PluginOutput{
+				Success: false,
+				Data:    map[string]interface{}{"error_code": 40004},
+				Error:   "教师角色必须填写分身描述",
+			}, nil
+		}
+		// 检查同名+同校唯一性（在 personas 表中）
+		exists, err := p.personaRepo.CheckTeacherPersonaExists(nickname, school, 0)
+		if err != nil {
+			return nil, fmt.Errorf("检查教师分身唯一性失败: %w", err)
+		}
+		if exists {
+			return &core.PluginOutput{
+				Success: false,
+				Data:    map[string]interface{}{"error_code": 40015},
+				Error:   "该学校已有同名教师分身，请修改名称",
+			}, nil
+		}
 	}
 
-	// 更新角色和昵称
-	if err := p.userRepo.UpdateRoleAndNickname(userID, role, nickname); err != nil {
-		return nil, fmt.Errorf("更新用户信息失败: %w", err)
+	// 创建分身
+	persona := &database.Persona{
+		UserID:      userID,
+		Role:        role,
+		Nickname:    nickname,
+		School:      school,
+		Description: description,
+	}
+	personaID, err := p.personaRepo.Create(persona)
+	if err != nil {
+		return nil, fmt.Errorf("创建分身失败: %w", err)
+	}
+
+	// 如果是第一个分身，设为默认分身
+	count, _ := p.personaRepo.CountByUserID(userID)
+	if count <= 1 {
+		p.userRepo.UpdateDefaultPersonaID(userID, personaID)
+	}
+
+	// 同时更新 users 表的 role（向后兼容）
+	if user.Role == "" {
+		p.userRepo.UpdateProfile(userID, role, nickname, school, description)
+	}
+
+	// 生成新的 JWT token（含 persona_id）
+	token, expiresAt, err := p.jwtManager.GenerateToken(userID, user.Username, role, personaID)
+	if err != nil {
+		return nil, fmt.Errorf("生成新 token 失败: %w", err)
 	}
 
 	outputData := mergeData(input.Data, map[string]interface{}{
-		"user_id":  userID,
-		"role":     role,
-		"nickname": nickname,
+		"user_id":     userID,
+		"role":        role,
+		"nickname":    nickname,
+		"school":      school,
+		"description": description,
+		"persona_id":  personaID,
+		"token":       token,
+		"expires_at":  expiresAt.Format(time.RFC3339),
 	})
 
 	return &core.PluginOutput{

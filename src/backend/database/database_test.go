@@ -998,6 +998,7 @@ func TestGetTeachers_OnlyTeacherRole(t *testing.T) {
 			Username: fmt.Sprintf("teacher_role_%d", i),
 			Password: "password",
 			Role:     "teacher",
+			Nickname: fmt.Sprintf("角色教师%d", i),
 		})
 		if err != nil {
 			t.Fatalf("创建教师失败: %v", err)
@@ -1248,6 +1249,7 @@ func TestGetConversationsByStudent(t *testing.T) {
 		Username: "conv_teacher1",
 		Password: "password",
 		Role:     "teacher",
+		Nickname: "对话教师1",
 	})
 	if err != nil {
 		t.Fatalf("创建教师1失败: %v", err)
@@ -1256,6 +1258,7 @@ func TestGetConversationsByStudent(t *testing.T) {
 		Username: "conv_teacher2",
 		Password: "password",
 		Role:     "teacher",
+		Nickname: "对话教师2",
 	})
 	if err != nil {
 		t.Fatalf("创建教师2失败: %v", err)

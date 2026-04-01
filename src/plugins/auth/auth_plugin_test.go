@@ -738,10 +738,12 @@ func TestCompleteProfile_Success(t *testing.T) {
 	// 补全角色和昵称
 	input := &core.PluginInput{
 		Data: map[string]interface{}{
-			"action":   "complete-profile",
-			"user_id":  userID,
-			"role":     "teacher",
-			"nickname": "李老师",
+			"action":      "complete-profile",
+			"user_id":     userID,
+			"role":        "teacher",
+			"nickname":    "李老师",
+			"school":      "测试大学",
+			"description": "一位优秀的测试教师",
 		},
 		Context: context.Background(),
 	}

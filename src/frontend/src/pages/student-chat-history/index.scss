@@ -1,0 +1,226 @@
+.student-chat {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background-color: #f3f4f6;
+
+  // ========== 接管状态栏 ==========
+  &__takeover-bar {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16rpx 32rpx;
+    background: linear-gradient(135deg, #d1fae5, #a7f3d0);
+  }
+
+  &__takeover-text {
+    font-size: 26rpx;
+    font-weight: 500;
+    color: #065f46;
+  }
+
+  &__takeover-btn {
+    padding: 8rpx 24rpx;
+    background-color: #ffffff;
+    border-radius: 16rpx;
+    border: 2rpx solid #065f46;
+  }
+
+  &__takeover-btn-text {
+    font-size: 22rpx;
+    color: #065f46;
+    font-weight: 500;
+  }
+
+  // ========== 消息列表 ==========
+  &__messages {
+    flex: 1;
+    padding: 24rpx 0;
+  }
+
+  &__empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 200rpx 0;
+  }
+
+  &__empty-text {
+    font-size: 28rpx;
+    color: #9ca3af;
+  }
+
+  // ========== 消息项 ==========
+  &__msg {
+    margin: 0 32rpx 24rpx;
+    padding: 24rpx;
+    border-radius: 20rpx;
+    background-color: #ffffff;
+    box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.04);
+
+    &--student {
+      border-left: 6rpx solid #3b82f6;
+    }
+
+    &--ai {
+      border-left: 6rpx solid #9ca3af;
+    }
+
+    &--teacher {
+      border-left: 6rpx solid #10b981;
+      background-color: #f0fdf4;
+    }
+  }
+
+  &__sender {
+    display: block;
+    font-size: 24rpx;
+    font-weight: 600;
+    color: #6b7280;
+    margin-bottom: 8rpx;
+  }
+
+  &__quote {
+    padding: 12rpx 16rpx;
+    margin-bottom: 12rpx;
+    background-color: #f3f4f6;
+    border-left: 4rpx solid #d1d5db;
+    border-radius: 8rpx;
+  }
+
+  &__quote-text {
+    font-size: 22rpx;
+    color: #6b7280;
+    line-height: 1.4;
+  }
+
+  &__content {
+    display: block;
+    font-size: 28rpx;
+    color: #1f2937;
+    line-height: 1.6;
+    word-break: break-all;
+  }
+
+  &__meta {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 12rpx;
+  }
+
+  &__time {
+    font-size: 22rpx;
+    color: #9ca3af;
+  }
+
+  &__reply-btn {
+    padding: 4rpx 16rpx;
+    background-color: #eef2ff;
+    border-radius: 12rpx;
+  }
+
+  &__reply-btn-text {
+    font-size: 22rpx;
+    color: #4f46e5;
+  }
+
+  // ========== 底部输入 ==========
+  &__input-bar {
+    background-color: #ffffff;
+    border-top: 2rpx solid #e5e7eb;
+    padding: 16rpx 24rpx;
+  }
+
+  &__quote-bar {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12rpx 16rpx;
+    margin-bottom: 12rpx;
+    background-color: #f3f4f6;
+    border-radius: 12rpx;
+  }
+
+  &__quote-bar-text {
+    flex: 1;
+    font-size: 22rpx;
+    color: #6b7280;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__quote-cancel {
+    flex-shrink: 0;
+    margin-left: 16rpx;
+    padding: 4rpx 12rpx;
+  }
+
+  &__quote-cancel-text {
+    font-size: 28rpx;
+    color: #9ca3af;
+  }
+
+  &__input-wrapper {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+  }
+
+  &__input {
+    flex: 1;
+    height: 72rpx;
+    background-color: #f3f4f6;
+    border-radius: 36rpx;
+    padding: 0 24rpx;
+    font-size: 28rpx;
+    color: #1f2937;
+  }
+
+  &__input-placeholder {
+    color: #9ca3af;
+  }
+
+  &__send-btn {
+    flex-shrink: 0;
+    margin-left: 16rpx;
+    padding: 0 32rpx;
+    height: 72rpx;
+    background-color: #4f46e5;
+    border-radius: 36rpx;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    &--disabled {
+      opacity: 0.5;
+    }
+  }
+
+  &__send-btn-text {
+    font-size: 28rpx;
+    color: #ffffff;
+    font-weight: 500;
+  }
+
+  &__bottom-spacer {
+    height: 32rpx;
+  }
+
+  // ========== 加载状态 ==========
+  &__loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 200rpx 0;
+  }
+
+  &__loading-text {
+    font-size: 28rpx;
+    color: #9ca3af;
+  }
+}

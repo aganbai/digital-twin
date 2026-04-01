@@ -1,60 +1,542 @@
 .home-page {
   min-height: 100vh;
-  background-color: #f5f5f5;
+  background-color: #f3f4f6;
   padding: 0 32rpx;
   box-sizing: border-box;
+  padding-bottom: 32rpx;
 
+  // ========== 顶部区域 ==========
   &__header {
     padding-top: 48rpx;
-    padding-bottom: 32rpx;
+    padding-bottom: 24rpx;
+  }
+
+  &__header-top {
+    display: flex;
+    flex-direction: row;
+    align-items: flex-start;
+    justify-content: space-between;
+  }
+
+  &__persona-info {
+    flex: 1;
   }
 
   &__greeting {
     display: block;
-    font-size: 48rpx;
+    font-size: 44rpx;
     font-weight: bold;
-    color: #333333;
+    color: #1f2937;
     margin-bottom: 8rpx;
   }
 
-  &__subtitle {
+  &__school {
     display: block;
-    font-size: 28rpx;
-    color: #999999;
+    font-size: 26rpx;
+    color: #6b7280;
+    margin-bottom: 4rpx;
   }
 
-  &__search {
-    margin-bottom: 32rpx;
+  &__description {
+    display: block;
+    font-size: 24rpx;
+    color: #9ca3af;
+    margin-top: 4rpx;
   }
 
-  &__search-input {
-    width: 100%;
-    height: 80rpx;
+  &__persona-switch {
+    flex-shrink: 0;
+    padding: 12rpx 24rpx;
+    background-color: #eef2ff;
+    border-radius: 24rpx;
+    margin-top: 8rpx;
+  }
+
+  &__persona-switch-text {
+    font-size: 24rpx;
+    color: #4f46e5;
+    font-weight: 500;
+  }
+
+  // ========== 通用卡片 ==========
+  &__card {
     background-color: #ffffff;
-    border-radius: 40rpx;
-    padding: 0 32rpx;
+    border-radius: 24rpx;
+    padding: 32rpx;
+    margin-bottom: 24rpx;
+    box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.05);
+  }
+
+  &__card-title {
+    display: block;
+    font-size: 30rpx;
+    font-weight: 600;
+    color: #1f2937;
+    margin-bottom: 24rpx;
+  }
+
+  &__card-header {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 24rpx;
+
+    .home-page__card-title {
+      margin-bottom: 0;
+    }
+  }
+
+  &__card-action {
+    padding: 8rpx 20rpx;
+    background-color: #4f46e5;
+    border-radius: 20rpx;
+  }
+
+  &__card-action-text {
+    font-size: 24rpx;
+    color: #ffffff;
+    font-weight: 500;
+  }
+
+  // ========== 待审批卡片 ==========
+  &__pending-card {
+    background: linear-gradient(135deg, #fef3c7, #fde68a);
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  &__pending-info {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+  }
+
+  &__pending-icon {
+    font-size: 36rpx;
+    margin-right: 16rpx;
+  }
+
+  &__pending-text {
     font-size: 28rpx;
-    color: #333333;
-    box-sizing: border-box;
+    font-weight: 500;
+    color: #92400e;
   }
 
-  &__content {
-    padding-bottom: 32rpx;
+  &__pending-arrow {
+    font-size: 32rpx;
+    color: #92400e;
   }
 
-  &__list {
-    /* 教师卡片列表容器 */
+  // ========== 数据统计 ==========
+  &__stats-card {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-around;
   }
 
+  &__stats-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex: 1;
+  }
+
+  &__stats-value {
+    font-size: 48rpx;
+    font-weight: bold;
+    color: #4f46e5;
+    margin-bottom: 8rpx;
+  }
+
+  &__stats-label {
+    font-size: 24rpx;
+    color: #6b7280;
+  }
+
+  &__stats-divider {
+    width: 2rpx;
+    height: 60rpx;
+    background-color: #e5e7eb;
+  }
+
+  // ========== 快捷操作 ==========
+  &__actions-card {
+    .home-page__card-title {
+      margin-bottom: 20rpx;
+    }
+  }
+
+  &__actions {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-around;
+  }
+
+  &__action-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 16rpx 24rpx;
+  }
+
+  &__action-icon {
+    font-size: 48rpx;
+    margin-bottom: 12rpx;
+  }
+
+  &__action-label {
+    font-size: 24rpx;
+    color: #374151;
+    font-weight: 500;
+  }
+
+  // ========== 班级列表 ==========
+  &__class-list {
+    /* 班级列表容器 */
+  }
+
+  &__class-item {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    padding: 24rpx 0;
+    border-bottom: 2rpx solid #f3f4f6;
+
+    &:last-child {
+      border-bottom: none;
+    }
+  }
+
+  &__class-info {
+    flex: 1;
+  }
+
+  &__class-name {
+    display: block;
+    font-size: 30rpx;
+    font-weight: 500;
+    color: #1f2937;
+    margin-bottom: 6rpx;
+  }
+
+  &__class-count {
+    font-size: 24rpx;
+    color: #9ca3af;
+  }
+
+  &__class-status {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+  }
+
+  &__class-badge {
+    font-size: 22rpx;
+    padding: 4rpx 16rpx;
+    border-radius: 16rpx;
+    margin-right: 12rpx;
+
+    &--active {
+      background-color: #d1fae5;
+      color: #065f46;
+    }
+
+    &--inactive {
+      background-color: #fee2e2;
+      color: #991b1b;
+    }
+  }
+
+  &__class-arrow {
+    font-size: 32rpx;
+    color: #9ca3af;
+  }
+
+  &__empty-hint {
+    padding: 32rpx 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  &__empty-hint-text {
+    font-size: 26rpx;
+    color: #9ca3af;
+  }
+
+  // ========== 分享码 ==========
+  &__share-card {
+    /* 分享码卡片 */
+  }
+
+  &__share-info {
+    /* 分享码信息 */
+  }
+
+  &__share-code-wrap {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    margin-bottom: 16rpx;
+  }
+
+  &__share-code {
+    font-size: 40rpx;
+    font-weight: bold;
+    color: #4f46e5;
+    letter-spacing: 8rpx;
+    margin-right: 24rpx;
+  }
+
+  &__share-copy {
+    padding: 8rpx 24rpx;
+    background-color: #eef2ff;
+    border-radius: 16rpx;
+  }
+
+  &__share-copy-text {
+    font-size: 24rpx;
+    color: #4f46e5;
+    font-weight: 500;
+  }
+
+  &__share-meta {
+    font-size: 24rpx;
+    color: #6b7280;
+  }
+
+  // ========== 学生首页 ==========
+  &__join-card {
+    /* 加入班级卡片 */
+  }
+
+  &__join-row {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+  }
+
+  &__join-btn {
+    flex: 1;
+    height: 80rpx;
+    background-color: #4f46e5;
+    border-radius: 16rpx;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  &__join-btn-text {
+    font-size: 28rpx;
+    color: #ffffff;
+    font-weight: 500;
+  }
+
+  // ========== 教师列表（学生视角） ==========
+  &__teacher-list {
+    /* 教师列表容器 */
+  }
+
+  &__teacher-item {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    padding: 24rpx 0;
+    border-bottom: 2rpx solid #f3f4f6;
+
+    &:last-child {
+      border-bottom: none;
+    }
+  }
+
+  &__teacher-info {
+    flex: 1;
+    margin-right: 24rpx;
+  }
+
+  &__teacher-name {
+    display: block;
+    font-size: 30rpx;
+    font-weight: 500;
+    color: #1f2937;
+    margin-bottom: 6rpx;
+  }
+
+  &__teacher-school {
+    display: block;
+    font-size: 24rpx;
+    color: #6b7280;
+    margin-bottom: 4rpx;
+  }
+
+  &__teacher-desc {
+    display: block;
+    font-size: 22rpx;
+    color: #9ca3af;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__teacher-chat-btn {
+    flex-shrink: 0;
+    padding: 12rpx 28rpx;
+    background-color: #4f46e5;
+    border-radius: 20rpx;
+  }
+
+  &__teacher-chat-text {
+    font-size: 24rpx;
+    color: #ffffff;
+    font-weight: 500;
+  }
+
+  // ========== 加载状态 ==========
   &__loading {
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 120rpx 0;
+    padding: 80rpx 0;
   }
 
   &__loading-text {
     font-size: 28rpx;
-    color: #999999;
+    color: #9ca3af;
+  }
+
+  // ========== 老师分身广场 ==========
+  &__marketplace-card {
+    /* 广场卡片 */
+  }
+
+  &__marketplace-search {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    margin-bottom: 24rpx;
+  }
+
+  &__marketplace-search-input {
+    flex: 1;
+    height: 64rpx;
+    background-color: #f3f4f6;
+    border-radius: 32rpx;
+    padding: 0 24rpx;
+    font-size: 26rpx;
+    color: #1f2937;
+  }
+
+  &__marketplace-search-placeholder {
+    color: #9ca3af;
+  }
+
+  &__marketplace-search-btn {
+    flex-shrink: 0;
+    margin-left: 16rpx;
+    padding: 0 24rpx;
+    height: 64rpx;
+    background-color: #4f46e5;
+    border-radius: 32rpx;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  &__marketplace-search-btn-text {
+    font-size: 26rpx;
+    color: #ffffff;
+    font-weight: 500;
+  }
+
+  &__marketplace-list {
+    /* 广场列表 */
+  }
+
+  &__marketplace-item {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    padding: 24rpx 0;
+    border-bottom: 2rpx solid #f3f4f6;
+
+    &:last-child {
+      border-bottom: none;
+    }
+  }
+
+  &__marketplace-item-info {
+    flex: 1;
+    margin-right: 24rpx;
+  }
+
+  &__marketplace-item-name {
+    display: block;
+    font-size: 30rpx;
+    font-weight: 500;
+    color: #1f2937;
+    margin-bottom: 6rpx;
+  }
+
+  &__marketplace-item-school {
+    display: block;
+    font-size: 24rpx;
+    color: #6b7280;
+    margin-bottom: 4rpx;
+  }
+
+  &__marketplace-item-desc {
+    display: block;
+    font-size: 22rpx;
+    color: #9ca3af;
+    margin-bottom: 4rpx;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__marketplace-item-stats {
+    display: block;
+    font-size: 20rpx;
+    color: #d1d5db;
+  }
+
+  &__marketplace-apply-btn {
+    flex-shrink: 0;
+    padding: 12rpx 28rpx;
+    background-color: #4f46e5;
+    border-radius: 20rpx;
+
+    &--pending {
+      background-color: #e5e7eb;
+    }
+  }
+
+  &__marketplace-apply-text {
+    font-size: 24rpx;
+    color: #ffffff;
+    font-weight: 500;
+  }
+
+  &__marketplace-apply-btn--pending &__marketplace-apply-text {
+    color: #6b7280;
+  }
+
+  &__marketplace-loadmore {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24rpx 0;
+  }
+
+  &__marketplace-loadmore-text {
+    font-size: 26rpx;
+    color: #4f46e5;
   }
 }

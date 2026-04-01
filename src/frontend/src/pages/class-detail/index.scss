@@ -1,0 +1,230 @@
+.class-detail-page {
+  min-height: 100vh;
+  background-color: #f3f4f6;
+  padding: 32rpx;
+  box-sizing: border-box;
+
+  // ========== 头部信息 ==========
+  &__header {
+    background-color: #ffffff;
+    border-radius: 24rpx;
+    padding: 32rpx;
+    margin-bottom: 24rpx;
+    box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.05);
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  &__header-info {
+    flex: 1;
+  }
+
+  &__name {
+    display: block;
+    font-size: 36rpx;
+    font-weight: bold;
+    color: #1f2937;
+    margin-bottom: 8rpx;
+  }
+
+  &__member-count {
+    font-size: 26rpx;
+    color: #6b7280;
+  }
+
+  &__edit-btn {
+    padding: 12rpx 28rpx;
+    background-color: #eef2ff;
+    border-radius: 20rpx;
+  }
+
+  &__edit-btn-text {
+    font-size: 24rpx;
+    color: #4f46e5;
+    font-weight: 500;
+  }
+
+  &__header-actions {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 16rpx;
+    flex-shrink: 0;
+  }
+
+  // ========== 启停按钮 ==========
+  &__toggle-btn {
+    padding: 8rpx 20rpx;
+    border-radius: 20rpx;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    &--active {
+      background-color: #f0fdf4;
+      border: 2rpx solid #86efac;
+    }
+
+    &--inactive {
+      background-color: #fef2f2;
+      border: 2rpx solid #fca5a5;
+    }
+
+    &--loading {
+      opacity: 0.6;
+      pointer-events: none;
+    }
+  }
+
+  &__toggle-btn-text {
+    font-size: 22rpx;
+    font-weight: 500;
+
+    &--active {
+      color: #16a34a;
+    }
+
+    &--inactive {
+      color: #dc2626;
+    }
+  }
+
+  // ========== 区块 ==========
+  &__section {
+    background-color: #ffffff;
+    border-radius: 24rpx;
+    padding: 32rpx;
+    margin-bottom: 24rpx;
+    box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.05);
+  }
+
+  &__section-title {
+    display: block;
+    font-size: 30rpx;
+    font-weight: 600;
+    color: #1f2937;
+    margin-bottom: 24rpx;
+  }
+
+  // ========== 学生列表 ==========
+  &__student-list {
+    /* 学生列表容器 */
+  }
+
+  &__student-item {
+    display: flex;
+    flex-direction: column;
+    padding: 24rpx 0;
+    border-bottom: 2rpx solid #f3f4f6;
+
+    &:last-child {
+      border-bottom: none;
+    }
+  }
+
+  &__student-info {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    flex: 1;
+  }
+
+  &__student-avatar {
+    width: 80rpx;
+    height: 80rpx;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #818cf8, #4f46e5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 24rpx;
+    flex-shrink: 0;
+  }
+
+  &__student-avatar-text {
+    font-size: 32rpx;
+    color: #ffffff;
+    font-weight: bold;
+  }
+
+  &__student-detail {
+    flex: 1;
+  }
+
+  &__student-name {
+    display: block;
+    font-size: 30rpx;
+    font-weight: 500;
+    color: #1f2937;
+    margin-bottom: 6rpx;
+  }
+
+  &__student-time {
+    font-size: 24rpx;
+    color: #9ca3af;
+  }
+
+  // ========== 快捷操作按钮 ==========
+  &__quick-actions {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 16rpx;
+    margin-top: 16rpx;
+    padding-left: 104rpx; // 与头像+间距对齐（80rpx + 24rpx）
+  }
+
+  &__quick-btn {
+    padding: 8rpx 20rpx;
+    background-color: #f0f7ff;
+    border-radius: 8rpx;
+  }
+
+  &__quick-btn-text {
+    font-size: 22rpx;
+    color: #1890ff;
+    white-space: nowrap;
+  }
+
+  &__student-actions {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 12rpx;
+    margin-top: 16rpx;
+    padding-left: 104rpx; // 与头像+间距对齐
+  }
+
+  &__student-arrow {
+    font-size: 36rpx;
+    color: #9ca3af;
+  }
+
+  // ========== 空状态 ==========
+  &__empty {
+    padding: 64rpx 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  &__empty-text {
+    font-size: 28rpx;
+    color: #9ca3af;
+  }
+
+  // ========== 加载状态 ==========
+  &__loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 64rpx 0;
+  }
+
+  &__loading-text {
+    font-size: 28rpx;
+    color: #9ca3af;
+  }
+}

@@ -10,7 +10,10 @@
     "dev:h5": "npm run build:h5 -- --watch",
     "test:e2e": "jest --config e2e/jest.config.js e2e/full-flow.test.js --forceExit --testTimeout=120000",
     "test:e2e:student": "jest --config e2e/jest.config.js e2e/student-flow.test.js --forceExit --testTimeout=120000",
-    "test:e2e:teacher": "jest --config e2e/jest.config.js e2e/teacher-flow.test.js --forceExit --testTimeout=120000"
+    "test:e2e:teacher": "jest --config e2e/jest.config.js e2e/teacher-flow.test.js --forceExit --testTimeout=120000",
+    "test:e2e:persona": "jest --config e2e/jest.config.js e2e/persona-flow.test.js --forceExit --testTimeout=120000",
+    "test:e2e:all": "jest --config e2e/jest.config.js e2e/ --forceExit --testTimeout=120000",
+    "test:e2e:check": "node e2e/smoke-check.js"
   },
   "dependencies": {
     "@tarojs/cli": "3.6.31",

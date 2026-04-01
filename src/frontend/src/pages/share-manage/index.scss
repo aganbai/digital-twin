@@ -1,0 +1,270 @@
+.share-manage {
+  min-height: 100vh;
+  background-color: #f3f4f6;
+  padding: 0 32rpx;
+  box-sizing: border-box;
+  padding-bottom: 200rpx;
+
+  &__header {
+    padding-top: 48rpx;
+    padding-bottom: 24rpx;
+  }
+
+  &__title {
+    display: block;
+    font-size: 40rpx;
+    font-weight: bold;
+    color: #1f2937;
+    margin-bottom: 8rpx;
+  }
+
+  &__subtitle {
+    display: block;
+    font-size: 26rpx;
+    color: #6b7280;
+  }
+
+  &__loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 120rpx 0;
+  }
+
+  &__loading-text {
+    font-size: 28rpx;
+    color: #9ca3af;
+  }
+
+  &__section {
+    margin-bottom: 32rpx;
+  }
+
+  &__section-title {
+    display: block;
+    font-size: 28rpx;
+    font-weight: 500;
+    color: #6b7280;
+    margin-bottom: 16rpx;
+  }
+
+  &__card {
+    display: flex;
+    flex-direction: column;
+    background-color: #ffffff;
+    border-radius: 16rpx;
+    padding: 32rpx;
+    margin-bottom: 16rpx;
+    box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.05);
+
+    &--expired {
+      opacity: 0.6;
+    }
+  }
+
+  &__card-row {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+  }
+
+  &__card-info {
+    flex: 1;
+  }
+
+  &__card-code {
+    display: block;
+    font-size: 36rpx;
+    font-weight: bold;
+    color: #4f46e5;
+    letter-spacing: 4rpx;
+    margin-bottom: 8rpx;
+
+    &--expired {
+      color: #9ca3af;
+      text-decoration: line-through;
+    }
+  }
+
+  &__card-meta {
+    font-size: 24rpx;
+    color: #9ca3af;
+  }
+
+  &__card-actions {
+    display: flex;
+    flex-direction: row;
+    gap: 12rpx;
+    flex-shrink: 0;
+  }
+
+  &__btn {
+    padding: 12rpx 24rpx;
+    border-radius: 20rpx;
+
+    &--copy {
+      background-color: #eef2ff;
+    }
+
+    &--deactivate {
+      background-color: #fef2f2;
+    }
+
+    &--qrcode {
+      background-color: #f0f5ff;
+    }
+  }
+
+  // 二维码展示区域
+  &__qrcode-area {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 32rpx 0 16rpx;
+    border-top: 1rpx solid #f0f0f0;
+    margin-top: 24rpx;
+  }
+
+  &__qrcode-canvas {
+    width: 400rpx;
+    height: 400rpx;
+    background-color: #ffffff;
+    border: 2rpx solid #f0f0f0;
+    border-radius: 8rpx;
+  }
+
+  &__qrcode-hint {
+    display: block;
+    font-size: 24rpx;
+    color: #999999;
+    margin-top: 16rpx;
+  }
+
+  &__qrcode-save-btn {
+    margin-top: 20rpx;
+    padding: 12rpx 40rpx;
+    background-color: #4F46E5;
+    border-radius: 32rpx;
+  }
+
+  &__qrcode-save-text {
+    font-size: 26rpx;
+    color: #ffffff;
+  }
+
+  &__btn-text {
+    font-size: 24rpx;
+    color: #4f46e5;
+    font-weight: 500;
+  }
+
+  &__btn-text--deactivate {
+    font-size: 24rpx;
+    color: #dc2626;
+  }
+
+  &__create-btn {
+    position: fixed;
+    bottom: 64rpx;
+    left: 32rpx;
+    right: 32rpx;
+    height: 96rpx;
+    background-color: #4f46e5;
+    border-radius: 48rpx;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 8rpx 24rpx rgba(79, 70, 229, 0.3);
+  }
+
+  &__create-btn-text {
+    font-size: 32rpx;
+    color: #ffffff;
+    font-weight: 500;
+  }
+
+  // 弹窗
+  &__modal-mask {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+  }
+
+  &__modal {
+    width: 80%;
+    background-color: #ffffff;
+    border-radius: 24rpx;
+    padding: 48rpx;
+  }
+
+  &__modal-title {
+    display: block;
+    font-size: 34rpx;
+    font-weight: bold;
+    color: #1f2937;
+    text-align: center;
+    margin-bottom: 16rpx;
+  }
+
+  &__modal-desc {
+    display: block;
+    font-size: 26rpx;
+    color: #6b7280;
+    text-align: center;
+    margin-bottom: 24rpx;
+  }
+
+  &__modal-class-list {
+    margin-bottom: 24rpx;
+  }
+
+  &__modal-class-item {
+    padding: 20rpx 24rpx;
+    border-radius: 8rpx;
+    margin-bottom: 8rpx;
+    background-color: #f3f4f6;
+    font-size: 28rpx;
+    color: #1f2937;
+
+    &--active {
+      background-color: #eef2ff;
+      border: 2rpx solid #4f46e5;
+    }
+  }
+
+  &__modal-actions {
+    display: flex;
+    flex-direction: row;
+    gap: 24rpx;
+  }
+
+  &__modal-btn {
+    flex: 1;
+    height: 80rpx;
+    border-radius: 40rpx;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    &--cancel {
+      background-color: #f3f4f6;
+      color: #6b7280;
+    }
+
+    &--confirm {
+      background-color: #4f46e5;
+    }
+  }
+
+  &__modal-btn-text--confirm {
+    color: #ffffff;
+    font-size: 28rpx;
+  }
+}

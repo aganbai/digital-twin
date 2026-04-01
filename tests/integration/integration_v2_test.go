@@ -88,8 +88,10 @@ func TestV2_IT19_CompleteProfile(t *testing.T) {
 	}
 
 	reqBody := map[string]interface{}{
-		"role":     "teacher",
-		"nickname": "王老师",
+		"role":        "teacher",
+		"nickname":    "王老师",
+		"school":      "测试大学",
+		"description": "一位优秀的测试教师",
 	}
 
 	resp, body, err := doRequest("POST", "/api/auth/complete-profile", reqBody, v2TeacherToken)
@@ -122,7 +124,40 @@ func TestV2_IT19_CompleteProfile(t *testing.T) {
 		t.Fatalf("IT-19 nickname 错误: 期望 王老师, 实际 %v", nicknameVal)
 	}
 
-	t.Logf("IT-19 通过: 补全信息成功, role=teacher, nickname=王老师")
+	// 验证返回了新的 token（complete-profile 应返回包含最新角色的 token）
+	newTokenVal, ok := apiResp.Data["token"]
+	if !ok || newTokenVal == nil || newTokenVal == "" {
+		t.Fatalf("IT-19 complete-profile 未返回新 token, data: %v", apiResp.Data)
+	}
+
+	// 验证返回了 expires_at
+	expiresAtVal, ok := apiResp.Data["expires_at"]
+	if !ok || expiresAtVal == nil || expiresAtVal == "" {
+		t.Fatalf("IT-19 complete-profile 未返回 expires_at, data: %v", apiResp.Data)
+	}
+
+	// 关键：使用 complete-profile 返回的新 token（而非重新登录）
+	v2TeacherToken = newTokenVal.(string)
+
+	// 验证新 token 能直接调用需要 teacher 角色的接口（如添加文档）
+	docBody := map[string]interface{}{
+		"title":   "IT-19验证token文档",
+		"content": "验证 complete-profile 返回的 token 包含正确角色",
+		"tags":    "测试",
+	}
+	resp, body, err = doRequest("POST", "/api/documents", docBody, v2TeacherToken)
+	if err != nil {
+		t.Fatalf("IT-19 使用新 token 添加文档失败: %v", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("IT-19 使用新 token 添加文档 HTTP 状态码错误: %d, body: %s（说明 complete-profile 返回的 token 角色不正确）", resp.StatusCode, string(body))
+	}
+	apiResp, err = parseResponse(body)
+	if err != nil || apiResp.Code != 0 {
+		t.Fatalf("IT-19 使用新 token 添加文档业务码错误: %v, code: %d, body: %s", err, apiResp.Code, string(body))
+	}
+
+	t.Logf("IT-19 通过: 补全信息成功, role=teacher, nickname=王老师, 新 token 可直接调用需要角色的接口")
 }
 
 // ======================== IT-20: 同一 openid 再次登录 → is_new_user=false ========================
@@ -210,6 +245,13 @@ func TestV2_IT21_GetTeachers(t *testing.T) {
 		t.Fatalf("IT-21 学生补全信息解析失败: %v, code: %d, body: %s", err, apiResp.Code, string(body))
 	}
 
+	// 关键：使用 complete-profile 返回的新 token（不重新登录）
+	if newToken, ok := apiResp.Data["token"]; ok && newToken != nil && newToken != "" {
+		v2StudentToken = newToken.(string)
+	} else {
+		t.Fatalf("IT-21 学生 complete-profile 未返回新 token, data: %v", apiResp.Data)
+	}
+
 	// 获取教师列表
 	resp, body, err := doRequest("GET", "/api/teachers?page=1&page_size=20", nil, v2StudentToken)
 	if err != nil {
@@ -235,33 +277,47 @@ func TestV2_IT21_GetTeachers(t *testing.T) {
 		t.Fatal("IT-21 响应缺少 items 字段")
 	}
 
-	if itemsVal != nil {
+	// V2.0 迭代3 行为变更：学生角色只返回已授权+启用的教师分身
+	// 刚注册的学生没有师生关系，所以教师列表应该为空
+	if itemsVal == nil {
+		t.Logf("IT-21 通过: 学生无师生关系时教师列表为 nil（空），符合迭代3新行为")
+	} else {
 		items, ok := itemsVal.([]interface{})
 		if !ok {
 			t.Fatalf("IT-21 items 不是数组类型: %T", itemsVal)
 		}
+		// 空列表也是正确的
+		t.Logf("IT-21 通过: 学生无师生关系时教师列表长度=%d，符合迭代3新行为", len(items))
+	}
 
-		if len(items) == 0 {
-			t.Fatal("IT-21 教师列表为空，期望至少有1个教师")
+	// 额外验证：使用教师 token 获取教师列表应该返回所有教师
+	if v2TeacherToken != "" {
+		resp2, body2, err2 := doRequest("GET", "/api/teachers?page=1&page_size=20", nil, v2TeacherToken)
+		if err2 != nil {
+			t.Fatalf("IT-21 教师角色请求失败: %v", err2)
 		}
-
-		// 验证第一个教师有 document_count 字段
-		firstTeacher, ok := items[0].(map[string]interface{})
-		if !ok {
-			t.Fatalf("IT-21 教师项不是对象类型: %T", items[0])
+		if resp2.StatusCode != http.StatusOK {
+			t.Fatalf("IT-21 教师角色 HTTP 状态码错误: %d", resp2.StatusCode)
 		}
-
-		if _, ok := firstTeacher["document_count"]; !ok {
-			t.Fatal("IT-21 教师项缺少 document_count 字段")
+		apiResp2, _ := parseResponse(body2)
+		if apiResp2.Code != 0 {
+			t.Fatalf("IT-21 教师角色业务码错误: %d", apiResp2.Code)
 		}
-
-		t.Logf("IT-21 通过: 获取教师列表成功, 教师数量=%d, 第一个教师: %v", len(items), firstTeacher["nickname"])
-	} else {
-		t.Fatal("IT-21 items 为 nil，期望至少有1个教师")
+		teacherItems := apiResp2.Data["items"]
+		if teacherItems != nil {
+			tItems, _ := teacherItems.([]interface{})
+			if len(tItems) > 0 {
+				firstTeacher := tItems[0].(map[string]interface{})
+				if _, ok := firstTeacher["document_count"]; !ok {
+					t.Fatal("IT-21 教师角色: 教师项缺少 document_count 字段")
+				}
+				t.Logf("IT-21 通过: 教师角色获取教师列表成功, 数量=%d", len(tItems))
+			}
+		}
 	}
 }
 
-// ======================== IT-22: 获取用户信息 → 返回 profile + stats ========================
+// ======================== IT-22: 获取用户信息 → 返回 profile + personas ========================
 func TestV2_IT22_GetUserProfile(t *testing.T) {
 	if v2StudentToken == "" {
 		t.Skip("IT-22 跳过: 学生 token 未获取")
@@ -285,34 +341,41 @@ func TestV2_IT22_GetUserProfile(t *testing.T) {
 		t.Fatalf("IT-22 业务码错误: 期望 0, 实际 %d, message: %s", apiResp.Code, apiResp.Message)
 	}
 
-	// 验证基本字段
-	if _, ok := apiResp.Data["id"]; !ok {
-		t.Fatal("IT-22 响应缺少 id 字段")
-	}
-	if _, ok := apiResp.Data["role"]; !ok {
-		t.Fatal("IT-22 响应缺少 role 字段")
-	}
-	if _, ok := apiResp.Data["nickname"]; !ok {
-		t.Fatal("IT-22 响应缺少 nickname 字段")
+	// V2.0 迭代2 新格式：验证 user_id 字段
+	if _, ok := apiResp.Data["user_id"]; !ok {
+		t.Fatal("IT-22 响应缺少 user_id 字段")
 	}
 
-	// 验证 stats 字段
-	statsVal, ok := apiResp.Data["stats"]
+	// 验证 username 字段
+	if _, ok := apiResp.Data["username"]; !ok {
+		t.Fatal("IT-22 响应缺少 username 字段")
+	}
+
+	// 验证 personas 字段（数组）
+	personasVal, ok := apiResp.Data["personas"]
 	if !ok {
-		t.Fatal("IT-22 响应缺少 stats 字段")
+		t.Fatal("IT-22 响应缺少 personas 字段")
 	}
-	stats, ok := statsVal.(map[string]interface{})
-	if !ok {
-		t.Fatalf("IT-22 stats 不是对象类型: %T", statsVal)
-	}
-
-	// stats 中应包含 conversation_count 和 memory_count
-	if _, ok := stats["conversation_count"]; !ok {
-		t.Fatal("IT-22 stats 缺少 conversation_count 字段")
+	if personasVal != nil {
+		personas, ok := personasVal.([]interface{})
+		if !ok {
+			t.Fatalf("IT-22 personas 不是数组类型: %T", personasVal)
+		}
+		t.Logf("IT-22 分身数量: %d", len(personas))
 	}
 
-	t.Logf("IT-22 通过: 获取用户信息成功, nickname=%v, role=%v, stats=%v",
-		apiResp.Data["nickname"], apiResp.Data["role"], stats)
+	// 验证 created_at 字段
+	if _, ok := apiResp.Data["created_at"]; !ok {
+		t.Fatal("IT-22 响应缺少 created_at 字段")
+	}
+
+	// 可选检查 current_persona（可能为 nil，如果没有设置默认分身）
+	if cp, ok := apiResp.Data["current_persona"]; ok && cp != nil {
+		t.Logf("IT-22 当前分身: %v", cp)
+	}
+
+	t.Logf("IT-22 通过: 获取用户信息成功, user_id=%v, username=%v",
+		apiResp.Data["user_id"], apiResp.Data["username"])
 }
 
 // ======================== IT-23: 获取会话列表 → 返回会话摘要 ========================
@@ -430,9 +493,53 @@ func TestV2_IT25_FullFlowStudentChat(t *testing.T) {
 		t.Fatalf("IT-25 步骤2 解析失败: %v, code: %d, body: %s", err, apiResp.Code, string(body))
 	}
 
-	// 步骤3：获取教师列表
-	t.Log("IT-25 步骤3: 获取教师列表")
-	resp, body, err = doRequest("GET", "/api/teachers?page=1&page_size=20", nil, studentToken)
+	// 关键：使用 complete-profile 返回的新 token（不重新登录，模拟真实用户行为）
+	if newToken, ok := apiResp.Data["token"]; ok && newToken != nil && newToken != "" {
+		studentToken = newToken.(string)
+	} else {
+		t.Fatalf("IT-25 步骤2 complete-profile 未返回新 token, data: %v", apiResp.Data)
+	}
+
+	// 步骤3：获取教师信息（V2.0 迭代3 行为变更：学生只能看到已授权教师）
+	// 如果 v2TeacherToken 不可用，自己创建教师
+	t.Log("IT-25 步骤3: 获取教师信息")
+	teacherToken := v2TeacherToken
+	if teacherToken == "" {
+		// 自己创建教师：先注册
+		teacherRegBody := map[string]interface{}{
+			"username": "it25_teacher",
+			"password": "test123456",
+			"role":     "teacher",
+			"nickname": "IT25教师",
+			"school":   "测试学校",
+		}
+		_, tBody, tErr := doRequest("POST", "/api/auth/register", teacherRegBody, "")
+		if tErr != nil {
+			t.Fatalf("IT-25 步骤3 创建教师注册失败: %v", tErr)
+		}
+		tResp, _ := parseResponse(tBody)
+		if tResp.Code == 0 {
+			teacherToken = tResp.Data["token"].(string)
+		} else {
+			// 用户已存在，尝试登录
+			teacherLoginBody := map[string]interface{}{
+				"username": "it25_teacher",
+				"password": "test123456",
+			}
+			_, tBody, tErr = doRequest("POST", "/api/auth/login", teacherLoginBody, "")
+			if tErr != nil {
+				t.Fatalf("IT-25 步骤3 教师登录失败: %v", tErr)
+			}
+			tResp, _ = parseResponse(tBody)
+			if tResp.Code != 0 {
+				t.Fatalf("IT-25 步骤3 教师登录业务码错误: %d", tResp.Code)
+			}
+			teacherToken = tResp.Data["token"].(string)
+		}
+	}
+
+	var targetTeacherID float64
+	resp, body, err = doRequest("GET", "/api/teachers?page=1&page_size=20", nil, teacherToken)
 	if err != nil {
 		t.Fatalf("IT-25 步骤3 获取教师列表失败: %v", err)
 	}
@@ -451,14 +558,40 @@ func TestV2_IT25_FullFlowStudentChat(t *testing.T) {
 	if !ok || len(items) == 0 {
 		t.Fatal("IT-25 步骤3 教师列表为空或格式错误")
 	}
-
-	// 获取第一个教师的 ID
 	firstTeacher := items[0].(map[string]interface{})
-	targetTeacherID := firstTeacher["id"].(float64)
+	targetTeacherID = firstTeacher["id"].(float64)
 	t.Logf("IT-25 步骤3: 选择教师 ID=%v, 昵称=%v", targetTeacherID, firstTeacher["nickname"])
 
-	// 步骤4：发送对话
-	t.Log("IT-25 步骤4: 发送对话")
+	// 步骤3.5：学生申请使用教师分身（模拟真实用户点击"申请使用"按钮）
+	t.Log("IT-25 步骤3.5: 学生申请使用教师分身")
+	applyBody := map[string]interface{}{
+		"teacher_id": int(targetTeacherID),
+	}
+	_, body, err = doRequest("POST", "/api/relations/apply", applyBody, studentToken)
+	if err != nil {
+		t.Fatalf("IT-25 步骤3.5 学生申请失败: %v", err)
+	}
+	apiResp, _ = parseResponse(body)
+	if apiResp.Code != 0 && apiResp.Code != 40009 {
+		t.Fatalf("IT-25 步骤3.5 业务码错误: %d, body: %s", apiResp.Code, string(body))
+	}
+
+	// 如果是 pending 状态，教师需要审批
+	if statusVal, ok := apiResp.Data["status"]; ok && statusVal == "pending" {
+		relationID := apiResp.Data["id"].(float64)
+		approvePath := fmt.Sprintf("/api/relations/%d/approve", int(relationID))
+		_, body, err = doRequest("PUT", approvePath, nil, teacherToken)
+		if err != nil {
+			t.Fatalf("IT-25 步骤3.5 教师审批失败: %v", err)
+		}
+		apiResp, _ = parseResponse(body)
+		if apiResp.Code != 0 {
+			t.Fatalf("IT-25 步骤3.5 教师审批业务码错误: %d", apiResp.Code)
+		}
+	}
+
+	// 步骤4：向选中的教师发送对话
+	// 步骤4：向选中的教师发送对话	t.Log("IT-25 步骤4: 发送对话")
 	chatBody := map[string]interface{}{
 		"message":    "你好，请问什么是牛顿第一定律？",
 		"teacher_id": int(targetTeacherID),
@@ -520,8 +653,10 @@ func TestV2_IT26_TeacherAddDocStudentChat(t *testing.T) {
 	// 步骤2：教师补全信息
 	t.Log("IT-26 步骤2: 教师补全信息")
 	completeBody := map[string]interface{}{
-		"role":     "teacher",
-		"nickname": "物理张老师",
+		"role":        "teacher",
+		"nickname":    "物理张老师",
+		"school":      "物理实验中学",
+		"description": "专注物理教学的老师",
 	}
 	_, body, err = doRequest("POST", "/api/auth/complete-profile", completeBody, localTeacherToken)
 	if err != nil {
@@ -532,16 +667,12 @@ func TestV2_IT26_TeacherAddDocStudentChat(t *testing.T) {
 		t.Fatalf("IT-26 步骤2 解析失败: %v, code: %d, body: %s", err, apiResp.Code, string(body))
 	}
 
-	// 重新登录获取更新后的 token（角色已更新）
-	_, body, err = doRequest("POST", "/api/auth/wx-login", teacherLoginBody, "")
-	if err != nil {
-		t.Fatalf("IT-26 步骤2 重新登录失败: %v", err)
+	// 使用 complete-profile 返回的新 token（不重新登录，模拟真实用户行为）
+	if newToken, ok := apiResp.Data["token"]; ok && newToken != nil && newToken != "" {
+		localTeacherToken = newToken.(string)
+	} else {
+		t.Fatalf("IT-26 步骤2 complete-profile 未返回新 token, data: %v", apiResp.Data)
 	}
-	apiResp, err = parseResponse(body)
-	if err != nil || apiResp.Code != 0 {
-		t.Fatalf("IT-26 步骤2 重新登录解析失败: %v, code: %d", err, apiResp.Code)
-	}
-	localTeacherToken = apiResp.Data["token"].(string)
 
 	// 步骤3：教师添加文档
 	t.Log("IT-26 步骤3: 教师添加文档")
@@ -582,6 +713,7 @@ func TestV2_IT26_TeacherAddDocStudentChat(t *testing.T) {
 		t.Fatalf("IT-26 步骤4 解析失败: %v, code: %d, body: %s", err, apiResp.Code, string(body))
 	}
 	localStudentToken := apiResp.Data["token"].(string)
+	localStudentID := apiResp.Data["user_id"].(float64)
 
 	// 步骤4.5：学生补全信息
 	studentCompleteBody := map[string]interface{}{
@@ -595,6 +727,19 @@ func TestV2_IT26_TeacherAddDocStudentChat(t *testing.T) {
 	apiResp, err = parseResponse(body)
 	if err != nil || apiResp.Code != 0 {
 		t.Fatalf("IT-26 步骤4.5 解析失败: %v, code: %d, body: %s", err, apiResp.Code, string(body))
+	}
+
+	// 步骤4.6：建立师生关系
+	inviteBody := map[string]interface{}{
+		"student_id": int(localStudentID),
+	}
+	_, body, err = doRequest("POST", "/api/relations/invite", inviteBody, localTeacherToken)
+	if err != nil {
+		t.Fatalf("IT-26 步骤4.6 建立师生关系失败: %v", err)
+	}
+	apiResp, _ = parseResponse(body)
+	if apiResp.Code != 0 && apiResp.Code != 40009 {
+		t.Fatalf("IT-26 步骤4.6 业务码错误: %d", apiResp.Code)
 	}
 
 	// 步骤5：学生向该教师发送对话（应引用知识）
@@ -645,8 +790,10 @@ func TestV2_IT27_MultiTurnConversation(t *testing.T) {
 
 	// 教师补全信息
 	completeBody := map[string]interface{}{
-		"role":     "teacher",
-		"nickname": "多轮对话老师",
+		"role":        "teacher",
+		"nickname":    "多轮对话老师",
+		"school":      "多轮对话学校",
+		"description": "专注多轮对话教学的老师",
 	}
 	_, body, err = doRequest("POST", "/api/auth/complete-profile", completeBody, localTeacherToken)
 	if err != nil {
@@ -657,16 +804,12 @@ func TestV2_IT27_MultiTurnConversation(t *testing.T) {
 		t.Fatalf("IT-27 步骤1 教师补全解析失败: %v, code: %d, body: %s", err, apiResp.Code, string(body))
 	}
 
-	// 重新登录获取更新后的 token
-	_, body, err = doRequest("POST", "/api/auth/wx-login", teacherLoginBody, "")
-	if err != nil {
-		t.Fatalf("IT-27 步骤1 重新登录失败: %v", err)
+	// 使用 complete-profile 返回的新 token（不重新登录，模拟真实用户行为）
+	if newToken, ok := apiResp.Data["token"]; ok && newToken != nil && newToken != "" {
+		localTeacherToken = newToken.(string)
+	} else {
+		t.Fatalf("IT-27 步骤1 教师 complete-profile 未返回新 token, data: %v", apiResp.Data)
 	}
-	apiResp, err = parseResponse(body)
-	if err != nil || apiResp.Code != 0 {
-		t.Fatalf("IT-27 步骤1 重新登录解析失败: %v, code: %d", err, apiResp.Code)
-	}
-	localTeacherToken = apiResp.Data["token"].(string)
 	_ = localTeacherToken // 教师 token 后续可能用于添加文档
 
 	// 步骤2：创建学生
@@ -683,6 +826,7 @@ func TestV2_IT27_MultiTurnConversation(t *testing.T) {
 		t.Fatalf("IT-27 步骤2 解析失败: %v, code: %d, body: %s", err, apiResp.Code, string(body))
 	}
 	localStudentToken := apiResp.Data["token"].(string)
+	localStudentID := apiResp.Data["user_id"].(float64)
 
 	studentCompleteBody := map[string]interface{}{
 		"role":     "student",
@@ -695,6 +839,19 @@ func TestV2_IT27_MultiTurnConversation(t *testing.T) {
 	apiResp, err = parseResponse(body)
 	if err != nil || apiResp.Code != 0 {
 		t.Fatalf("IT-27 步骤2 学生补全解析失败: %v, code: %d, body: %s", err, apiResp.Code, string(body))
+	}
+
+	// 步骤2.5：建立师生关系
+	inviteBody := map[string]interface{}{
+		"student_id": int(localStudentID),
+	}
+	_, body, err = doRequest("POST", "/api/relations/invite", inviteBody, localTeacherToken)
+	if err != nil {
+		t.Fatalf("IT-27 步骤2.5 建立师生关系失败: %v", err)
+	}
+	apiResp, _ = parseResponse(body)
+	if apiResp.Code != 0 && apiResp.Code != 40009 {
+		t.Fatalf("IT-27 步骤2.5 业务码错误: %d", apiResp.Code)
 	}
 
 	// 步骤3：多轮对话

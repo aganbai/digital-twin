@@ -1,81 +1,70 @@
-# 第二迭代 API 接口规范
+# V2.0 迭代2 API 接口规范
 
 ## 1. 通用约定
 
-> 本文档仅描述第二迭代**新增和变更**的接口。第一迭代已有接口（认证、对话、知识库、记忆、系统）的规范不变，请参考 `iteration1_api_spec.md`。
+> 继承 V2.0 迭代1 的通用约定，以下仅列出新增和变更部分。
 
 ### 1.1 基础信息
 
 | 项目 | 说明 |
 |------|------|
-| Base URL | `http://localhost:8080`（开发环境） |
-| 协议 | HTTP（开发环境），HTTPS（生产环境） |
+| Base URL | `http://localhost:8080` |
+| 协议 | HTTP（开发环境） |
 | 数据格式 | JSON（`Content-Type: application/json`） |
-| 字符编码 | UTF-8 |
 | 认证方式 | Bearer Token（`Authorization: Bearer <token>`） |
 
-### 1.2 统一响应格式（不变）
+### 1.2 JWT Token 结构变更
 
 ```json
+// 迭代1 的 JWT Claims
 {
-  "code": 0,
-  "message": "success",
-  "data": { ... }
+  "user_id": 1,
+  "role": "teacher",
+  "exp": 1234567890
+}
+
+// 迭代2 的 JWT Claims（新增 persona_id）
+{
+  "user_id": 1,
+  "persona_id": 3,
+  "role": "teacher",
+  "exp": 1234567890
 }
 ```
 
-### 1.3 错误码表（不变，沿用第一迭代）
+**向后兼容**：`persona_id` 为 0 时，后端自动查找用户的 `default_persona_id`。
+
+### 1.3 新增错误码
 
 | 错误码 | HTTP Status | 说明 |
 |--------|-------------|------|
-| 0 | 200 | 成功 |
-| 40001 | 401 | 未认证 / 令牌无效 |
-| 40002 | 401 | 令牌已过期 |
-| 40003 | 403 | 权限不足 |
-| 40004 | 400 | 请求参数校验失败 |
-| 40005 | 404 | 资源不存在 |
-| 40006 | 409 | 用户名已存在 |
-| 50001 | 500 | 服务器内部错误 |
-| 50002 | 502 | 大模型调用失败 |
-| 50003 | 502 | 向量数据库错误 |
-| 50004 | 504 | 管道执行超时 |
+| 40013 | 404 | 分身不存在 |
+| 40014 | 403 | 分身不属于当前用户 |
+| 40015 | 409 | 该学校已有同名教师分身 |
+| 40016 | 404 | 班级不存在 |
+| 40017 | 403 | 班级不属于当前教师分身 |
+| 40018 | 409 | 同名班级已存在 |
+| 40019 | 409 | 学生已在该班级中 |
+| 40020 | 400 | 分享码无效或已过期 |
+| 40021 | 400 | 分享码使用次数已达上限 |
+| 40022 | 400 | 需要先创建学生分身 |
+| 40023 | 400 | 无效的知识库作用域 |
+| 40024 | 400 | 班级有成员，无法删除 |
 
 ---
 
-## 2. 🆕 新增接口
+## 2. 改造接口
 
-### 2.1 微信登录
+### 2.1 微信登录（改造）
 
 **POST** `/api/auth/wx-login`
 
-**鉴权**：无
+**改造说明**：登录成功后返回用户的分身列表和当前分身信息。
 
-**说明**：小程序前端调用 `wx.login()` 获取临时 code，将 code 发送给后端。后端用 code 调用微信 `jscode2session` 接口获取 openid，然后根据 openid 查找或创建用户，返回 JWT Token。
-
-**请求体**：
+**请求体**（不变）：
 ```json
 {
-  "code": "0a3Xyz000abc12Ghi3000jkl4m3Xyz0A"
-}
-```
-
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| code | string | ✅ | 微信 wx.login() 返回的临时 code |
-
-**成功响应** `200`（已有用户）：
-```json
-{
-  "code": 0,
-  "message": "success",
-  "data": {
-    "user_id": 1,
-    "token": "eyJ...",
-    "role": "teacher",
-    "nickname": "王老师",
-    "is_new_user": false,
-    "expires_at": "2026-04-02T13:00:00Z"
-  }
+  "code": "wx_login_code"
 }
 ```
 
@@ -85,107 +74,155 @@
   "code": 0,
   "message": "success",
   "data": {
-    "user_id": 5,
-    "token": "eyJ...",
-    "role": "",
-    "nickname": "",
+    "token": "eyJhbGciOiJIUzI1NiIs...",
+    "refresh_token": "eyJhbGciOiJIUzI1NiIs...",
+    "user_id": 1,
     "is_new_user": true,
-    "expires_at": "2026-04-02T13:00:00Z"
+    "role": "",
+    "personas": []
   }
 }
 ```
 
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| user_id | int | 用户 ID |
-| token | string | JWT Token |
-| role | string | 用户角色，新用户为空字符串 |
-| nickname | string | 昵称，新用户为空字符串 |
-| is_new_user | bool | 是否为新用户（前端据此决定是否跳转角色选择页） |
-| expires_at | string | Token 过期时间 |
-
-**错误响应**：
-
-| 场景 | code | message |
-|------|------|---------|
-| code 为空 | 40004 | 缺少 code 参数 |
-| 微信 API 调用失败 | 50001 | 微信登录失败 |
-| code 无效/过期 | 40004 | 无效的登录凭证 |
-
-**实现说明**：
-- 后端定义 `WxClient` 接口，生产环境调用 `https://api.weixin.qq.com/sns/jscode2session`
-- 测试/开发环境通过 `WX_MODE=mock` 使用 `MockWxClient`（code → `mock_openid_{code}`）
-- 根据 openid 查询 `users` 表：
-  - 找到 → 已有用户，`is_new_user = false`
-  - 未找到 → 创建新用户（role 为空，nickname 为空），`is_new_user = true`
-- 无论新旧用户，都生成 JWT Token 返回
-
----
-
-### 2.2 新用户补全信息
-
-**POST** `/api/auth/complete-profile`
-
-**鉴权**：需要（Bearer Token）
-
-**说明**：微信登录后的新用户补全角色和昵称信息。只有 `role` 为空的用户才能调用此接口。
-
-**请求体**：
-```json
-{
-  "role": "teacher",
-  "nickname": "王老师"
-}
-```
-
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| role | string | ✅ | 角色，可选值：`teacher` / `student` |
-| nickname | string | ✅ | 昵称，1-20 字符 |
-
-**成功响应** `200`：
+**成功响应** `200`（老用户，有分身）：
 ```json
 {
   "code": 0,
   "message": "success",
   "data": {
-    "user_id": 5,
+    "token": "eyJhbGciOiJIUzI1NiIs...",
+    "refresh_token": "eyJhbGciOiJIUzI1NiIs...",
+    "user_id": 1,
+    "is_new_user": false,
     "role": "teacher",
-    "nickname": "王老师"
+    "current_persona": {
+      "id": 3,
+      "role": "teacher",
+      "nickname": "王老师",
+      "school": "北京大学",
+      "description": "物理学教授"
+    },
+    "personas": [
+      {
+        "id": 3,
+        "role": "teacher",
+        "nickname": "王老师",
+        "school": "北京大学",
+        "description": "物理学教授"
+      },
+      {
+        "id": 5,
+        "role": "student",
+        "nickname": "音乐培训班学生",
+        "school": "",
+        "description": ""
+      }
+    ]
   }
 }
 ```
 
-**错误响应**：
+**成功响应** `200`（老用户，无分身 — 迁移前的旧用户）：
+```json
+{
+  "code": 0,
+  "message": "success",
+  "data": {
+    "token": "eyJhbGciOiJIUzI1NiIs...",
+    "refresh_token": "eyJhbGciOiJIUzI1NiIs...",
+    "user_id": 1,
+    "is_new_user": false,
+    "role": "",
+    "personas": []
+  }
+}
+```
 
-| 场景 | code | message |
-|------|------|---------|
-| role 不合法 | 40004 | 角色只能是 teacher 或 student |
-| nickname 为空 | 40004 | 昵称不能为空 |
-| 用户已有角色（重复调用） | 40004 | 用户信息已完善，无需重复设置 |
-
-**实现说明**：
-- 从 JWT Token 中解析 `user_id`
-- 查询用户，检查 `role` 是否为空（只有新用户才能补全）
-- 更新 `users` 表的 `role` 和 `nickname` 字段
+> **前端行为**：
+> - `is_new_user=true` 或 `personas` 为空 → 跳转创建分身页
+> - `personas` 只有 1 个 → 直接进入对应首页
+> - `personas` 有多个 → 跳转分身选择页
 
 ---
 
-### 2.3 获取教师列表
+### 2.2 补全用户信息（改造）
+
+**POST** `/api/auth/complete-profile`
+
+**改造说明**：内部转换为创建分身，向后兼容原有请求格式。
+
+**请求体**（不变，向后兼容）：
+```json
+{
+  "role": "teacher",
+  "nickname": "王老师",
+  "school": "北京大学",
+  "description": "物理学教授"
+}
+```
+
+**成功响应** `200`（新增 persona 信息）：
+```json
+{
+  "code": 0,
+  "message": "success",
+  "data": {
+    "user_id": 1,
+    "role": "teacher",
+    "nickname": "王老师",
+    "school": "北京大学",
+    "description": "物理学教授",
+    "persona_id": 3,
+    "token": "eyJhbGciOiJIUzI1NiIs..."
+  }
+}
+```
+
+> **行为变更**：
+> 1. 不再检查 `user.Role != ""`（允许已有角色的用户创建新分身）
+> 2. 内部调用 PersonaRepository.Create 创建分身
+> 3. 返回新的 JWT token（包含 persona_id）
+
+---
+
+### 2.3 发送对话消息（改造）
+
+**POST** `/api/chat`
+
+**改造说明**：`teacher_id` 改为 `teacher_persona_id`，向后兼容 `teacher_id`。
+
+**请求体**：
+```json
+{
+  "message": "什么是牛顿第一定律?",
+  "teacher_persona_id": 3,
+  "session_id": "550e8400-e29b-41d4-a716-446655440000"
+}
+```
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| message | string | ✅ | 用户消息 |
+| teacher_persona_id | int | ✅ | 教师分身 ID（向后兼容：也接受 teacher_id） |
+| session_id | string | ❌ | 会话 ID |
+
+**向后兼容**：如果请求中包含 `teacher_id` 而非 `teacher_persona_id`，后端自动查找该 teacher 的默认分身。
+
+---
+
+### 2.4 SSE 流式对话（改造）
+
+**POST** `/api/chat/stream`
+
+**改造说明**：同 2.3，`teacher_id` 改为 `teacher_persona_id`。
+
+---
+
+### 2.5 获取教师列表（改造）
 
 **GET** `/api/teachers`
 
-**鉴权**：需要（Bearer Token）
-
-**说明**：学生端用于选择教师数字分身。返回所有角色为 `teacher` 的用户列表，以及每位教师的知识库文档数量。
-
-**Query 参数**：
-
-| 参数 | 类型 | 必填 | 默认值 | 说明 |
-|------|------|------|--------|------|
-| page | int | ❌ | 1 | 页码 |
-| page_size | int | ❌ | 20 | 每页数量，最大 100 |
-| keyword | string | ❌ | - | 按昵称/用户名模糊搜索（P1，本迭代可不实现） |
+**改造说明**：返回教师分身列表（而非用户列表）。
 
 **成功响应** `200`：
 ```json
@@ -195,20 +232,205 @@
   "data": {
     "items": [
       {
-        "id": 1,
-        "username": "teacher_wang",
+        "id": 3,
+        "persona_id": 3,
+        "user_id": 1,
         "nickname": "王老师",
         "role": "teacher",
+        "school": "北京大学",
+        "description": "物理学教授，专注力学和热力学教学",
         "document_count": 5,
         "created_at": "2026-04-01T09:00:00Z"
-      },
+      }
+    ],
+    "total": 3,
+    "page": 1,
+    "page_size": 20
+  }
+}
+```
+
+> **注意**：`id` 和 `persona_id` 相同，都是分身 ID。保留 `id` 是为了向后兼容。
+
+---
+
+### 2.6 添加知识文档（改造）
+
+**POST** `/api/documents`
+
+**改造说明**：新增 `scope` 和 `scope_id` 字段。
+
+**请求体**：
+```json
+{
+  "title": "牛顿运动定律",
+  "content": "牛顿第一定律...",
+  "tags": "物理,力学",
+  "scope": "class",
+  "scope_id": 1
+}
+```
+
+| 字段 | 类型 | 必填 | 默认值 | 说明 |
+|------|------|------|--------|------|
+| title | string | ✅ | - | 文档标题 |
+| content | string | ✅ | - | 文档内容 |
+| tags | string | ❌ | - | 标签（逗号分隔） |
+| scope | string | ❌ | global | 作用域：global / class / student |
+| scope_id | int | scope≠global 时 ✅ | 0 | 班级 ID 或学生分身 ID |
+
+**校验规则**：
+- `scope=class` 时，`scope_id` 必须是当前教师分身的班级
+- `scope=student` 时，`scope_id` 必须是与当前教师分身有 approved 关系的学生分身
+
+**新增错误响应**：
+| 场景 | code | message |
+|------|------|---------|
+| 无效的 scope 值 | 40023 | 无效的知识库作用域，仅支持 global/class/student |
+| scope=class 但班级不属于当前分身 | 40017 | 班级不属于当前教师分身 |
+| scope=student 但无师生关系 | 40007 | 未获得该学生的授权关系 |
+
+---
+
+### 2.7 获取文档列表（改造）
+
+**GET** `/api/documents`
+
+**改造说明**：新增 scope 筛选参数。
+
+**Query 参数**（新增）：
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| scope | string | ❌ | 按作用域筛选：global / class / student |
+| scope_id | int | ❌ | 按作用域 ID 筛选 |
+
+**成功响应** `200`（新增 scope 字段）：
+```json
+{
+  "code": 0,
+  "message": "success",
+  "data": {
+    "items": [
       {
-        "id": 2,
-        "username": "teacher_li",
-        "nickname": "李老师",
-        "role": "teacher",
-        "document_count": 12,
-        "created_at": "2026-04-02T10:00:00Z"
+        "id": 10,
+        "teacher_id": 1,
+        "persona_id": 3,
+        "title": "牛顿运动定律",
+        "doc_type": "text",
+        "tags": "物理,力学",
+        "status": "active",
+        "scope": "class",
+        "scope_id": 1,
+        "scope_name": "高一(3)班",
+        "chunks_count": 8,
+        "created_at": "2026-04-01T09:00:00Z"
+      }
+    ],
+    "total": 5,
+    "page": 1,
+    "page_size": 20
+  }
+}
+```
+
+---
+
+### 2.8 文件上传（改造）
+
+**POST** `/api/documents/upload`
+
+**改造说明**：新增 scope 和 scope_id 表单字段。
+
+**表单字段**（新增）：
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| scope | string | ❌ | 作用域，默认 global |
+| scope_id | int | scope≠global 时 ✅ | 班级 ID 或学生分身 ID |
+
+---
+
+### 2.9 URL 导入（改造）
+
+**POST** `/api/documents/import-url`
+
+**改造说明**：新增 scope 和 scope_id 字段。
+
+**请求体**（新增字段）：
+```json
+{
+  "url": "https://example.com/article",
+  "title": "可选标题",
+  "tags": "物理,力学",
+  "scope": "student",
+  "scope_id": 5
+}
+```
+
+---
+
+### 2.10 师生关系接口（改造）
+
+所有师生关系接口中的 `teacher_id` / `student_id` 改为 `teacher_persona_id` / `student_persona_id`，向后兼容旧字段。
+
+#### 教师邀请学生（改造）
+
+**POST** `/api/relations/invite`
+
+**请求体**：
+```json
+{
+  "student_persona_id": 5
+}
+```
+
+**成功响应** `200`：
+```json
+{
+  "code": 0,
+  "message": "success",
+  "data": {
+    "id": 1,
+    "teacher_persona_id": 3,
+    "student_persona_id": 5,
+    "status": "approved",
+    "initiated_by": "teacher",
+    "created_at": "2026-04-01T10:00:00Z"
+  }
+}
+```
+
+#### 学生申请使用分身（改造）
+
+**POST** `/api/relations/apply`
+
+**请求体**：
+```json
+{
+  "teacher_persona_id": 3
+}
+```
+
+#### 获取师生关系列表（改造）
+
+**GET** `/api/relations`
+
+**成功响应** `200`（教师视角）：
+```json
+{
+  "code": 0,
+  "message": "success",
+  "data": {
+    "items": [
+      {
+        "id": 1,
+        "student_persona_id": 5,
+        "student_nickname": "小李",
+        "class_name": "高一(3)班",
+        "status": "approved",
+        "initiated_by": "teacher",
+        "created_at": "2026-04-01T10:00:00Z"
       }
     ],
     "total": 2,
@@ -218,29 +440,233 @@
 }
 ```
 
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| id | int | 教师用户 ID |
-| username | string | 用户名 |
-| nickname | string | 昵称（可能为空） |
-| role | string | 固定为 "teacher" |
-| document_count | int | 该教师的知识库文档数量 |
-| created_at | string | 注册时间 |
-
-**实现说明**：
-- 查询 `users` 表中 `role = 'teacher'` 的记录
-- `document_count` 通过 LEFT JOIN `documents` 表按 `teacher_id` 统计
-- 不返回密码等敏感字段
+**成功响应** `200`（学生视角）：
+```json
+{
+  "code": 0,
+  "message": "success",
+  "data": {
+    "items": [
+      {
+        "id": 1,
+        "teacher_persona_id": 3,
+        "teacher_nickname": "王老师",
+        "teacher_school": "北京大学",
+        "teacher_description": "物理学教授",
+        "status": "approved",
+        "initiated_by": "teacher",
+        "created_at": "2026-04-01T10:00:00Z"
+      }
+    ],
+    "total": 1,
+    "page": 1,
+    "page_size": 20
+  }
+}
+```
 
 ---
 
-### 2.4 获取当前用户信息
+### 2.11 评语接口（改造）
 
-**GET** `/api/user/profile`
+**POST** `/api/comments`
+
+**请求体**：
+```json
+{
+  "student_persona_id": 5,
+  "content": "该生学习态度认真...",
+  "progress_summary": "牛顿定律掌握80%..."
+}
+```
+
+---
+
+### 2.12 问答风格接口（改造）
+
+**PUT** `/api/students/:id/dialogue-style`
+
+**改造说明**：路径中的 `:id` 改为学生分身 ID（persona_id）。
+
+---
+
+### 2.13 作业接口（改造）
+
+**POST** `/api/assignments`
+
+**请求体**：
+```json
+{
+  "teacher_persona_id": 3,
+  "title": "牛顿定律作业",
+  "content": "牛顿第一定律是指..."
+}
+```
+
+---
+
+## 3. 分身管理接口
+
+### 3.1 创建分身
+
+**POST** `/api/personas`
 
 **鉴权**：需要（Bearer Token）
 
-**说明**：前端个人中心页面使用，获取当前登录用户的详细信息。
+**请求体**（教师分身）：
+```json
+{
+  "role": "teacher",
+  "nickname": "王老师",
+  "school": "北京大学",
+  "description": "物理学教授，专注力学和热力学教学"
+}
+```
+
+**请求体**（学生分身）：
+```json
+{
+  "role": "student",
+  "nickname": "音乐培训班学生"
+}
+```
+
+| 字段 | 类型 | 必填 | 校验规则 | 说明 |
+|------|------|------|----------|------|
+| role | string | ✅ | 枚举：teacher/student | 分身角色 |
+| nickname | string | ✅ | 1-64 字符 | 分身昵称 |
+| school | string | 教师 ✅ | 1-128 字符 | 学校名称 |
+| description | string | 教师 ✅ | 1-500 字符 | 分身描述 |
+
+**成功响应** `200`：
+```json
+{
+  "code": 0,
+  "message": "success",
+  "data": {
+    "id": 3,
+    "user_id": 1,
+    "role": "teacher",
+    "nickname": "王老师",
+    "school": "北京大学",
+    "description": "物理学教授，专注力学和热力学教学",
+    "is_active": true,
+    "created_at": "2026-04-01T09:00:00Z",
+    "token": "eyJhbGciOiJIUzI1NiIs..."
+  }
+}
+```
+
+> **注意**：创建分身后返回新的 JWT token（包含 persona_id），前端需要更新本地 token。
+
+**错误响应**：
+| 场景 | code | message |
+|------|------|---------|
+| 教师缺少 school | 40004 | 教师分身必须填写学校名称 |
+| 教师缺少 description | 40004 | 教师分身必须填写分身描述 |
+| 同名+同校教师分身已存在 | 40015 | 该学校已有同名教师分身，请修改名称 |
+
+---
+
+### 3.2 获取分身列表
+
+**GET** `/api/personas`
+
+**鉴权**：需要（Bearer Token）
+
+**Query 参数**：
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| role | string | ❌ | 按角色筛选：teacher/student |
+
+**成功响应** `200`：
+```json
+{
+  "code": 0,
+  "message": "success",
+  "data": {
+    "items": [
+      {
+        "id": 3,
+        "role": "teacher",
+        "nickname": "王老师",
+        "school": "北京大学",
+        "description": "物理学教授",
+        "is_active": true,
+        "student_count": 15,
+        "document_count": 8,
+        "class_count": 2,
+        "created_at": "2026-04-01T09:00:00Z"
+      },
+      {
+        "id": 5,
+        "role": "student",
+        "nickname": "音乐培训班学生",
+        "school": "",
+        "description": "",
+        "is_active": true,
+        "teacher_count": 1,
+        "created_at": "2026-04-01T10:00:00Z"
+      }
+    ],
+    "current_persona_id": 3
+  }
+}
+```
+
+---
+
+### 3.3 编辑分身
+
+**PUT** `/api/personas/:id`
+
+**鉴权**：需要（Bearer Token，本人分身）
+
+**路径参数**：
+
+| 参数 | 类型 | 说明 |
+|------|------|------|
+| id | int | 分身 ID |
+
+**请求体**：
+```json
+{
+  "nickname": "王教授",
+  "school": "北京大学",
+  "description": "物理学教授，专注量子力学教学"
+}
+```
+
+**成功响应** `200`：
+```json
+{
+  "code": 0,
+  "message": "success",
+  "data": {
+    "id": 3,
+    "nickname": "王教授",
+    "school": "北京大学",
+    "description": "物理学教授，专注量子力学教学",
+    "updated_at": "2026-04-01T11:00:00Z"
+  }
+}
+```
+
+**错误响应**：
+| 场景 | code | message |
+|------|------|---------|
+| 分身不存在 | 40013 | 分身不存在 |
+| 分身不属于当前用户 | 40014 | 分身不属于当前用户 |
+| 同名+同校冲突 | 40015 | 该学校已有同名教师分身 |
+
+---
+
+### 3.4 启用分身
+
+**PUT** `/api/personas/:id/activate`
+
+**鉴权**：需要（Bearer Token，本人分身）
 
 **请求体**：无
 
@@ -251,67 +677,294 @@
   "message": "success",
   "data": {
     "id": 3,
-    "username": "student_li",
-    "nickname": "小李",
-    "role": "student",
-    "email": "",
-    "created_at": "2026-04-01T10:00:00Z",
-    "stats": {
-      "conversation_count": 15,
-      "memory_count": 8
-    }
-  }
-}
-```
-
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| id | int | 用户 ID |
-| username | string | 用户名 |
-| nickname | string | 昵称 |
-| role | string | 角色（teacher/student/admin） |
-| email | string | 邮箱（可能为空） |
-| created_at | string | 注册时间 |
-| stats | object | 用户统计信息 |
-| stats.conversation_count | int | 对话总数（学生：自己的对话数；教师：被提问的对话数） |
-| stats.memory_count | int | 记忆总数（仅学生有意义） |
-
-**实现说明**：
-- 从 JWT Token 中解析 `user_id`
-- 查询 `users` 表获取用户信息
-- `conversation_count` 通过 COUNT `conversations` 表获取
-- `memory_count` 通过 COUNT `memories` 表获取
-- 教师角色时，`stats` 中可额外返回 `document_count`（知识库文档数）
-
-**教师角色的响应示例**：
-```json
-{
-  "code": 0,
-  "message": "success",
-  "data": {
-    "id": 1,
-    "username": "teacher_wang",
-    "nickname": "王老师",
-    "role": "teacher",
-    "email": "wang@example.com",
-    "created_at": "2026-04-01T09:00:00Z",
-    "stats": {
-      "document_count": 5,
-      "conversation_count": 42
-    }
+    "is_active": true,
+    "updated_at": "2026-04-01T11:00:00Z"
   }
 }
 ```
 
 ---
 
-### 2.5 获取会话列表
+### 3.5 停用分身
 
-**GET** `/api/conversations/sessions`
+**PUT** `/api/personas/:id/deactivate`
 
-**鉴权**：需要（Bearer Token）
+**鉴权**：需要（Bearer Token，本人分身）
 
-**说明**：前端对话历史页使用，返回当前学生与各教师的会话摘要列表。每个会话显示最后一条消息和时间。
+**请求体**：无
+
+**成功响应** `200`：
+```json
+{
+  "code": 0,
+  "message": "success",
+  "data": {
+    "id": 3,
+    "is_active": false,
+    "updated_at": "2026-04-01T11:00:00Z"
+  }
+}
+```
+
+---
+
+### 3.6 切换分身
+
+**PUT** `/api/personas/:id/switch`
+
+**鉴权**：需要（Bearer Token，本人分身）
+
+**路径参数**：
+
+| 参数 | 类型 | 说明 |
+|------|------|------|
+| id | int | 目标分身 ID |
+
+**请求体**：无
+
+**成功响应** `200`：
+```json
+{
+  "code": 0,
+  "message": "success",
+  "data": {
+    "persona_id": 5,
+    "role": "student",
+    "nickname": "音乐培训班学生",
+    "token": "eyJhbGciOiJIUzI1NiIs..."
+  }
+}
+```
+
+> **注意**：切换分身后返回新的 JWT token，前端需要更新本地 token 和用户信息。
+
+---
+
+## 4. 班级管理接口
+
+### 4.1 创建班级
+
+**POST** `/api/classes`
+
+**鉴权**：需要（Bearer Token，角色：teacher）
+
+**请求体**：
+```json
+{
+  "name": "高一(3)班",
+  "description": "2026级高一3班"
+}
+```
+
+| 字段 | 类型 | 必填 | 校验规则 | 说明 |
+|------|------|------|----------|------|
+| name | string | ✅ | 1-64 字符 | 班级名称 |
+| description | string | ❌ | 最长 200 字符 | 班级描述 |
+
+**成功响应** `200`：
+```json
+{
+  "code": 0,
+  "message": "success",
+  "data": {
+    "id": 1,
+    "persona_id": 3,
+    "name": "高一(3)班",
+    "description": "2026级高一3班",
+    "created_at": "2026-04-01T09:00:00Z"
+  }
+}
+```
+
+**错误响应**：
+| 场景 | code | message |
+|------|------|---------|
+| 同名班级已存在 | 40018 | 同名班级已存在 |
+
+---
+
+### 4.2 获取班级列表
+
+**GET** `/api/classes`
+
+**鉴权**：需要（Bearer Token，角色：teacher）
+
+**成功响应** `200`：
+```json
+{
+  "code": 0,
+  "message": "success",
+  "data": {
+    "items": [
+      {
+        "id": 1,
+        "name": "高一(3)班",
+        "description": "2026级高一3班",
+        "member_count": 15,
+        "created_at": "2026-04-01T09:00:00Z"
+      },
+      {
+        "id": 2,
+        "name": "高二(1)班",
+        "description": "",
+        "member_count": 8,
+        "created_at": "2026-04-01T09:30:00Z"
+      }
+    ],
+    "total": 2
+  }
+}
+```
+
+---
+
+### 4.3 编辑班级
+
+**PUT** `/api/classes/:id`
+
+**鉴权**：需要（Bearer Token，角色：teacher）
+
+**请求体**：
+```json
+{
+  "name": "高一(3)班（理科）",
+  "description": "2026级高一3班理科方向"
+}
+```
+
+**成功响应** `200`：
+```json
+{
+  "code": 0,
+  "message": "success",
+  "data": {
+    "id": 1,
+    "name": "高一(3)班（理科）",
+    "description": "2026级高一3班理科方向",
+    "updated_at": "2026-04-01T11:00:00Z"
+  }
+}
+```
+
+---
+
+### 4.4 删除班级
+
+**DELETE** `/api/classes/:id`
+
+**鉴权**：需要（Bearer Token，角色：teacher）
+
+**请求体**：无
+
+**成功响应** `200`：
+```json
+{
+  "code": 0,
+  "message": "success",
+  "data": {
+    "deleted": true
+  }
+}
+```
+
+**错误响应**：
+| 场景 | code | message |
+|------|------|---------|
+| 班级不存在 | 40016 | 班级不存在 |
+| 班级不属于当前分身 | 40017 | 班级不属于当前教师分身 |
+| 班级有成员 | 40024 | 班级有成员，无法删除，请先移除所有成员 |
+
+---
+
+### 4.5 添加班级成员
+
+**POST** `/api/classes/:id/members`
+
+**鉴权**：需要（Bearer Token，角色：teacher）
+
+**路径参数**：
+
+| 参数 | 类型 | 说明 |
+|------|------|------|
+| id | int | 班级 ID |
+
+**请求体**：
+```json
+{
+  "student_persona_id": 5
+}
+```
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| student_persona_id | int | ✅ | 学生分身 ID |
+
+**成功响应** `200`：
+```json
+{
+  "code": 0,
+  "message": "success",
+  "data": {
+    "id": 1,
+    "class_id": 1,
+    "student_persona_id": 5,
+    "student_nickname": "小李",
+    "joined_at": "2026-04-01T10:00:00Z"
+  }
+}
+```
+
+**副作用**：如果师生关系不存在，自动创建 `teacher_student_relation`（status=approved）。
+
+**错误响应**：
+| 场景 | code | message |
+|------|------|---------|
+| 班级不存在 | 40016 | 班级不存在 |
+| 班级不属于当前分身 | 40017 | 班级不属于当前教师分身 |
+| 学生分身不存在 | 40013 | 分身不存在 |
+| 学生已在班级中 | 40019 | 学生已在该班级中 |
+
+---
+
+### 4.6 移除班级成员
+
+**DELETE** `/api/classes/:id/members/:member_id`
+
+**鉴权**：需要（Bearer Token，角色：teacher）
+
+**路径参数**：
+
+| 参数 | 类型 | 说明 |
+|------|------|------|
+| id | int | 班级 ID |
+| member_id | int | 成员记录 ID |
+
+**成功响应** `200`：
+```json
+{
+  "code": 0,
+  "message": "success",
+  "data": {
+    "deleted": true
+  }
+}
+```
+
+> **注意**：移除班级成员不会删除师生关系。
+
+---
+
+### 4.7 获取班级成员列表
+
+**GET** `/api/classes/:id/members`
+
+**鉴权**：需要（Bearer Token，角色：teacher）
+
+**路径参数**：
+
+| 参数 | 类型 | 说明 |
+|------|------|------|
+| id | int | 班级 ID |
 
 **Query 参数**：
 
@@ -328,22 +981,16 @@
   "data": {
     "items": [
       {
-        "session_id": "550e8400-e29b-41d4-a716-446655440000",
-        "teacher_id": 1,
-        "teacher_nickname": "王老师",
-        "last_message": "你觉得一个物体在没有外力作用时会怎样运动呢？",
-        "last_message_role": "assistant",
-        "message_count": 12,
-        "updated_at": "2026-04-05T14:30:00Z"
+        "id": 1,
+        "student_persona_id": 5,
+        "student_nickname": "小李",
+        "joined_at": "2026-04-01T10:00:00Z"
       },
       {
-        "session_id": "660e8400-e29b-41d4-a716-446655440001",
-        "teacher_id": 2,
-        "teacher_nickname": "李老师",
-        "last_message": "什么是光合作用？",
-        "last_message_role": "user",
-        "message_count": 4,
-        "updated_at": "2026-04-04T10:15:00Z"
+        "id": 2,
+        "student_persona_id": 6,
+        "student_nickname": "小王",
+        "joined_at": "2026-04-01T10:05:00Z"
       }
     ],
     "total": 2,
@@ -353,360 +1000,356 @@
 }
 ```
 
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| session_id | string | 会话 ID |
-| teacher_id | int | 教师 ID |
-| teacher_nickname | string | 教师昵称 |
-| last_message | string | 最后一条消息内容（截断至 100 字符） |
-| last_message_role | string | 最后一条消息的角色（user/assistant） |
-| message_count | int | 该会话的消息总数 |
-| updated_at | string | 最后消息时间 |
-
-**实现说明**：
-- 从 JWT Token 中解析 `student_id`
-- 查询 `conversations` 表，按 `session_id` 分组
-- 每组取最后一条消息作为摘要
-- LEFT JOIN `users` 表获取教师昵称
-- 按 `updated_at` 降序排列（最近的会话在前）
-
-**SQL 参考**：
-```sql
-SELECT 
-    c.session_id,
-    c.teacher_id,
-    u.nickname as teacher_nickname,
-    c.content as last_message,
-    c.role as last_message_role,
-    COUNT(*) OVER (PARTITION BY c.session_id) as message_count,
-    c.created_at as updated_at
-FROM conversations c
-JOIN users u ON c.teacher_id = u.id
-WHERE c.student_id = ? 
-    AND c.id IN (
-        SELECT MAX(id) FROM conversations 
-        WHERE student_id = ? 
-        GROUP BY session_id
-    )
-ORDER BY c.created_at DESC
-LIMIT ? OFFSET ?
-```
-
 ---
 
-## 3. 🔧 变更接口
+## 5. 分身分享接口
 
-> **说明**：第一迭代的 `POST /api/auth/login` 和 `POST /api/auth/register` 接口保留不删除（用于集成测试和后台管理），但前端不再使用。这两个接口的响应中已包含 `nickname` 字段（第一迭代 auth_plugin.go 的 handleLogin 和 handleRegister 已返回 nickname），无需额外修改。
+### 5.1 生成分享码
 
-### 3.1 获取对话历史（增强）
+**POST** `/api/shares`
 
-**GET** `/api/conversations`
+**鉴权**：需要（Bearer Token，角色：teacher）
 
-**变更说明**：`teacher_id` 参数从必填改为可选。不传时返回当前学生与所有教师的对话记录。
+**请求体**：
+```json
+{
+  "class_id": 1,
+  "expires_hours": 168,
+  "max_uses": 50
+}
+```
 
-**变更前**：
-
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| teacher_id | int | ✅ | 教师 ID |
-
-**变更后**：
-
-| 参数 | 类型 | 必填 | 默认值 | 说明 |
+| 字段 | 类型 | 必填 | 默认值 | 说明 |
 |------|------|------|--------|------|
-| teacher_id | int | ❌ | - | 教师 ID，不传则返回所有教师的对话 |
-| session_id | string | ❌ | - | 会话 ID，不传则返回所有会话 |
-| page | int | ❌ | 1 | 页码 |
-| page_size | int | ❌ | 20 | 每页数量 |
+| class_id | int | ❌ | - | 指定加入的班级（不传则只建立师生关系） |
+| expires_hours | int | ❌ | 168（7天） | 过期时间（小时），0=永不过期 |
+| max_uses | int | ❌ | 0 | 最大使用次数，0=不限 |
 
-**向后兼容**：✅ 参数从必填改为可选，已有调用方传 teacher_id 的行为不变。
-
----
-
-## 4. CORS 配置变更
-
-### 4.1 新增允许的来源
-
-```yaml
-# harness.yaml 变更
-security:
-  cors:
-    allowed_origins:
-      - "http://localhost:3000"
-      - "http://localhost:10086"      # 🆕 Taro 开发服务器
-      - "http://localhost:*"          # 🆕 通配本地开发端口
-      - "https://servicewechat.com"   # 🆕 微信小程序
-      - "https://your-app.com"
-    allowed_methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"]  # 🆕 增加 OPTIONS
-    allowed_headers: ["Content-Type", "Authorization", "X-Requested-With"]  # 🆕 增加 X-Requested-With
-    allow_credentials: true  # 🆕 允许携带凭证
-```
-
-### 4.2 小程序请求适配说明
-
-微信小程序的网络请求有以下特殊性，后端需注意：
-
-1. **无 CORS 预检**：小程序不走浏览器 CORS 机制，但开发者工具中会模拟浏览器行为，需要正确处理 OPTIONS 请求
-2. **请求头限制**：小程序只能设置有限的请求头，`Authorization` 是允许的
-3. **域名白名单**：正式发布时需要在小程序后台配置服务器域名，开发阶段可在开发者工具中关闭域名校验
-4. **HTTPS 要求**：正式环境必须 HTTPS，开发环境可用 HTTP
-
----
-
-## 5. 前端 API 调用规范
-
-### 5.1 请求封装示例
-
-```typescript
-// src/api/request.ts
-import Taro from '@tarojs/taro'
-
-const BASE_URL = 'http://localhost:8080'
-
-interface RequestOptions {
-  url: string
-  method: 'GET' | 'POST' | 'PUT' | 'DELETE'
-  data?: any
-  header?: Record<string, string>
-}
-
-interface ApiResponse<T = any> {
-  code: number
-  message: string
-  data: T
-}
-
-export async function request<T = any>(options: RequestOptions): Promise<ApiResponse<T>> {
-  const token = Taro.getStorageSync('token')
-  
-  const header: Record<string, string> = {
-    'Content-Type': 'application/json',
-    ...options.header,
+**成功响应** `200`：
+```json
+{
+  "code": 0,
+  "message": "success",
+  "data": {
+    "id": 1,
+    "teacher_persona_id": 3,
+    "share_code": "ABC12345",
+    "class_id": 1,
+    "class_name": "高一(3)班",
+    "expires_at": "2026-04-08T09:00:00Z",
+    "max_uses": 50,
+    "used_count": 0,
+    "is_active": true,
+    "created_at": "2026-04-01T09:00:00Z"
   }
-  
-  if (token) {
-    header['Authorization'] = `Bearer ${token}`
-  }
-  
-  try {
-    const response = await Taro.request({
-      url: `${BASE_URL}${options.url}`,
-      method: options.method,
-      data: options.data,
-      header,
-    })
-    
-    const result = response.data as ApiResponse<T>
-    
-    // 统一错误处理
-    if (result.code === 40001 || result.code === 40002) {
-      // Token 无效或过期
-      Taro.removeStorageSync('token')
-      Taro.removeStorageSync('userInfo')
-      Taro.redirectTo({ url: '/pages/login/index' })
-      throw new Error('登录已过期，请重新登录')
-    }
-    
-    if (result.code !== 0) {
-      Taro.showToast({ title: result.message, icon: 'none' })
-      throw new Error(result.message)
-    }
-    
-    return result
-  } catch (error) {
-    if (error instanceof Error && error.message.includes('request:fail')) {
-      Taro.showToast({ title: '网络异常，请检查网络连接', icon: 'none' })
-    }
-    throw error
-  }
-}
-```
-
-### 5.2 API 定义示例
-
-```typescript
-// src/api/auth.ts
-import Taro from '@tarojs/taro'
-import { request } from './request'
-
-// 微信登录：先调用 wx.login 获取 code，再发送给后端
-export async function wxLogin() {
-  const { code } = await Taro.login()
-  return request({
-    url: '/api/auth/wx-login',
-    method: 'POST',
-    data: { code },
-  })
-}
-
-// 新用户补全信息
-export function completeProfile(role: string, nickname: string) {
-  return request({
-    url: '/api/auth/complete-profile',
-    method: 'POST',
-    data: { role, nickname },
-  })
-}
-
-// src/api/teacher.ts
-import { request } from './request'
-
-export function getTeachers(page = 1, pageSize = 20) {
-  return request({
-    url: `/api/teachers?page=${page}&page_size=${pageSize}`,
-    method: 'GET',
-  })
-}
-
-// src/api/chat.ts
-import { request } from './request'
-
-export function sendMessage(message: string, teacherId: number, sessionId?: string) {
-  return request({
-    url: '/api/chat',
-    method: 'POST',
-    data: { message, teacher_id: teacherId, session_id: sessionId },
-  })
-}
-
-export function getConversations(params: {
-  teacher_id?: number
-  session_id?: string
-  page?: number
-  page_size?: number
-}) {
-  const query = new URLSearchParams()
-  Object.entries(params).forEach(([key, value]) => {
-    if (value !== undefined) query.append(key, String(value))
-  })
-  return request({
-    url: `/api/conversations?${query.toString()}`,
-    method: 'GET',
-  })
-}
-
-export function getSessions(page = 1, pageSize = 20) {
-  return request({
-    url: `/api/conversations/sessions?page=${page}&page_size=${pageSize}`,
-    method: 'GET',
-  })
-}
-
-// src/api/user.ts
-import { request } from './request'
-
-export function getUserProfile() {
-  return request({
-    url: '/api/user/profile',
-    method: 'GET',
-  })
 }
 ```
 
 ---
 
-## 6. 接口完整清单（第二迭代全量）
+### 5.2 获取分享码列表
 
-### 6.1 第一迭代已有接口
+**GET** `/api/shares`
 
-| 方法 | 路径 | 说明 | 鉴权 | 状态 |
+**鉴权**：需要（Bearer Token，角色：teacher）
+
+**成功响应** `200`：
+```json
+{
+  "code": 0,
+  "message": "success",
+  "data": {
+    "items": [
+      {
+        "id": 1,
+        "share_code": "ABC12345",
+        "class_id": 1,
+        "class_name": "高一(3)班",
+        "expires_at": "2026-04-08T09:00:00Z",
+        "max_uses": 50,
+        "used_count": 12,
+        "is_active": true,
+        "created_at": "2026-04-01T09:00:00Z"
+      }
+    ],
+    "total": 3
+  }
+}
+```
+
+---
+
+### 5.3 停用分享码
+
+**PUT** `/api/shares/:id/deactivate`
+
+**鉴权**：需要（Bearer Token，角色：teacher）
+
+**路径参数**：
+
+| 参数 | 类型 | 说明 |
+|------|------|------|
+| id | int | 分享码记录 ID |
+
+**成功响应** `200`：
+```json
+{
+  "code": 0,
+  "message": "success",
+  "data": {
+    "id": 1,
+    "is_active": false
+  }
+}
+```
+
+---
+
+### 5.4 获取分享码信息（预览）
+
+**GET** `/api/shares/:code/info`
+
+**鉴权**：需要（Bearer Token，但不限角色）
+
+**路径参数**：
+
+| 参数 | 类型 | 说明 |
+|------|------|------|
+| code | string | 分享码 |
+
+**成功响应** `200`：
+```json
+{
+  "code": 0,
+  "message": "success",
+  "data": {
+    "teacher_persona_id": 3,
+    "teacher_nickname": "王老师",
+    "teacher_school": "北京大学",
+    "teacher_description": "物理学教授，专注力学和热力学教学",
+    "class_name": "高一(3)班",
+    "is_valid": true
+  }
+}
+```
+
+**分享码无效时**：
+```json
+{
+  "code": 0,
+  "message": "success",
+  "data": {
+    "is_valid": false,
+    "reason": "分享码已过期"
+  }
+}
+```
+
+---
+
+### 5.5 通过分享码加入
+
+**POST** `/api/shares/:code/join`
+
+**鉴权**：需要（Bearer Token）
+
+**路径参数**：
+
+| 参数 | 类型 | 说明 |
+|------|------|------|
+| code | string | 分享码 |
+
+**请求体**：
+```json
+{
+  "student_persona_id": 5
+}
+```
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| student_persona_id | int | ❌ | 使用哪个学生分身加入（不传则自动选择） |
+
+**成功响应** `200`：
+```json
+{
+  "code": 0,
+  "message": "success",
+  "data": {
+    "relation_id": 10,
+    "teacher_persona_id": 3,
+    "teacher_nickname": "王老师",
+    "teacher_school": "北京大学",
+    "student_persona_id": 5,
+    "class_id": 1,
+    "class_name": "高一(3)班"
+  }
+}
+```
+
+**需要选择学生分身时** `200`：
+```json
+{
+  "code": 0,
+  "message": "success",
+  "data": {
+    "need_select_persona": true,
+    "student_personas": [
+      {
+        "id": 5,
+        "nickname": "音乐培训班学生"
+      },
+      {
+        "id": 8,
+        "nickname": "数学提高班学生"
+      }
+    ]
+  }
+}
+```
+
+**错误响应**：
+| 场景 | code | message |
+|------|------|---------|
+| 分享码无效 | 40020 | 分享码无效或已过期 |
+| 使用次数已达上限 | 40021 | 分享码使用次数已达上限 |
+| 没有学生分身 | 40022 | 需要先创建学生分身才能加入 |
+| 已经关联 | 40009 | 师生关系已存在 |
+
+---
+
+## 6. 获取用户信息（增强）
+
+### 6.1 获取用户信息
+
+**GET** `/api/user/profile`
+
+**改造说明**：返回当前分身信息和分身列表。
+
+**成功响应** `200`：
+```json
+{
+  "code": 0,
+  "message": "success",
+  "data": {
+    "user_id": 1,
+    "username": "wx_user_abc",
+    "current_persona": {
+      "id": 3,
+      "role": "teacher",
+      "nickname": "王老师",
+      "school": "北京大学",
+      "description": "物理学教授"
+    },
+    "personas": [
+      {
+        "id": 3,
+        "role": "teacher",
+        "nickname": "王老师",
+        "school": "北京大学",
+        "description": "物理学教授"
+      },
+      {
+        "id": 5,
+        "role": "student",
+        "nickname": "音乐培训班学生",
+        "school": "",
+        "description": ""
+      }
+    ],
+    "created_at": "2026-04-01T09:00:00Z"
+  }
+}
+```
+
+---
+
+## 7. 接口总览
+
+### 7.1 新增接口（18 个）
+
+| 编号 | 方法 | 路径 | 说明 | 角色 |
 |------|------|------|------|------|
-| POST | `/api/auth/register` | 用户注册（保留，前端不使用） | 无 | 不变 |
-| POST | `/api/auth/login` | 用户登录（保留，前端不使用） | 无 | 不变 |
-| POST | `/api/auth/refresh` | 刷新令牌 | 需要 | 不变 |
-| POST | `/api/chat` | 发送对话消息 | 需要 | 不变 |
-| GET | `/api/conversations` | 获取对话历史 | 需要 | 🔧 teacher_id 改为可选 |
-| POST | `/api/documents` | 添加知识文档 | 需要（teacher） | 不变 |
-| GET | `/api/documents` | 获取文档列表 | 需要（teacher） | 不变 |
-| DELETE | `/api/documents/:id` | 删除文档 | 需要（teacher） | 不变 |
-| GET | `/api/memories` | 获取学生记忆 | 需要 | 不变 |
-| GET | `/api/system/health` | 健康检查 | 无 | 不变 |
-| GET | `/api/system/plugins` | 插件列表 | 需要（admin） | 不变 |
-| GET | `/api/system/pipelines` | 管道列表 | 需要（admin） | 不变 |
+| API-20 | POST | `/api/personas` | 创建分身 | 登录用户 |
+| API-21 | GET | `/api/personas` | 获取分身列表 | 登录用户 |
+| API-22 | PUT | `/api/personas/:id` | 编辑分身 | 登录用户 |
+| API-23 | PUT | `/api/personas/:id/activate` | 启用分身 | 登录用户 |
+| API-24 | PUT | `/api/personas/:id/deactivate` | 停用分身 | 登录用户 |
+| API-25 | PUT | `/api/personas/:id/switch` | 切换分身 | 登录用户 |
+| API-26 | POST | `/api/classes` | 创建班级 | teacher |
+| API-27 | GET | `/api/classes` | 获取班级列表 | teacher |
+| API-28 | PUT | `/api/classes/:id` | 编辑班级 | teacher |
+| API-29 | DELETE | `/api/classes/:id` | 删除班级 | teacher |
+| API-30 | POST | `/api/classes/:id/members` | 添加班级成员 | teacher |
+| API-31 | DELETE | `/api/classes/:id/members/:member_id` | 移除班级成员 | teacher |
+| API-32 | GET | `/api/classes/:id/members` | 获取班级成员列表 | teacher |
+| API-33 | POST | `/api/shares` | 生成分享码 | teacher |
+| API-34 | GET | `/api/shares` | 获取分享码列表 | teacher |
+| API-35 | PUT | `/api/shares/:id/deactivate` | 停用分享码 | teacher |
+| API-36 | GET | `/api/shares/:code/info` | 获取分享码信息 | 登录用户 |
+| API-37 | POST | `/api/shares/:code/join` | 通过分享码加入 | 登录用户 |
 
-### 6.2 第二迭代新增接口
+### 7.2 改造接口（13 个）
 
-| 方法 | 路径 | 说明 | 鉴权 | 状态 |
-|------|------|------|------|------|
-| POST | `/api/auth/wx-login` | 微信登录 | 无 | 🆕 新增 |
-| POST | `/api/auth/complete-profile` | 新用户补全信息 | 需要 | 🆕 新增 |
-| GET | `/api/teachers` | 获取教师列表 | 需要 | 🆕 新增 |
-| GET | `/api/user/profile` | 获取当前用户信息 | 需要 | 🆕 新增 |
-| GET | `/api/conversations/sessions` | 获取会话列表 | 需要 | 🆕 新增 |
-
----
-
-## 7. 测试用例（curl 命令）
-
-### 微信登录（mock 模式）
-```bash
-# 需要设置环境变量 WX_MODE=mock
-curl -X POST http://localhost:8080/api/auth/wx-login \
-  -H "Content-Type: application/json" \
-  -d '{"code": "test_teacher_001"}'
-# 期望响应: is_new_user=true, role=""
-```
-
-### 新用户补全信息
-```bash
-curl -X POST http://localhost:8080/api/auth/complete-profile \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer <new_user_token>" \
-  -d '{"role": "teacher", "nickname": "王老师"}'
-# 期望响应: role="teacher", nickname="王老师"
-```
-
-### 同一 openid 再次登录
-```bash
-curl -X POST http://localhost:8080/api/auth/wx-login \
-  -H "Content-Type: application/json" \
-  -d '{"code": "test_teacher_001"}'
-# 期望响应: is_new_user=false, role="teacher", nickname="王老师"
-```
-
-### 获取教师列表
-```bash
-curl -X GET "http://localhost:8080/api/teachers?page=1&page_size=20" \
-  -H "Authorization: Bearer <student_token>"
-```
-
-### 获取当前用户信息
-```bash
-curl -X GET http://localhost:8080/api/user/profile \
-  -H "Authorization: Bearer <token>"
-```
-
-### 获取会话列表
-```bash
-curl -X GET "http://localhost:8080/api/conversations/sessions?page=1&page_size=20" \
-  -H "Authorization: Bearer <student_token>"
-```
-
-### 获取对话历史（不传 teacher_id）
-```bash
-curl -X GET "http://localhost:8080/api/conversations?page=1&page_size=50" \
-  -H "Authorization: Bearer <student_token>"
-```
+| 接口 | 改造内容 |
+|------|----------|
+| `POST /api/auth/wx-login` | 返回分身列表 + 当前分身 |
+| `POST /api/auth/complete-profile` | 内部转为创建分身 |
+| `POST /api/chat` | teacher_id → teacher_persona_id |
+| `POST /api/chat/stream` | teacher_id → teacher_persona_id |
+| `GET /api/teachers` | 返回教师分身列表 |
+| `POST /api/documents` | 新增 scope / scope_id |
+| `GET /api/documents` | 新增 scope 筛选 |
+| `POST /api/documents/upload` | 新增 scope / scope_id |
+| `POST /api/documents/import-url` | 新增 scope / scope_id |
+| `POST /api/relations/invite` | student_id → student_persona_id |
+| `POST /api/relations/apply` | teacher_id → teacher_persona_id |
+| `GET /api/relations` | 使用 persona_id |
+| `GET /api/user/profile` | 返回分身信息 |
 
 ---
 
-## 8. 环境变量（新增/变更）
+## 8. 路由注册参考
 
-| 变量名 | 必填 | 默认值 | 说明 | 状态 |
-|--------|------|--------|------|------|
-| `TARO_APP_API` | ❌ | `http://localhost:8080` | 前端 API 地址 | 🆕 前端使用 |
-| `WX_APPID` | 生产必填 | - | 微信小程序 AppID | 🆕 后端使用 |
-| `WX_SECRET` | 生产必填 | - | 微信小程序 AppSecret | 🆕 后端使用 |
-| `WX_MODE` | ❌ | `real` | 微信 API 模式：`real` / `mock` | 🆕 后端使用 |
+```go
+// router.go 新增路由
 
-> 其他后端环境变量不变，沿用第一迭代的 `.env` 配置。
-> 开发和测试环境设置 `WX_MODE=mock`，无需真实的 AppID 和 Secret。
+// 分身管理
+personas := authorized.Group("/personas")
+{
+    personas.POST("", handler.HandleCreatePersona)
+    personas.GET("", handler.HandleGetPersonas)
+    personas.PUT("/:id", handler.HandleEditPersona)
+    personas.PUT("/:id/activate", handler.HandleActivatePersona)
+    personas.PUT("/:id/deactivate", handler.HandleDeactivatePersona)
+    personas.PUT("/:id/switch", handler.HandleSwitchPersona)
+}
+
+// 班级管理
+classes := authorized.Group("/classes")
+{
+    classes.POST("", auth.RoleRequired("teacher"), handler.HandleCreateClass)
+    classes.GET("", auth.RoleRequired("teacher"), handler.HandleGetClasses)
+    classes.PUT("/:id", auth.RoleRequired("teacher"), handler.HandleEditClass)
+    classes.DELETE("/:id", auth.RoleRequired("teacher"), handler.HandleDeleteClass)
+    classes.POST("/:id/members", auth.RoleRequired("teacher"), handler.HandleAddClassMember)
+    classes.DELETE("/:id/members/:member_id", auth.RoleRequired("teacher"), handler.HandleRemoveClassMember)
+    classes.GET("/:id/members", auth.RoleRequired("teacher"), handler.HandleGetClassMembers)
+}
+
+// 分享码
+shares := authorized.Group("/shares")
+{
+    shares.POST("", auth.RoleRequired("teacher"), handler.HandleCreateShare)
+    shares.GET("", auth.RoleRequired("teacher"), handler.HandleGetShares)
+    shares.PUT("/:id/deactivate", auth.RoleRequired("teacher"), handler.HandleDeactivateShare)
+    shares.GET("/:code/info", handler.HandleGetShareInfo)
+    shares.POST("/:code/join", handler.HandleJoinByShare)
+}
+```
 
 ---
 
-**文档版本**: v1.1.0
-**创建日期**: 2026-03-28
-**最后更新**: 2026-03-28
-**变更记录**:
-- v1.0.0: 初始版本（用户名密码登录）
-- v1.1.0: 登录方式改为微信登录，新增 wx-login 和 complete-profile 接口，移除 login/register 响应增强变更
+**文档版本**: v1.0.0
+**创建日期**: 2026-03-29
+**最后更新**: 2026-03-29

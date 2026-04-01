@@ -2,7 +2,6 @@ package api
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -194,12 +193,14 @@ func (h *Handler) HandleWxLogin(c *gin.Context) {
 	}
 
 	Success(c, gin.H{
-		"user_id":     output.Data["user_id"],
-		"token":       output.Data["token"],
-		"role":        output.Data["role"],
-		"nickname":    output.Data["nickname"],
-		"is_new_user": output.Data["is_new_user"],
-		"expires_at":  output.Data["expires_at"],
+		"user_id":         output.Data["user_id"],
+		"token":           output.Data["token"],
+		"role":            output.Data["role"],
+		"nickname":        output.Data["nickname"],
+		"is_new_user":     output.Data["is_new_user"],
+		"expires_at":      output.Data["expires_at"],
+		"personas":        output.Data["personas"],        // V2.0 迭代2
+		"current_persona": output.Data["current_persona"], // V2.0 迭代2
 	})
 }
 
@@ -207,8 +208,10 @@ func (h *Handler) HandleWxLogin(c *gin.Context) {
 // POST /api/auth/complete-profile
 func (h *Handler) HandleCompleteProfile(c *gin.Context) {
 	var req struct {
-		Role     string `json:"role" binding:"required"`
-		Nickname string `json:"nickname" binding:"required"`
+		Role        string `json:"role" binding:"required"`
+		Nickname    string `json:"nickname" binding:"required"`
+		School      string `json:"school"`
+		Description string `json:"description"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -233,10 +236,12 @@ func (h *Handler) HandleCompleteProfile(c *gin.Context) {
 	input := &core.PluginInput{
 		RequestID: uuid.New().String(),
 		Data: map[string]interface{}{
-			"action":   "complete-profile",
-			"user_id":  userIDInt64,
-			"role":     req.Role,
-			"nickname": req.Nickname,
+			"action":      "complete-profile",
+			"user_id":     userIDInt64,
+			"role":        req.Role,
+			"nickname":    req.Nickname,
+			"school":      req.School,
+			"description": req.Description,
 		},
 		Context: context.Background(),
 	}
@@ -254,6 +259,8 @@ func (h *Handler) HandleCompleteProfile(c *gin.Context) {
 			errorCode = toInt(code, 40004)
 			if errorCode == 40005 {
 				httpStatus = http.StatusNotFound
+			} else if errorCode == 40008 || errorCode == 40015 {
+				httpStatus = http.StatusConflict
 			}
 		}
 		Error(c, httpStatus, errorCode, output.Error)
@@ -261,9 +268,14 @@ func (h *Handler) HandleCompleteProfile(c *gin.Context) {
 	}
 
 	Success(c, gin.H{
-		"user_id":  output.Data["user_id"],
-		"role":     output.Data["role"],
-		"nickname": output.Data["nickname"],
+		"user_id":     output.Data["user_id"],
+		"role":        output.Data["role"],
+		"nickname":    output.Data["nickname"],
+		"school":      output.Data["school"],
+		"description": output.Data["description"],
+		"persona_id":  output.Data["persona_id"], // V2.0 迭代2
+		"token":       output.Data["token"],
+		"expires_at":  output.Data["expires_at"],
 	})
 }
 
@@ -315,189 +327,11 @@ func (h *Handler) HandleRefresh(c *gin.Context) {
 	})
 }
 
-// ======================== 对话接口 ========================
-
-// HandleChat 对话接口（通过管道编排执行）
-// POST /api/chat
-func (h *Handler) HandleChat(c *gin.Context) {
-	var req struct {
-		Message   string `json:"message" binding:"required"`
-		TeacherID int64  `json:"teacher_id" binding:"required"`
-		SessionID string `json:"session_id"`
-	}
-
-	if err := c.ShouldBindJSON(&req); err != nil {
-		Error(c, http.StatusBadRequest, 40004, "请求参数无效: "+err.Error())
-		return
-	}
-
-	// 从 JWT 中间件获取用户信息
-	userID, _ := c.Get("user_id")
-	role, _ := c.Get("role")
-	username, _ := c.Get("username")
-
-	userIDInt64, ok := userID.(int64)
-	if !ok {
-		Error(c, http.StatusUnauthorized, 40001, "用户信息无效")
-		return
-	}
-
-	userContext := &core.UserContext{
-		UserID:     fmt.Sprintf("%d", userIDInt64),
-		Role:       fmt.Sprintf("%v", role),
-		SessionID:  req.SessionID,
-		Attributes: map[string]interface{}{"username": username},
-	}
-
-	// 构建管道输入
-	input := &core.PluginInput{
-		RequestID:   uuid.New().String(),
-		UserContext: userContext,
-		Data: map[string]interface{}{
-			"action":     "chat",
-			"message":    req.Message,
-			"teacher_id": req.TeacherID,
-		},
-		Context: c.Request.Context(),
-	}
-
-	if req.SessionID != "" {
-		input.Data["session_id"] = req.SessionID
-	}
-
-	// 通过管道编排执行
-	output, err := h.manager.ExecutePipeline("student_chat", input)
-	if err != nil {
-		// 检查是否是超时错误
-		if c.Request.Context().Err() != nil {
-			Error(c, http.StatusGatewayTimeout, 50004, "管道执行超时")
-			return
-		}
-		if strings.Contains(err.Error(), "not found") {
-			Error(c, http.StatusInternalServerError, 50001, err.Error())
-			return
-		}
-		Error(c, http.StatusInternalServerError, 50001, "对话处理失败: "+err.Error())
-		return
-	}
-
-	if !output.Success {
-		errorCode := 50001
-		if code, ok := output.Data["error_code"]; ok {
-			errorCode = toInt(code, 50001)
-		}
-		Error(c, http.StatusInternalServerError, errorCode, output.Error)
-		return
-	}
-
-	Success(c, gin.H{
-		"reply":                output.Data["reply"],
-		"session_id":           output.Data["session_id"],
-		"conversation_id":      output.Data["conversation_id"],
-		"token_usage":          output.Data["token_usage"],
-		"pipeline_duration_ms": output.Data["pipeline_duration_ms"],
-	})
-}
-
-// HandleGetSessions 获取会话列表
-// GET /api/conversations/sessions
-func (h *Handler) HandleGetSessions(c *gin.Context) {
-	userID, _ := c.Get("user_id")
-	userIDInt64, ok := userID.(int64)
-	if !ok {
-		Error(c, http.StatusUnauthorized, 40001, "用户信息无效")
-		return
-	}
-
-	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
-	if page < 1 {
-		page = 1
-	}
-	if pageSize < 1 || pageSize > 100 {
-		pageSize = 20
-	}
-
-	offset := (page - 1) * pageSize
-
-	db := h.manager.GetDB()
-	if db == nil {
-		Error(c, http.StatusInternalServerError, 50001, "数据库服务不可用")
-		return
-	}
-	convRepo := database.NewConversationRepository(db)
-
-	sessions, total, err := convRepo.GetSessionsByStudent(userIDInt64, offset, pageSize)
-	if err != nil {
-		Error(c, http.StatusInternalServerError, 50001, "查询会话列表失败: "+err.Error())
-		return
-	}
-
-	SuccessPage(c, sessions, total, page, pageSize)
-}
-
-// HandleGetConversations 获取对话历史
-// GET /api/conversations
-func (h *Handler) HandleGetConversations(c *gin.Context) {
-	userID, _ := c.Get("user_id")
-	userIDInt64, ok := userID.(int64)
-	if !ok {
-		Error(c, http.StatusUnauthorized, 40001, "用户信息无效")
-		return
-	}
-
-	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "10"))
-	if page < 1 {
-		page = 1
-	}
-	if pageSize < 1 || pageSize > 100 {
-		pageSize = 10
-	}
-
-	offset := (page - 1) * pageSize
-	teacherIDStr := c.Query("teacher_id")
-	sessionID := c.Query("session_id")
-
-	db := h.manager.GetDB()
-	if db == nil {
-		Error(c, http.StatusInternalServerError, 50001, "数据库服务不可用")
-		return
-	}
-	convRepo := database.NewConversationRepository(db)
-
-	var items []*database.Conversation
-	var total int
-	var err error
-
-	if sessionID != "" {
-		// 按 session_id 筛选
-		items, total, err = convRepo.GetConversationsBySession(userIDInt64, sessionID, offset, pageSize)
-	} else if teacherIDStr != "" {
-		// 传了 teacher_id，按教师筛选（向后兼容）
-		teacherID, parseErr := strconv.ParseInt(teacherIDStr, 10, 64)
-		if parseErr != nil || teacherID <= 0 {
-			Error(c, http.StatusBadRequest, 40004, "无效的 teacher_id 参数")
-			return
-		}
-		items, total, err = convRepo.GetByStudentAndTeacher(userIDInt64, teacherID, offset, pageSize)
-	} else {
-		// 不传 teacher_id，返回与所有教师的对话
-		items, total, err = convRepo.GetConversationsByStudent(userIDInt64, offset, pageSize)
-	}
-
-	if err != nil {
-		Error(c, http.StatusInternalServerError, 50001, "查询对话历史失败: "+err.Error())
-		return
-	}
-
-	SuccessPage(c, items, total, page, pageSize)
-}
-
 // ======================== 教师列表接口 ========================
 
 // HandleGetTeachers 获取教师列表
 // GET /api/teachers
+// V2.0 迭代3 改造：学生角色仅返回已授权+启用的教师分身
 func (h *Handler) HandleGetTeachers(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
@@ -516,6 +350,25 @@ func (h *Handler) HandleGetTeachers(c *gin.Context) {
 		return
 	}
 
+	// V2.0 迭代3：判断当前用户角色
+	role, _ := c.Get("role")
+	roleStr, _ := role.(string)
+	personaID, _ := c.Get("persona_id")
+	personaIDInt64, _ := personaID.(int64)
+
+	if roleStr == "student" && personaIDInt64 > 0 {
+		// 学生角色：仅返回已授权+启用的教师分身
+		userRepo := database.NewUserRepository(db)
+		teachers, total, err := userRepo.ListTeachersForStudent(personaIDInt64, offset, pageSize)
+		if err != nil {
+			Error(c, http.StatusInternalServerError, 50001, "查询教师列表失败: "+err.Error())
+			return
+		}
+		SuccessPage(c, teachers, total, page, pageSize)
+		return
+	}
+
+	// 教师角色或其他：返回所有教师分身列表
 	userRepo := database.NewUserRepository(db)
 	teachers, total, err := userRepo.GetTeachers(offset, pageSize)
 	if err != nil {
@@ -530,6 +383,7 @@ func (h *Handler) HandleGetTeachers(c *gin.Context) {
 
 // HandleGetUserProfile 获取当前用户信息
 // GET /api/user/profile
+// V2.0 迭代2 改造：返回分身信息
 func (h *Handler) HandleGetUserProfile(c *gin.Context) {
 	userID, _ := c.Get("user_id")
 	userIDInt64, ok := userID.(int64)
@@ -545,6 +399,7 @@ func (h *Handler) HandleGetUserProfile(c *gin.Context) {
 	}
 
 	userRepo := database.NewUserRepository(db)
+	personaRepo := database.NewPersonaRepository(db)
 
 	// 查询用户基本信息
 	user, err := userRepo.GetByID(userIDInt64)
@@ -557,193 +412,52 @@ func (h *Handler) HandleGetUserProfile(c *gin.Context) {
 		return
 	}
 
-	// 查询统计信息
-	stats, err := userRepo.GetUserStats(userIDInt64, user.Role)
+	// V2.0 迭代2：查询分身列表
+	personas, err := personaRepo.ListByUserID(userIDInt64, "")
 	if err != nil {
-		Error(c, http.StatusInternalServerError, 50001, "查询用户统计信息失败: "+err.Error())
+		Error(c, http.StatusInternalServerError, 50001, "查询分身列表失败: "+err.Error())
 		return
 	}
 
-	Success(c, gin.H{
-		"id":         user.ID,
-		"username":   user.Username,
-		"nickname":   user.Nickname,
-		"role":       user.Role,
-		"email":      user.Email,
-		"created_at": user.CreatedAt,
-		"stats":      stats,
-	})
-}
-
-// ======================== 知识库接口 ========================
-
-// HandleAddDocument 添加文档
-// POST /api/documents
-func (h *Handler) HandleAddDocument(c *gin.Context) {
-	var req struct {
-		Title   string `json:"title" binding:"required"`
-		Content string `json:"content" binding:"required"`
-		Tags    string `json:"tags"`
-	}
-
-	if err := c.ShouldBindJSON(&req); err != nil {
-		Error(c, http.StatusBadRequest, 40004, "请求参数无效: "+err.Error())
-		return
-	}
-
-	userID, _ := c.Get("user_id")
-	userIDInt64, ok := userID.(int64)
-	if !ok {
-		Error(c, http.StatusUnauthorized, 40001, "用户信息无效")
-		return
-	}
-
-	plugin, err := h.manager.GetPlugin("knowledge-retrieval")
-	if err != nil {
-		Error(c, http.StatusInternalServerError, 50001, "知识库服务不可用")
-		return
-	}
-
-	userContext := &core.UserContext{
-		UserID: fmt.Sprintf("%d", userIDInt64),
-	}
-
-	input := &core.PluginInput{
-		RequestID:   uuid.New().String(),
-		UserContext:  userContext,
-		Data: map[string]interface{}{
-			"action":     "add",
-			"title":      req.Title,
-			"content":    req.Content,
-			"tags":       req.Tags,
-			"teacher_id": userIDInt64,
-		},
-		Context: c.Request.Context(),
-	}
-
-	output, err := plugin.Execute(c.Request.Context(), input)
-	if err != nil {
-		Error(c, http.StatusInternalServerError, 50001, "添加文档失败: "+err.Error())
-		return
-	}
-
-	if !output.Success {
-		errorCode := 50001
-		if code, ok := output.Data["error_code"]; ok {
-			errorCode = toInt(code, 50001)
-		}
-		Error(c, http.StatusBadRequest, errorCode, output.Error)
-		return
-	}
-
-	Success(c, gin.H{
-		"document_id":  output.Data["document_id"],
-		"chunks_count": output.Data["chunks_count"],
-	})
-}
-
-// HandleGetDocuments 获取文档列表
-// GET /api/documents
-func (h *Handler) HandleGetDocuments(c *gin.Context) {
-	userID, _ := c.Get("user_id")
-	userIDInt64, ok := userID.(int64)
-	if !ok {
-		Error(c, http.StatusUnauthorized, 40001, "用户信息无效")
-		return
-	}
-
-	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "10"))
-	if page < 1 {
-		page = 1
-	}
-	if pageSize < 1 || pageSize > 100 {
-		pageSize = 10
-	}
-
-	plugin, err := h.manager.GetPlugin("knowledge-retrieval")
-	if err != nil {
-		Error(c, http.StatusInternalServerError, 50001, "知识库服务不可用")
-		return
-	}
-
-	input := &core.PluginInput{
-		RequestID: uuid.New().String(),
-		Data: map[string]interface{}{
-			"action":     "list",
-			"teacher_id": userIDInt64,
-			"page":       page,
-			"page_size":  pageSize,
-		},
-		Context: c.Request.Context(),
-	}
-
-	output, err := plugin.Execute(c.Request.Context(), input)
-	if err != nil {
-		Error(c, http.StatusInternalServerError, 50001, "查询文档列表失败: "+err.Error())
-		return
-	}
-
-	if !output.Success {
-		errorCode := 50001
-		if code, ok := output.Data["error_code"]; ok {
-			errorCode = toInt(code, 50001)
-		}
-		Error(c, http.StatusInternalServerError, errorCode, output.Error)
-		return
-	}
-
-	total := toInt(output.Data["total"], 0)
-	SuccessPage(c, output.Data["documents"], total, page, pageSize)
-}
-
-// HandleDeleteDocument 删除文档
-// DELETE /api/documents/:id
-func (h *Handler) HandleDeleteDocument(c *gin.Context) {
-	idStr := c.Param("id")
-	docID, err := strconv.ParseInt(idStr, 10, 64)
-	if err != nil || docID <= 0 {
-		Error(c, http.StatusBadRequest, 40004, "无效的文档 ID")
-		return
-	}
-
-	plugin, err := h.manager.GetPlugin("knowledge-retrieval")
-	if err != nil {
-		Error(c, http.StatusInternalServerError, 50001, "知识库服务不可用")
-		return
-	}
-
-	input := &core.PluginInput{
-		RequestID: uuid.New().String(),
-		Data: map[string]interface{}{
-			"action":      "delete",
-			"document_id": docID,
-		},
-		Context: c.Request.Context(),
-	}
-
-	output, err := plugin.Execute(c.Request.Context(), input)
-	if err != nil {
-		Error(c, http.StatusInternalServerError, 50001, "删除文档失败: "+err.Error())
-		return
-	}
-
-	if !output.Success {
-		errorCode := 50001
-		httpStatus := http.StatusInternalServerError
-		if code, ok := output.Data["error_code"]; ok {
-			errorCode = toInt(code, 50001)
-			if errorCode == 40005 {
-				httpStatus = http.StatusNotFound
+	// V2.0 迭代2：确定当前分身
+	var currentPersona interface{}
+	personaID, _ := c.Get("persona_id")
+	personaIDInt64, _ := personaID.(int64)
+	if personaIDInt64 > 0 {
+		for _, p := range personas {
+			if p.ID == personaIDInt64 {
+				currentPersona = p
+				break
 			}
 		}
-		Error(c, httpStatus, errorCode, output.Error)
-		return
+	}
+
+	// 确定角色和昵称
+	role := ""
+	nickname := user.Username
+	if personaIDInt64 > 0 {
+		for _, p := range personas {
+			if p.ID == personaIDInt64 {
+				role = p.Role
+				nickname = p.Nickname
+				break
+			}
+		}
+	}
+	if role == "" && len(personas) > 0 {
+		role = personas[0].Role
+		nickname = personas[0].Nickname
 	}
 
 	Success(c, gin.H{
-		"document_id": docID,
-		"deleted":     true,
+		"id":              user.ID,
+		"user_id":         user.ID,
+		"nickname":        nickname,
+		"role":            role,
+		"username":        user.Username,
+		"current_persona": currentPersona,
+		"personas":        personas,
+		"created_at":      user.CreatedAt,
 	})
 }
 

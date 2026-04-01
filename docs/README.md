@@ -4,20 +4,30 @@
 
 ```
 docs/
-├── README.md                          # 📌 本文件 - 文档索引
-├── design/                            # 🏗️ 总体设计（跨版本）
-│   ├── requirements.md                #   总需求规格说明书
-│   ├── architecture.md                #   Harness 架构设计
-│   └── development_plan.md            #   开发计划总览
-├── iterations/                        # 🔄 迭代文档（按版本）
-│   ├── v1.0/                          #   V1.0 - MVP 核心功能
-│   │   ├── iteration1_requirements.md #     Sprint1 需求规格
-│   │   ├── iteration1_api_spec.md     #     Sprint1 API 接口规范
-│   │   └── task_tracking.md           #     任务跟踪
-│   ├── v2.0/                          #   V2.0 - 增强功能（待规划）
-│   └── v3.0/                          #   V3.0 - 扩展功能（待规划）
-└── guides/                            # 📖 开发指南
-    └── go_environment_setup.md        #   Go 环境搭建指南
+├── README.md                              # 📌 本文件 - 文档索引
+├── design/                                # 🏗️ 总体设计（跨版本）
+│   ├── requirements.md                    #   总需求规格说明书
+│   ├── architecture.md                    #   Harness 架构设计
+│   └── development_plan.md                #   开发计划总览
+├── iterations/                            # 🔄 迭代文档（按版本）
+│   ├── v1.0/                              #   V1.0 - MVP 核心功能 ✅
+│   │   ├── iteration1_requirements.md     #     迭代1 后端核心框架需求
+│   │   ├── iteration1_api_spec.md         #     迭代1 API 接口规范
+│   │   ├── iteration2_requirements.md     #     迭代2 小程序前端需求
+│   │   ├── iteration2_api_spec.md         #     迭代2 API 接口规范
+│   │   ├── iteration2_task_tracking.md    #     迭代2 任务跟踪
+│   │   ├── iteration3_requirements.md     #     迭代3 架构补全需求
+│   │   ├── iteration3_api_spec.md         #     迭代3 API 接口规范
+│   │   └── task_tracking.md               #     V1.0 总任务跟踪
+│   ├── v2.0/                              #   V2.0 - 单机生产可用版 📋
+│   │   ├── requirements.md                #     V2.0 需求规格说明书
+│   │   ├── iteration1_requirements.md     #     迭代1 核心功能开发需求
+│   │   ├── iteration1_api_spec.md         #     迭代1 API 接口规范
+│   │   └── task_tracking.md               #     V2.0 任务跟踪
+│   └── v3.0/                              #   V3.0 - 扩展功能（待规划）
+│       └── backlog.md                     #     需求备忘
+└── guides/                                # 📖 开发指南
+    └── go_environment_setup.md            #   Go 环境搭建指南
 ```
 
 ## 🏗️ 总体设计
@@ -30,34 +40,41 @@ docs/
 
 ## 🔄 迭代文档
 
-### V1.0 - MVP 核心功能（2026-Q2）
+### V1.0 - MVP 核心功能（✅ 已完成）
 
-> 目标：Harness 框架 + 4 个核心插件 + 全链路跑通
-
-| 文档 | 说明 | 状态 |
-|------|------|------|
-| [iteration1_requirements.md](iterations/v1.0/iteration1_requirements.md) | Sprint1 后端核心框架需求，8 个模块拆解 | ✅ 已完成 |
-| [iteration1_api_spec.md](iterations/v1.0/iteration1_api_spec.md) | Sprint1 API 接口规范，12 个端点详细定义 | ✅ 已完成 |
-| [task_tracking.md](iterations/v1.0/task_tracking.md) | 任务跟踪和进度管理 | 🔄 进行中 |
-
-### V2.0 - 增强功能（2026-Q3）
-
-> 目标：记忆衰减 + 数据分析 + 留言系统 + 导出功能
+> 3 个迭代，39 个集成测试全部通过
 
 | 文档 | 说明 | 状态 |
 |------|------|------|
-| 待规划 | - | ⏳ 待开始 |
+| [iteration1_requirements.md](iterations/v1.0/iteration1_requirements.md) | 迭代1：后端核心框架 & 全链路验证（8 个模块） | ✅ |
+| [iteration1_api_spec.md](iterations/v1.0/iteration1_api_spec.md) | 迭代1：API 接口规范（12 个端点） | ✅ |
+| [iteration2_requirements.md](iterations/v1.0/iteration2_requirements.md) | 迭代2：小程序前端开发 & 后端适配改造 | ✅ |
+| [iteration2_api_spec.md](iterations/v1.0/iteration2_api_spec.md) | 迭代2：API 接口规范（5 个新增端点） | ✅ |
+| [iteration3_requirements.md](iterations/v1.0/iteration3_requirements.md) | 迭代3：架构补全 & 质量加固（6 个模块） | ✅ |
+| [iteration3_api_spec.md](iterations/v1.0/iteration3_api_spec.md) | 迭代3：API 接口变更规范 | ✅ |
+| [task_tracking.md](iterations/v1.0/task_tracking.md) | V1.0 总任务跟踪 | ✅ |
 
-### V3.0 - 扩展功能（2026-Q4）
+### V2.0 - 单机生产可用版（📋 规划中）
 
-> 目标：多租户 + 插件市场 + API 开放 + 多端适配
+> 2 个迭代：迭代1 核心功能开发 + 迭代2 生产就绪与上线
 
 | 文档 | 说明 | 状态 |
 |------|------|------|
-| 待规划 | - | ⏳ 待开始 |
+| [requirements.md](iterations/v2.0/requirements.md) | V2.0 需求规格说明书（2 个迭代） | ✅ 已完成 |
+| [iteration1_requirements.md](iterations/v2.0/iteration1_requirements.md) | 迭代1：核心功能开发需求（10 个后端模块 + 8 个前端模块） | ✅ 已完成 |
+| [iteration1_api_spec.md](iterations/v2.0/iteration1_api_spec.md) | 迭代1：API 接口规范（17 个新增 + 2 个改造 + 1 个增强） | ✅ 已完成 |
+| [task_tracking.md](iterations/v2.0/task_tracking.md) | V2.0 任务跟踪 | 📋 待开发 |
+
+### V3.0 - 扩展功能（待规划）
+
+> 多租户 + 插件市场 + API 开放 + 智能推荐
+
+| 文档 | 说明 | 状态 |
+|------|------|------|
+| [backlog.md](iterations/v3.0/backlog.md) | 需求备忘（URL 导入已合并到 V2.0） | 📋 |
 
 ## 📖 开发指南
 
 | 文档 | 说明 | 状态 |
 |------|------|------|
-| [go_environment_setup.md](guides/go_environment_setup.md) | Go 开发环境搭建（Go 1.21 + 依赖配置） | ✅ 已完成 |
+| [go_environment_setup.md](guides/go_environment_setup.md) | Go 开发环境搭建（Go 1.25 + 依赖配置） | ✅ 已完成 |

@@ -54,16 +54,17 @@ TEACHER_TOKEN=$(curl -s -X POST http://localhost:8080/api/auth/wx-login \
   -d '{"code":"e2e_teacher_setup"}' | python3 -c "import sys,json; print(json.load(sys.stdin).get('data',{}).get('token',''))")
 
 if [ -n "$TEACHER_TOKEN" ]; then
-  # 补全教师信息
-  curl -s -X POST http://localhost:8080/api/auth/complete-profile \
+  # 补全教师信息（complete-profile 会返回包含角色的新 token）
+  COMPLETE_RESP=$(curl -s -X POST http://localhost:8080/api/auth/complete-profile \
     -H "Content-Type: application/json" \
     -H "Authorization: Bearer $TEACHER_TOKEN" \
-    -d '{"role":"teacher","nickname":"E2E预置教师"}' > /dev/null 2>&1
+    -d '{"role":"teacher","nickname":"E2E预置教师","school":"E2E测试学校","description":"E2E预置教师描述"}')
 
-  # 重新登录获取更新后的 token
-  TEACHER_TOKEN=$(curl -s -X POST http://localhost:8080/api/auth/wx-login \
-    -H "Content-Type: application/json" \
-    -d '{"code":"e2e_teacher_setup"}' | python3 -c "import sys,json; print(json.load(sys.stdin).get('data',{}).get('token',''))")
+  # 从 complete-profile 响应中提取新 token（不重新登录，模拟真实用户行为）
+  NEW_TOKEN=$(echo "$COMPLETE_RESP" | python3 -c "import sys,json; print(json.load(sys.stdin).get('data',{}).get('token',''))" 2>/dev/null)
+  if [ -n "$NEW_TOKEN" ]; then
+    TEACHER_TOKEN="$NEW_TOKEN"
+  fi
 
   # 添加测试文档
   curl -s -X POST http://localhost:8080/api/documents \

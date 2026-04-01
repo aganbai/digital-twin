@@ -14,6 +14,8 @@ type VectorChunk struct {
 	TeacherID  int64  `json:"teacher_id"`
 	Title      string `json:"title"`
 	ChunkIndex int    `json:"chunk_index"`
+	Scope      string `json:"scope"`    // global / class / student
+	ScopeID    int64  `json:"scope_id"` // scope=class 时为班级ID，scope=student 时为学生分身ID
 }
 
 // SearchResult 检索结果

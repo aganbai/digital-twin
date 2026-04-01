@@ -5,6 +5,12 @@ export interface Message {
   id?: number
   role: 'user' | 'assistant'
   content: string
+  /** 消息发送者类型：student / ai / teacher */
+  sender_type?: 'student' | 'ai' | 'teacher' | ''
+  /** 引用的消息 ID */
+  reply_to_id?: number
+  /** 引用的消息内容摘要 */
+  reply_to_content?: string
   created_at?: string
 }
 

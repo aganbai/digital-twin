@@ -137,7 +137,7 @@ func TestPromptBuilder_BuildSystemPrompt_WithData(t *testing.T) {
 		{"content": "学生在循环方面有困难", "memory_type": "weakness"},
 	}
 
-	prompt := builder.BuildSystemPrompt(chunks, memories)
+	prompt := builder.BuildSystemPrompt(chunks, memories, nil)
 
 	// 验证包含关键内容
 	if prompt == "" {
@@ -157,7 +157,7 @@ func TestPromptBuilder_BuildSystemPrompt_WithData(t *testing.T) {
 func TestPromptBuilder_BuildSystemPrompt_Empty(t *testing.T) {
 	builder := NewPromptBuilder()
 
-	prompt := builder.BuildSystemPrompt(nil, nil)
+	prompt := builder.BuildSystemPrompt(nil, nil, nil)
 
 	if !contains(prompt, "暂无相关知识") {
 		t.Error("无知识时应显示默认文本")
