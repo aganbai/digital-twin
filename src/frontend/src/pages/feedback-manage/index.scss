@@ -1,0 +1,158 @@
+.fb-manage {
+  min-height: 100vh;
+  background-color: #f3f4f6;
+  padding-bottom: 40px;
+}
+
+/* 状态筛选 */
+.fb-manage__filters {
+  display: flex;
+  gap: 16px;
+  padding: 24px 32px 12px;
+  background-color: #ffffff;
+}
+
+.fb-manage__filter-tag {
+  padding: 10px 24px;
+  border-radius: 32px;
+  background-color: #f3f4f6;
+  border: 2px solid transparent;
+
+  &--active {
+    background-color: #fffbeb;
+    border-color: #f59e0b;
+  }
+}
+
+.fb-manage__filter-text {
+  font-size: 26px;
+  color: #6b7280;
+}
+
+.fb-manage__filter-tag--active .fb-manage__filter-text {
+  color: #b45309;
+  font-weight: 600;
+}
+
+/* 统计信息 */
+.fb-manage__count {
+  padding: 16px 32px;
+  background-color: #ffffff;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.fb-manage__count-text {
+  font-size: 24px;
+  color: #9ca3af;
+}
+
+/* 列表 */
+.fb-manage__list {
+  padding: 16px 24px;
+}
+
+.fb-manage__empty {
+  padding: 120px 0;
+  text-align: center;
+}
+
+.fb-manage__empty-text {
+  font-size: 28px;
+  color: #9ca3af;
+}
+
+/* 卡片 */
+.fb-manage__card {
+  background-color: #ffffff;
+  border-radius: 16px;
+  padding: 24px;
+  margin-bottom: 16px;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.04);
+
+  &:active {
+    opacity: 0.85;
+  }
+}
+
+.fb-manage__card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.fb-manage__card-type {
+  font-size: 26px;
+  font-weight: 600;
+  color: #374151;
+}
+
+.fb-manage__card-status {
+  padding: 4px 16px;
+  border-radius: 20px;
+}
+
+.fb-manage__card-status-text {
+  font-size: 22px;
+  font-weight: 500;
+}
+
+.fb-manage__card-content {
+  font-size: 28px;
+  color: #1f2937;
+  line-height: 1.6;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+
+.fb-manage__card-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.fb-manage__card-user {
+  font-size: 22px;
+  color: #6b7280;
+}
+
+.fb-manage__card-time {
+  font-size: 22px;
+  color: #9ca3af;
+}
+
+.fb-manage__card-action {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #f3f4f6;
+}
+
+.fb-manage__card-action-text {
+  font-size: 24px;
+  color: #f59e0b;
+  font-weight: 500;
+}
+
+/* 加载更多 */
+.fb-manage__load-more {
+  padding: 24px 0;
+  text-align: center;
+}
+
+.fb-manage__load-more-text {
+  font-size: 26px;
+  color: #6b7280;
+}
+
+.fb-manage__no-more {
+  padding: 24px 0;
+  text-align: center;
+}
+
+.fb-manage__no-more-text {
+  font-size: 24px;
+  color: #d1d5db;
+}

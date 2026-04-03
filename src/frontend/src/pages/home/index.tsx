@@ -33,7 +33,9 @@ export default function Home() {
             )}
           </View>
           <View className='home-page__persona-switch' onClick={handleSwitchPersona}>
-            <Text className='home-page__persona-switch-text'>切换分身</Text>
+            <Text className='home-page__persona-switch-text'>
+              {isTeacher ? '切换分身' : '切换身份'}
+            </Text>
           </View>
         </View>
       </View>
@@ -44,6 +46,7 @@ export default function Home() {
       ) : (
         <StudentHome />
       )}
+
     </View>
   )
 }

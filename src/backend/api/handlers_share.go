@@ -356,43 +356,40 @@ func (h *Handler) HandleJoinByShare(c *gin.Context) {
 		return
 	}
 
-	// 校验该学生分身与教师分身之间没有已存在的 approved 关系
-	approved, err := relationRepo.IsApprovedByPersonas(share.TeacherPersonaID, studentPersonaID)
+	// 校验该学生分身与教师分身之间没有已存在的关系（approved 或 pending）
+	existingRel, err := relationRepo.GetByPersonas(share.TeacherPersonaID, studentPersonaID)
 	if err != nil {
 		Error(c, http.StatusInternalServerError, 50001, "查询师生关系失败: "+err.Error())
 		return
 	}
-	if approved {
-		Error(c, http.StatusConflict, 40023, "已存在师生关系")
+	if existingRel != nil {
+		if existingRel.Status == "approved" {
+			Error(c, http.StatusConflict, 40023, "已存在师生关系")
+		} else if existingRel.Status == "pending" {
+			Error(c, http.StatusConflict, 40023, "已提交申请，请等待教师审批")
+		} else {
+			Error(c, http.StatusConflict, 40023, "已存在关系记录")
+		}
 		return
 	}
 
-	// 自动创建师生关系（status=approved, initiated_by=share）
+	// 创建师生关系（status=pending, initiated_by=share），需教师审批后才能对话
 	relationID, err := relationRepo.CreateWithPersonas(
 		teacherPersona.UserID, studentPersona.UserID,
 		share.TeacherPersonaID, studentPersonaID,
-		"approved", "share",
+		"pending", "share",
 	)
 	if err != nil {
 		Error(c, http.StatusInternalServerError, 50001, "创建师生关系失败: "+err.Error())
 		return
 	}
 
-	// 如果分享码关联了 class_id，自动将学生加入班级
+	// 记录分享码关联的班级信息（不再自动加入，等教师审批时分配）
 	var classID *int64
 	var className string
-	joinedClass := false
 	if share.ClassID != nil {
 		class, err := classRepo.GetByID(*share.ClassID)
 		if err == nil && class != nil {
-			// 检查是否已在班级中
-			isMember, _ := classRepo.IsMember(class.ID, studentPersonaID)
-			if !isMember {
-				_, err = classRepo.AddMember(class.ID, studentPersonaID)
-				if err == nil {
-					joinedClass = true
-				}
-			}
 			classID = &class.ID
 			className = class.Name
 		}
@@ -407,7 +404,9 @@ func (h *Handler) HandleJoinByShare(c *gin.Context) {
 		"teacher_nickname":   teacherPersona.Nickname,
 		"class_id":           classID,
 		"class_name":         className,
-		"joined_class":       joinedClass,
+		"joined_class":       false,
+		"join_status":        "pending_approval",
+		"message":            "申请已提交，请等待教师审批",
 	})
 }
 
@@ -576,9 +575,15 @@ func (h *Handler) HandleGetShareInfoV2(c *gin.Context) {
 			if share != nil {
 				// 检查是否已是该教师的学生
 				relationRepo := database.NewRelationRepository(db)
-				approved, _ := relationRepo.IsApprovedByPersonas(share.TeacherPersonaID, studentPersonaID)
-				if approved {
-					joinStatus = "already_joined"
+				existingRel, _ := relationRepo.GetByPersonas(share.TeacherPersonaID, studentPersonaID)
+				if existingRel != nil {
+					if existingRel.Status == "approved" {
+						joinStatus = "already_joined"
+					} else if existingRel.Status == "pending" {
+						joinStatus = "pending_approval"
+					} else {
+						joinStatus = "can_join"
+					}
 				} else if share.TargetStudentPersonaID > 0 && share.TargetStudentPersonaID != studentPersonaID {
 					joinStatus = "not_target"
 				} else {

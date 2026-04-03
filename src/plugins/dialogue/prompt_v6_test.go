@@ -122,7 +122,7 @@ func TestBuildSystemPrompt_WithTeachingStyle(t *testing.T) {
 	prompt := pb.BuildSystemPrompt(chunks, memories, &StyleConfig{
 		TeachingStyle: "encouraging",
 		GuidanceLevel: "low",
-	})
+	}, nil, "")
 
 	if !strings.Contains(prompt, "鼓励式") {
 		t.Error("prompt 应包含鼓励式教学模板")

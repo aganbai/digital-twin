@@ -277,6 +277,35 @@ func (h *Handler) HandleGetStudentConversations(c *gin.Context) {
 		Error(c, http.StatusInternalServerError, 50001, "查询师生关系失败: "+err.Error())
 		return
 	}
+
+	// 如果分身维度关系不存在，尝试通过 student_id 维度查找
+	// （兼容 student_persona_id 为 0 的旧关系，此时前端传的可能是 student_id）
+	actualStudentPersonaID := studentPersonaID
+	if !approved {
+		// 尝试查找该教师分身下是否有以 studentPersonaID 作为 student_id 的关系
+		var relStudentPersonaID int64
+		db.QueryRow(
+			`SELECT COALESCE(student_persona_id, 0) FROM teacher_student_relations WHERE teacher_persona_id = ? AND student_id = ? AND status = 'approved' LIMIT 1`,
+			personaIDInt64, studentPersonaID,
+		).Scan(&relStudentPersonaID)
+
+		if relStudentPersonaID > 0 {
+			actualStudentPersonaID = relStudentPersonaID
+			approved = true
+		} else {
+			// 即使 student_persona_id 为 0，只要关系存在就允许查看
+			var count int
+			db.QueryRow(
+				`SELECT COUNT(*) FROM teacher_student_relations WHERE teacher_persona_id = ? AND student_id = ? AND status = 'approved'`,
+				personaIDInt64, studentPersonaID,
+			).Scan(&count)
+			if count > 0 {
+				approved = true
+				// actualStudentPersonaID 保持为传入的值（student_id），后续用 student_id 维度查询
+			}
+		}
+	}
+
 	if !approved {
 		Error(c, http.StatusForbidden, 40007, "未获得该学生的授权关系")
 		return
@@ -284,21 +313,42 @@ func (h *Handler) HandleGetStudentConversations(c *gin.Context) {
 
 	// 如果未指定 session_id，获取最新的
 	if sessionID == "" {
-		sessionID, _ = convRepo.GetLatestSessionByPersonas(personaIDInt64, studentPersonaID)
+		sessionID, _ = convRepo.GetLatestSessionByPersonas(personaIDInt64, actualStudentPersonaID)
+		// 如果分身维度查不到，尝试用 student_id 维度
+		if sessionID == "" && actualStudentPersonaID != studentPersonaID {
+			sessionID, _ = convRepo.GetLatestSessionByPersonas(personaIDInt64, studentPersonaID)
+		}
 	}
 
 	// 查询学生昵称
 	var studentNickname string
-	studentPersona, err := personaRepo.GetByID(studentPersonaID)
+	studentPersona, err := personaRepo.GetByID(actualStudentPersonaID)
 	if err == nil && studentPersona != nil {
 		studentNickname = studentPersona.Nickname
 	}
+	// 如果通过 persona 查不到昵称，尝试通过 user 查
+	if studentNickname == "" {
+		var userNickname string
+		db.QueryRow(`SELECT COALESCE(nickname, '') FROM users WHERE id = ?`, studentPersonaID).Scan(&userNickname)
+		if userNickname != "" {
+			studentNickname = userNickname
+		}
+	}
 
 	// 查询对话记录
-	messages, total, err := convRepo.GetByTeacherAndStudentPersonas(personaIDInt64, studentPersonaID, sessionID, offset, pageSize)
+	messages, total, err := convRepo.GetByTeacherAndStudentPersonas(personaIDInt64, actualStudentPersonaID, sessionID, offset, pageSize)
 	if err != nil {
 		Error(c, http.StatusInternalServerError, 50001, "查询对话记录失败: "+err.Error())
 		return
+	}
+
+	// 如果分身维度查不到对话，尝试用 student_id 维度查询
+	if total == 0 && actualStudentPersonaID != studentPersonaID {
+		messages, total, err = convRepo.GetByTeacherAndStudentPersonas(personaIDInt64, studentPersonaID, sessionID, offset, pageSize)
+		if err != nil {
+			Error(c, http.StatusInternalServerError, 50001, "查询对话记录失败: "+err.Error())
+			return
+		}
 	}
 
 	// 查询接管状态
@@ -311,7 +361,7 @@ func (h *Handler) HandleGetStudentConversations(c *gin.Context) {
 	}
 
 	Success(c, gin.H{
-		"student_persona_id": studentPersonaID,
+		"student_persona_id": actualStudentPersonaID,
 		"student_nickname":   studentNickname,
 		"session_id":         sessionID,
 		"takeover_status":    takeoverStatus,

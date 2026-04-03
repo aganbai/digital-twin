@@ -39,6 +39,12 @@ func Error(c *gin.Context, httpStatus int, code int, message string) {
 	})
 }
 
+// ErrorResponse 错误响应结构（用于直接构造JSON响应）
+type ErrorResponse struct {
+	Code    int    `json:"code"`
+	Message string `json:"message"`
+}
+
 // SuccessPage 返回分页成功响应
 func SuccessPage(c *gin.Context, items interface{}, total, page, pageSize int) {
 	c.JSON(http.StatusOK, Response{

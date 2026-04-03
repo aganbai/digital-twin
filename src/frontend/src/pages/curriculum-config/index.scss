@@ -1,0 +1,376 @@
+.curriculum-page {
+  min-height: 100vh;
+  background-color: #f3f4f6;
+  padding-bottom: 40px;
+}
+
+.curriculum-page__header {
+  padding: 40px 32px 24px;
+  background: linear-gradient(135deg, #059669, #10b981);
+}
+
+.curriculum-page__title {
+  font-size: 40px;
+  font-weight: 700;
+  color: #ffffff;
+  display: block;
+}
+
+.curriculum-page__subtitle {
+  font-size: 26px;
+  color: rgba(255, 255, 255, 0.8);
+  margin-top: 8px;
+  display: block;
+}
+
+/* 引导步骤指示器 */
+.curriculum-page__steps {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 32px;
+  background-color: #ffffff;
+  margin: 0 24px;
+  margin-top: -12px;
+  border-radius: 16px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.curriculum-page__step {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+}
+
+.curriculum-page__step-dot {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background-color: #e5e7eb;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+
+  &--active {
+    background-color: #059669;
+  }
+}
+
+.curriculum-page__step-dot-text {
+  font-size: 22px;
+  font-weight: 600;
+  color: #9ca3af;
+}
+
+.curriculum-page__step-dot--active .curriculum-page__step-dot-text {
+  color: #ffffff;
+}
+
+.curriculum-page__step-label {
+  font-size: 20px;
+  color: #9ca3af;
+  margin-left: 6px;
+  white-space: nowrap;
+
+  &--active {
+    color: #059669;
+    font-weight: 500;
+  }
+}
+
+.curriculum-page__step-line {
+  width: 24px;
+  height: 2px;
+  background-color: #e5e7eb;
+  margin: 0 8px;
+  flex-shrink: 0;
+
+  &--active {
+    background-color: #059669;
+  }
+}
+
+.curriculum-page__form {
+  margin: 20px 24px;
+  padding: 32px;
+  background-color: #ffffff;
+  border-radius: 20px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+}
+
+.curriculum-page__field {
+  margin-bottom: 28px;
+}
+
+.curriculum-page__label {
+  font-size: 28px;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 12px;
+  display: block;
+}
+
+.curriculum-page__label-num {
+  color: #059669;
+  margin-right: 4px;
+}
+
+.curriculum-page__picker {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px;
+  background-color: #f9fafb;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+}
+
+.curriculum-page__picker-text {
+  font-size: 28px;
+  color: #9ca3af;
+
+  &--selected {
+    color: #1f2937;
+  }
+}
+
+.curriculum-page__picker-arrow {
+  font-size: 28px;
+  color: #9ca3af;
+}
+
+.curriculum-page__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.curriculum-page__tag {
+  padding: 12px 24px;
+  border-radius: 20px;
+  background-color: #f3f4f6;
+  border: 1px solid #e5e7eb;
+
+  &--active {
+    background-color: #ecfdf5;
+    border-color: #059669;
+  }
+}
+
+.curriculum-page__tag-text {
+  font-size: 26px;
+  color: #6b7280;
+}
+
+.curriculum-page__tag--active .curriculum-page__tag-text {
+  color: #059669;
+  font-weight: 500;
+}
+
+/* 手动填写教材区域 */
+.curriculum-page__custom-input-area {
+  margin-top: 16px;
+}
+
+.curriculum-page__hint {
+  font-size: 24px;
+  color: #9ca3af;
+  display: block;
+  margin-bottom: 12px;
+}
+
+.curriculum-page__custom-input-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+}
+
+.curriculum-page__custom-input {
+  flex: 1;
+  padding: 16px 20px;
+  background-color: #f9fafb;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  font-size: 26px;
+  color: #1f2937;
+}
+
+.curriculum-page__custom-add-btn {
+  padding: 16px 24px;
+  background-color: #059669;
+  border-radius: 12px;
+  flex-shrink: 0;
+
+  &:active {
+    opacity: 0.8;
+  }
+}
+
+.curriculum-page__custom-add-btn-text {
+  font-size: 26px;
+  color: #ffffff;
+  font-weight: 500;
+}
+
+.curriculum-page__custom-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.curriculum-page__custom-item {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  padding: 10px 20px;
+  background-color: #ecfdf5;
+  border-radius: 16px;
+  border: 1px solid #a7f3d0;
+}
+
+.curriculum-page__custom-item-text {
+  font-size: 24px;
+  color: #059669;
+  margin-right: 8px;
+}
+
+.curriculum-page__custom-item-remove {
+  font-size: 22px;
+  color: #ef4444;
+  padding: 2px 4px;
+}
+
+/* 教学进度输入 */
+.curriculum-page__progress-input {
+  padding: 20px 24px;
+  background-color: #f9fafb;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  font-size: 28px;
+  color: #1f2937;
+}
+
+/* 按钮组 */
+.curriculum-page__btn-group {
+  display: flex;
+  flex-direction: row;
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.curriculum-page__cancel-btn {
+  flex: 1;
+  padding: 24px 0;
+  background-color: #f3f4f6;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #d1d5db;
+
+  &:active {
+    opacity: 0.8;
+  }
+}
+
+.curriculum-page__cancel-btn-text {
+  font-size: 30px;
+  font-weight: 600;
+  color: #6b7280;
+}
+
+.curriculum-page__save-btn {
+  flex: 1;
+  padding: 24px 0;
+  background: linear-gradient(135deg, #059669, #10b981);
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  &:active {
+    opacity: 0.8;
+  }
+
+  &--disabled {
+    background: #d1d5db;
+    pointer-events: none;
+  }
+}
+
+.curriculum-page__save-btn-text {
+  font-size: 30px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+/* 已有配置列表 */
+.curriculum-page__list {
+  margin: 0 24px;
+}
+
+.curriculum-page__list-title {
+  font-size: 32px;
+  font-weight: 600;
+  color: #1f2937;
+  margin-bottom: 16px;
+  display: block;
+}
+
+.curriculum-page__list-item {
+  padding: 24px;
+  background-color: #ffffff;
+  border-radius: 16px;
+  margin-bottom: 16px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+}
+
+.curriculum-page__list-item-header {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.curriculum-page__list-item-level {
+  font-size: 28px;
+  font-weight: 600;
+  color: #059669;
+}
+
+.curriculum-page__list-item-actions {
+  display: flex;
+  flex-direction: row;
+  gap: 8px;
+}
+
+.curriculum-page__list-item-edit {
+  padding: 4px 16px;
+}
+
+.curriculum-page__list-item-edit-text {
+  font-size: 24px;
+  color: #3b82f6;
+}
+
+.curriculum-page__list-item-delete {
+  padding: 4px 16px;
+}
+
+.curriculum-page__list-item-delete-text {
+  font-size: 24px;
+  color: #ef4444;
+}
+
+.curriculum-page__list-item-info {
+  font-size: 24px;
+  color: #6b7280;
+  display: block;
+  margin-top: 4px;
+}

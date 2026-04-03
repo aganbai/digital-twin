@@ -4,7 +4,7 @@
 .profile-page {
   min-height: 100vh;
   background-color: $color-bg-secondary;
-  padding-bottom: $spacing-xl;
+  padding-bottom: 120rpx;
 
   /* ========== 用户信息区域 ========== */
   &__header {
@@ -36,13 +36,39 @@
     margin-left: $spacing-base;
     display: flex;
     flex-direction: column;
+    flex: 1;
+  }
+
+  &__name-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: $spacing-xs;
   }
 
   &__nickname {
     font-size: $font-size-lg;
     font-weight: bold;
     color: #ffffff;
-    margin-bottom: $spacing-xs;
+  }
+
+  &__switch-role {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 14px;
+    background-color: rgba(255, 255, 255, 0.25);
+    border-radius: $border-radius-round;
+    border: 1px solid rgba(255, 255, 255, 0.4);
+
+    &:active {
+      background-color: rgba(255, 255, 255, 0.4);
+    }
+  }
+
+  &__switch-role-text {
+    font-size: $font-size-xs;
+    color: #ffffff;
+    white-space: nowrap;
   }
 
   &__role-tag {
@@ -64,6 +90,35 @@
 
   &__role-text {
     font-size: $font-size-xs;
+    color: #ffffff;
+  }
+
+  /* ========== 错误提示 ========== */
+  &__error {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    margin: $spacing-lg $spacing-base;
+    padding: $spacing-lg;
+    background-color: $color-bg-primary;
+    border-radius: $border-radius-base;
+  }
+
+  &__error-text {
+    font-size: $font-size-base;
+    color: $color-text-secondary;
+    margin-bottom: $spacing-base;
+  }
+
+  &__error-btn {
+    padding: $spacing-xs $spacing-md;
+    background-color: $color-primary;
+    border-radius: $border-radius-round;
+  }
+
+  &__error-btn-text {
+    font-size: $font-size-sm;
     color: #ffffff;
   }
 

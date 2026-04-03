@@ -276,9 +276,18 @@ func (r *RelationRepository) ListByStudentWithTeacher(studentID int64, status st
 // ListByTeacherPersona 教师分身维度：获取关系列表（含学生信息）
 func (r *RelationRepository) ListByTeacherPersona(personaID int64, status string, offset, limit int) ([]RelationWithStudent, int, error) {
 	countQuery := `SELECT COUNT(*) FROM teacher_student_relations WHERE teacher_persona_id = ?`
-	listQuery := `SELECT r.id, r.student_id, COALESCE(u.nickname, '') AS student_nickname, COALESCE(r.teacher_persona_id, 0), COALESCE(r.student_persona_id, 0), r.status, r.initiated_by, COALESCE(r.is_active, 1), r.created_at
+	// 优先从 personas 表获取昵称，回退到 users 表
+	// last_chat_time: 优先用 student_persona_id 查询，回退到 student_id + teacher_persona_id
+	listQuery := `SELECT r.id, r.student_id, COALESCE(p.nickname, u.nickname, '') AS student_nickname,
+			COALESCE(r.teacher_persona_id, 0), COALESCE(r.student_persona_id, 0),
+			r.status, r.initiated_by, COALESCE(r.is_active, 1), r.created_at,
+			COALESCE(
+				(SELECT MAX(created_at) FROM conversations WHERE student_persona_id = r.student_persona_id AND teacher_persona_id = r.teacher_persona_id AND r.student_persona_id > 0),
+				(SELECT MAX(created_at) FROM conversations WHERE student_id = r.student_id AND teacher_persona_id = r.teacher_persona_id)
+			) AS last_chat_time
 		 FROM teacher_student_relations r
 		 LEFT JOIN users u ON r.student_id = u.id
+		 LEFT JOIN personas p ON r.student_persona_id = p.id AND r.student_persona_id > 0
 		 WHERE r.teacher_persona_id = ?`
 	args := []interface{}{personaID}
 
@@ -293,7 +302,7 @@ func (r *RelationRepository) ListByTeacherPersona(personaID int64, status string
 		return nil, 0, fmt.Errorf("查询教师分身关系总数失败: %w", err)
 	}
 
-	listQuery += ` ORDER BY r.created_at DESC LIMIT ? OFFSET ?`
+	listQuery += ` ORDER BY CASE WHEN last_chat_time IS NULL THEN 1 ELSE 0 END, last_chat_time DESC, r.created_at DESC LIMIT ? OFFSET ?`
 	listArgs := append(args, limit, offset)
 	rows, err := r.db.Query(listQuery, listArgs...)
 	if err != nil {
@@ -305,7 +314,7 @@ func (r *RelationRepository) ListByTeacherPersona(personaID int64, status string
 	for rows.Next() {
 		var rel RelationWithStudent
 		var isActiveInt int
-		if err := rows.Scan(&rel.ID, &rel.StudentID, &rel.StudentNickname, &rel.TeacherPersonaID, &rel.StudentPersonaID, &rel.Status, &rel.InitiatedBy, &isActiveInt, &rel.CreatedAt); err != nil {
+		if err := rows.Scan(&rel.ID, &rel.StudentID, &rel.StudentNickname, &rel.TeacherPersonaID, &rel.StudentPersonaID, &rel.Status, &rel.InitiatedBy, &isActiveInt, &rel.CreatedAt, &rel.LastChatTime); err != nil {
 			return nil, 0, fmt.Errorf("扫描关系记录失败: %w", err)
 		}
 		rel.IsActive = isActiveInt == 1
@@ -411,6 +420,19 @@ func (r *RelationRepository) CreateWithPersonas(teacherID, studentID, teacherPer
 	}
 
 	return id, nil
+}
+
+// ApproveWithDetails 审批通过并保存评语和班级
+func (r *RelationRepository) ApproveWithDetails(id int64, comment string, classID *int64) error {
+	now := time.Now()
+	_, err := r.db.Exec(
+		`UPDATE teacher_student_relations SET status = 'approved', comment = ?, class_id = ?, updated_at = ? WHERE id = ?`,
+		comment, classID, now, id,
+	)
+	if err != nil {
+		return fmt.Errorf("审批更新失败: %w", err)
+	}
+	return nil
 }
 
 // ======================== V2.0 迭代3 新增方法 ========================

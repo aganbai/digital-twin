@@ -1,110 +1,264 @@
 import { useState, useCallback } from 'react'
-import { View, Text } from '@tarojs/components'
+import { View, Text, Input } from '@tarojs/components'
 import Taro, { useDidShow, usePullDownRefresh } from '@tarojs/taro'
-import { getDocuments, deleteDocument } from '@/api/knowledge'
-import type { Document } from '@/api/knowledge'
-import { getClasses } from '@/api/class'
-import type { ClassInfo } from '@/api/class'
+import {
+  getKnowledgeList,
+  deleteKnowledgeItem,
+  updateKnowledge,
+  knowledgeUpload,
+  uploadKnowledgeFile,
+} from '@/api/knowledge'
+import type { KnowledgeItem } from '@/api/knowledge'
+import { usePersonaStore } from '@/store'
 import Empty from '@/components/Empty'
 import { formatTime } from '@/utils/format'
 import './index.scss'
 
-/** scope 筛选类型 */
-type ScopeFilter = 'all' | 'global' | 'class'
+/** 类型筛选 */
+type TypeFilter = 'all' | 'url' | 'text' | 'file'
+
+/** 获取类型图标 */
+const getTypeIcon = (type: string) => {
+  switch (type) {
+    case 'url': return '🔗'
+    case 'text': return '📝'
+    case 'file': return '📄'
+    default: return '📋'
+  }
+}
+
+/** 获取类型标签 */
+const getTypeLabel = (type: string) => {
+  switch (type) {
+    case 'url': return '链接'
+    case 'text': return '文字'
+    case 'file': return '文件'
+    default: return '未知'
+  }
+}
 
 export default function Knowledge() {
-  const [documents, setDocuments] = useState<Document[]>([])
+  const { currentPersona } = usePersonaStore()
+  const [items, setItems] = useState<KnowledgeItem[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(false)
-  const [scopeFilter, setScopeFilter] = useState<ScopeFilter>('all')
-  const [classes, setClasses] = useState<ClassInfo[]>([])
-  const [selectedClassId, setSelectedClassId] = useState<number | undefined>(undefined)
+  const [keyword, setKeyword] = useState('')
+  const [typeFilter, setTypeFilter] = useState<TypeFilter>('all')
+  const [page, setPage] = useState(1)
 
-  /** 获取文档列表 */
-  const fetchDocuments = useCallback(async () => {
+  // 统一输入框状态
+  const [inputValue, setInputValue] = useState('')
+  const [uploading, setUploading] = useState(false)
+
+  // 左滑删除状态
+  const [slidingId, setSlidingId] = useState<number | null>(null)
+
+  // 重命名状态
+  const [renamingId, setRenamingId] = useState<number | null>(null)
+  const [renameValue, setRenameValue] = useState('')
+
+  /** 获取知识库列表 */
+  const fetchList = useCallback(async (p = 1, kw = keyword, tf = typeFilter) => {
     setLoading(true)
     try {
-      let scope: string | undefined
-      let scopeId: number | undefined
-
-      if (scopeFilter === 'global') {
-        scope = 'global'
-      } else if (scopeFilter === 'class' && selectedClassId) {
-        scope = 'class'
-        scopeId = selectedClassId
+      const typeParam = tf === 'all' ? undefined : tf
+      const res = await getKnowledgeList(p, 20, kw || undefined, typeParam)
+      if (p === 1) {
+        setItems(res.data.items || [])
+      } else {
+        setItems((prev) => [...prev, ...(res.data.items || [])])
       }
-
-      const res = await getDocuments(1, 20, scope, scopeId)
-      setDocuments(res.data.items || [])
       setTotal(res.data.total || 0)
+      setPage(p)
     } catch (error) {
-      console.error('获取文档列表失败:', error)
+      console.error('获取知识库列表失败:', error)
     } finally {
       setLoading(false)
     }
-  }, [scopeFilter, selectedClassId])
+  }, [keyword, typeFilter])
 
-  /** 获取班级列表 */
-  const fetchClasses = useCallback(async () => {
-    try {
-      const res = await getClasses()
-      setClasses(res.data || [])
-    } catch (error) {
-      console.error('获取班级列表失败:', error)
-    }
-  }, [])
-
-  /** 每次页面显示时刷新列表 */
+  /** 页面显示时刷新 */
   useDidShow(() => {
-    fetchDocuments()
-    fetchClasses()
+    fetchList(1)
   })
 
   /** 下拉刷新 */
   usePullDownRefresh(async () => {
-    await fetchDocuments()
+    await fetchList(1)
     Taro.stopPullDownRefresh()
   })
 
-  /** 切换 scope 筛选 */
-  const handleScopeChange = (scope: ScopeFilter) => {
-    setScopeFilter(scope)
-    if (scope !== 'class') {
-      setSelectedClassId(undefined)
+  /** 搜索 */
+  const handleSearch = () => {
+    fetchList(1, keyword, typeFilter)
+  }
+
+  /** 切换类型筛选 */
+  const handleTypeChange = (type: TypeFilter) => {
+    setTypeFilter(type)
+    fetchList(1, keyword, type)
+  }
+
+  /** 加载更多 */
+  const handleLoadMore = () => {
+    if (items.length < total && !loading) {
+      fetchList(page + 1)
     }
-    // 延迟触发刷新（等待状态更新）
-    setTimeout(() => fetchDocuments(), 0)
   }
 
-  /** 选择班级 */
-  const handleClassSelect = (classId: number) => {
-    setSelectedClassId(classId)
-    setTimeout(() => fetchDocuments(), 0)
+  /** 智能识别输入类型并提交 */
+  const handleSubmitInput = async () => {
+    const trimmed = inputValue.trim()
+    if (!trimmed || uploading) return
+    if (!currentPersona?.id) {
+      Taro.showToast({ title: '请先选择分身', icon: 'none' })
+      return
+    }
+
+    setUploading(true)
+    try {
+      // 智能识别：URL 以 http:// 或 https:// 开头
+      const isUrl = /^https?:\/\//i.test(trimmed)
+      if (isUrl) {
+        await knowledgeUpload({
+          type: 'url',
+          url: trimmed,
+          persona_id: currentPersona.id,
+        })
+        Taro.showToast({ title: '链接添加成功', icon: 'success' })
+      } else {
+        await knowledgeUpload({
+          type: 'text',
+          content: trimmed,
+          title: trimmed.length > 30 ? trimmed.substring(0, 30) + '...' : trimmed,
+          persona_id: currentPersona.id,
+        })
+        Taro.showToast({ title: '文字添加成功', icon: 'success' })
+      }
+      setInputValue('')
+      fetchList(1)
+    } catch (error) {
+      console.error('添加知识失败:', error)
+    } finally {
+      setUploading(false)
+    }
   }
 
-  /** 长按文档 → 删除确认 */
-  const handleLongPress = (doc: Document) => {
+  /** 选择文件上传 */
+  const handleChooseFile = () => {
+    if (uploading || !currentPersona?.id) {
+      if (!currentPersona?.id) {
+        Taro.showToast({ title: '请先选择分身', icon: 'none' })
+      }
+      return
+    }
+
+    Taro.chooseMessageFile({
+      count: 1,
+      type: 'file',
+      extension: ['pdf', 'docx', 'txt', 'md', 'jpg', 'png'],
+      success: async (res) => {
+        if (res.tempFiles && res.tempFiles.length > 0) {
+          const file = res.tempFiles[0]
+          // 检查文件大小 ≤ 20MB
+          if (file.size > 20 * 1024 * 1024) {
+            Taro.showToast({ title: '文件大小不能超过20MB', icon: 'none' })
+            return
+          }
+
+          setUploading(true)
+          try {
+            // 先上传文件获取 URL
+            const uploadRes = await uploadKnowledgeFile(file.path)
+            // 再调用统一上传接口
+            const nameWithoutExt = file.name.replace(/\.[^.]+$/, '')
+            await knowledgeUpload({
+              type: 'file',
+              file_urls: [uploadRes.url],
+              title: nameWithoutExt,
+              persona_id: currentPersona!.id,
+            })
+            Taro.showToast({ title: '文件上传成功', icon: 'success' })
+            fetchList(1)
+          } catch (error) {
+            console.error('文件上传失败:', error)
+          } finally {
+            setUploading(false)
+          }
+        }
+      },
+      fail: () => {
+        // 用户取消选择
+      },
+    })
+  }
+
+  /** 左滑删除 */
+  const handleDelete = (item: KnowledgeItem) => {
     Taro.showModal({
       title: '删除确认',
-      content: `确定要删除「${doc.title}」吗？`,
+      content: `确定要删除「${item.title}」吗？`,
       confirmColor: '#FF4D4F',
       success: async (result) => {
         if (result.confirm) {
           try {
-            await deleteDocument(doc.id)
+            await deleteKnowledgeItem(item.id)
             Taro.showToast({ title: '删除成功', icon: 'success' })
-            fetchDocuments()
+            setSlidingId(null)
+            fetchList(1)
           } catch (error) {
-            console.error('删除文档失败:', error)
+            console.error('删除失败:', error)
           }
         }
       },
     })
   }
 
-  /** 跳转添加文档页（使用 redirectTo 避免 E2E 测试中页面栈溢出） */
-  const handleAdd = () => {
-    Taro.redirectTo({ url: '/pages/knowledge/add' })
+  /** 开始重命名 */
+  const handleStartRename = (item: KnowledgeItem) => {
+    setRenamingId(item.id)
+    setRenameValue(item.title)
+    setSlidingId(null)
+  }
+
+  /** 确认重命名 */
+  const handleConfirmRename = async () => {
+    if (!renamingId || !renameValue.trim()) return
+    try {
+      await updateKnowledge(renamingId, renameValue.trim())
+      Taro.showToast({ title: '重命名成功', icon: 'success' })
+      setRenamingId(null)
+      setRenameValue('')
+      fetchList(1)
+    } catch (error) {
+      console.error('重命名失败:', error)
+    }
+  }
+
+  /** 取消重命名 */
+  const handleCancelRename = () => {
+    setRenamingId(null)
+    setRenameValue('')
+  }
+
+  /** 点击预览 */
+  const handlePreview = (item: KnowledgeItem) => {
+    if (slidingId === item.id) return
+    Taro.setStorageSync('knowledgePreviewItem', JSON.stringify(item))
+    Taro.navigateTo({ url: '/pages/knowledge/preview' })
+  }
+
+  /** 左滑操作 */
+  const handleSlideChange = (id: number, e: any) => {
+    const x = e.detail.x
+    // 当向左滑动超过一定距离时，显示操作按钮
+    if (x < -60) {
+      setSlidingId(id)
+    } else {
+      if (slidingId === id) {
+        setSlidingId(null)
+      }
+    }
   }
 
   return (
@@ -112,90 +266,167 @@ export default function Knowledge() {
       {/* 顶部标题区 */}
       <View className='knowledge-page__header'>
         <Text className='knowledge-page__title'>我的知识库</Text>
-        <Text className='knowledge-page__count'>共 {total} 篇文档</Text>
+        <Text className='knowledge-page__count'>共 {total} 条知识</Text>
       </View>
 
-      {/* Scope 筛选 */}
-      <View className='knowledge-page__scope-tabs'>
-        <View
-          className={`knowledge-page__scope-tab ${scopeFilter === 'all' ? 'knowledge-page__scope-tab--active' : ''}`}
-          onClick={() => handleScopeChange('all')}
-        >
-          <Text className={`knowledge-page__scope-tab-text ${scopeFilter === 'all' ? 'knowledge-page__scope-tab-text--active' : ''}`}>
-            全部
-          </Text>
-        </View>
-        <View
-          className={`knowledge-page__scope-tab ${scopeFilter === 'global' ? 'knowledge-page__scope-tab--active' : ''}`}
-          onClick={() => handleScopeChange('global')}
-        >
-          <Text className={`knowledge-page__scope-tab-text ${scopeFilter === 'global' ? 'knowledge-page__scope-tab-text--active' : ''}`}>
-            全局
-          </Text>
-        </View>
-        <View
-          className={`knowledge-page__scope-tab ${scopeFilter === 'class' ? 'knowledge-page__scope-tab--active' : ''}`}
-          onClick={() => handleScopeChange('class')}
-        >
-          <Text className={`knowledge-page__scope-tab-text ${scopeFilter === 'class' ? 'knowledge-page__scope-tab-text--active' : ''}`}>
-            班级
-          </Text>
+      {/* 搜索框 */}
+      <View className='knowledge-page__search'>
+        <Input
+          className='knowledge-page__search-input'
+          placeholder='搜索知识标题...'
+          placeholderClass='knowledge-page__search-placeholder'
+          value={keyword}
+          onInput={(e) => setKeyword(e.detail.value)}
+          onConfirm={handleSearch}
+        />
+        <View className='knowledge-page__search-btn' onClick={handleSearch}>
+          <Text className='knowledge-page__search-btn-text'>搜索</Text>
         </View>
       </View>
 
-      {/* 班级选择（仅在 scope=class 时显示） */}
-      {scopeFilter === 'class' && classes.length > 0 && (
-        <View className='knowledge-page__class-filter'>
-          {classes.map((cls) => (
-            <View
-              key={cls.id}
-              className={`knowledge-page__class-chip ${selectedClassId === cls.id ? 'knowledge-page__class-chip--active' : ''}`}
-              onClick={() => handleClassSelect(cls.id)}
-            >
-              <Text className={`knowledge-page__class-chip-text ${selectedClassId === cls.id ? 'knowledge-page__class-chip-text--active' : ''}`}>
-                {cls.name}
-              </Text>
-            </View>
-          ))}
-        </View>
-      )}
+      {/* 类型筛选 Tab */}
+      <View className='knowledge-page__type-tabs'>
+        {(['all', 'url', 'text', 'file'] as TypeFilter[]).map((type) => (
+          <View
+            key={type}
+            className={`knowledge-page__type-tab ${typeFilter === type ? 'knowledge-page__type-tab--active' : ''}`}
+            onClick={() => handleTypeChange(type)}
+          >
+            <Text className={`knowledge-page__type-tab-text ${typeFilter === type ? 'knowledge-page__type-tab-text--active' : ''}`}>
+              {type === 'all' ? '全部' : type === 'url' ? '🔗 链接' : type === 'text' ? '📝 文字' : '📄 文件'}
+            </Text>
+          </View>
+        ))}
+      </View>
 
-      {/* 文档列表 / 空状态 / 加载状态 */}
+      {/* 知识库列表 */}
       <View className='knowledge-page__content'>
-        {loading ? (
+        {loading && items.length === 0 ? (
           <View className='knowledge-page__loading'>
             <Text className='knowledge-page__loading-text'>加载中...</Text>
           </View>
-        ) : documents.length > 0 ? (
+        ) : items.length > 0 ? (
           <View className='knowledge-page__list'>
-            {documents.map((doc) => (
-              <View
-                key={doc.id}
-                className='knowledge-page__item'
-                onLongPress={() => handleLongPress(doc)}
-              >
-                <View className='knowledge-page__item-header'>
-                  <Text className='knowledge-page__item-title'>{doc.title}</Text>
-                </View>
-                {doc.tags && doc.tags.length > 0 && (
-                  <View className='knowledge-page__item-tags'>
-                    {doc.tags.map((tag) => (
-                      <Text key={tag} className='knowledge-page__item-tag'>{tag}</Text>
-                    ))}
+            {items.map((item) => (
+              <View key={item.id} className='knowledge-page__item-wrapper'>
+                <View
+                  className={`knowledge-page__item-container ${slidingId === item.id ? 'knowledge-page__item-container--slid' : ''}`}
+                >
+                  {/* 主内容区域 */}
+                  <View
+                    className='knowledge-page__item'
+                    onClick={() => handlePreview(item)}
+                    onLongPress={() => handleStartRename(item)}
+                  >
+                    {/* 重命名模式 */}
+                    {renamingId === item.id ? (
+                      <View className='knowledge-page__rename-row'>
+                        <Input
+                          className='knowledge-page__rename-input'
+                          value={renameValue}
+                          maxlength={200}
+                          focus
+                          onInput={(e) => setRenameValue(e.detail.value)}
+                          onConfirm={handleConfirmRename}
+                        />
+                        <View className='knowledge-page__rename-actions'>
+                          <View className='knowledge-page__rename-btn knowledge-page__rename-btn--confirm' onClick={handleConfirmRename}>
+                            <Text className='knowledge-page__rename-btn-text'>✓</Text>
+                          </View>
+                          <View className='knowledge-page__rename-btn knowledge-page__rename-btn--cancel' onClick={handleCancelRename}>
+                            <Text className='knowledge-page__rename-btn-text'>✕</Text>
+                          </View>
+                        </View>
+                      </View>
+                    ) : (
+                      <>
+                        <View className='knowledge-page__item-header'>
+                          <Text className='knowledge-page__item-type-icon'>{getTypeIcon(item.type)}</Text>
+                          <Text className='knowledge-page__item-title'>{item.title}</Text>
+                          <View className='knowledge-page__item-type-badge'>
+                            <Text className='knowledge-page__item-type-badge-text'>{getTypeLabel(item.type)}</Text>
+                          </View>
+                        </View>
+                        {item.url && (
+                          <Text className='knowledge-page__item-url'>{item.url}</Text>
+                        )}
+                        <Text className='knowledge-page__item-time'>{formatTime(item.created_at)}</Text>
+                      </>
+                    )}
                   </View>
+
+                  {/* 左滑操作按钮 */}
+                  <View className='knowledge-page__item-actions'>
+                    <View
+                      className='knowledge-page__action-btn knowledge-page__action-btn--rename'
+                      onClick={() => handleStartRename(item)}
+                    >
+                      <Text className='knowledge-page__action-btn-text'>重命名</Text>
+                    </View>
+                    <View
+                      className='knowledge-page__action-btn knowledge-page__action-btn--delete'
+                      onClick={() => handleDelete(item)}
+                    >
+                      <Text className='knowledge-page__action-btn-text'>删除</Text>
+                    </View>
+                  </View>
+                </View>
+
+                {/* 点击遮罩关闭滑动 */}
+                {slidingId === item.id && (
+                  <View className='knowledge-page__item-mask' onClick={() => setSlidingId(null)} />
                 )}
-                <Text className='knowledge-page__item-time'>{formatTime(doc.created_at)}</Text>
               </View>
             ))}
+
+            {/* 加载更多 */}
+            {items.length < total && (
+              <View className='knowledge-page__loadmore' onClick={handleLoadMore}>
+                <Text className='knowledge-page__loadmore-text'>
+                  {loading ? '加载中...' : '加载更多'}
+                </Text>
+              </View>
+            )}
           </View>
         ) : (
-          <Empty text='还没有文档，点击右下角添加' />
+          <Empty text='还没有知识，在下方输入框添加吧' />
         )}
       </View>
 
-      {/* FAB 添加按钮 */}
-      <View className='knowledge-page__fab' onClick={handleAdd}>
-        <Text className='knowledge-page__fab-icon'>+</Text>
+      {/* 底部统一输入框 */}
+      <View className='knowledge-page__input-bar'>
+        <View className='knowledge-page__input-row'>
+          <View className='knowledge-page__file-btn' onClick={handleChooseFile}>
+            <Text className='knowledge-page__file-btn-icon'>📎</Text>
+          </View>
+          <Input
+            className='knowledge-page__unified-input'
+            placeholder='输入链接或文字内容...'
+            placeholderClass='knowledge-page__input-placeholder'
+            value={inputValue}
+            onInput={(e) => setInputValue(e.detail.value)}
+            onConfirm={handleSubmitInput}
+            disabled={uploading}
+          />
+          <View
+            className={`knowledge-page__send-btn ${(!inputValue.trim() || uploading) ? 'knowledge-page__send-btn--disabled' : ''}`}
+            onClick={handleSubmitInput}
+          >
+            <Text className='knowledge-page__send-btn-text'>
+              {uploading ? '...' : '发送'}
+            </Text>
+          </View>
+        </View>
+        {/* 输入提示 */}
+        <View className='knowledge-page__input-hint'>
+          <Text className='knowledge-page__input-hint-text'>
+            {inputValue.trim() && /^https?:\/\//i.test(inputValue.trim())
+              ? '🔗 识别为链接，将自动抓取网页内容'
+              : inputValue.trim()
+                ? '📝 识别为文字内容'
+                : '输入链接自动识别，或点击 📎 上传文件'}
+          </Text>
+        </View>
       </View>
     </View>
   )

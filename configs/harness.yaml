@@ -72,6 +72,11 @@ plugins:
         max_context_length: 4000
         include_memory: true
         include_knowledge: true
+
+      # Adaptive RAG 配置（V2.0 迭代7 M7）
+      adaptive_rag:
+        enabled: false                # 是否启用 Adaptive RAG（web_search 等工具）
+        max_searches_per_turn: 2      # 每轮对话最大搜索次数
         
   # 记忆管理插件
   memory-management:
@@ -150,8 +155,10 @@ performance:
   # 限流配置
   rate_limiting:
     enabled: true
-    requests_per_minute: 100
-    burst_size: 20
+    requests_per_minute: 6000    # 全局限流：每分钟请求数（100 req/s per IP）
+    burst_size: 20               # 全局限流：突发容量
+    chat_requests_per_minute: 10 # 对话限流：每分钟请求数（10 req/min per user）
+    chat_burst_size: 5           # 对话限流：突发容量
 
 # 安全配置
 security:

@@ -379,6 +379,10 @@ func TestLoadConfig_RealHarnessYAML(t *testing.T) {
 		t.Skip("跳过：harness.yaml 文件不存在")
 	}
 
+	// 设置必要的环境变量以通过校验
+	os.Setenv("JWT_SECRET", "test-secret-for-validation")
+	defer os.Unsetenv("JWT_SECRET")
+
 	cfg, err := LoadConfig(cfgPath)
 	if err != nil {
 		t.Fatalf("加载 harness.yaml 失败: %v", err)

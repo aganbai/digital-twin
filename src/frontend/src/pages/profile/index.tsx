@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { View, Text } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { getUserProfile, UserProfile } from '@/api/user'
@@ -18,35 +18,60 @@ interface MenuItem {
 }
 
 export default function Profile() {
+  console.log('[Profile] ===== 组件开始渲染 =====')
   const { userInfo, logout, setUserInfo } = useUserStore()
+  console.log('[Profile] userInfo from store:', JSON.stringify(userInfo))
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(false)
+  const [mounted, setMounted] = useState(false)
 
   /** 获取用户详情 */
   const fetchProfile = async () => {
+    console.log('[Profile] fetchProfile 开始调用')
     setLoading(true)
+    setError(false)
     try {
       const res = await getUserProfile()
+      console.log('[Profile] getUserProfile 返回:', JSON.stringify(res))
       setProfile(res.data)
       // 同步更新 Zustand store 中的 userInfo，确保角色等信息与 API 返回一致
       if (res.data) {
         setUserInfo({
           id: res.data.id,
           nickname: res.data.nickname,
-          role: res.data.role,
+          role: res.data.role || userInfo?.role || 'student',
         })
       }
-    } catch (error) {
-      console.error('获取用户信息失败:', error)
+    } catch (err) {
+      console.error('[Profile] 获取用户信息失败:', err)
+      setError(true)
     } finally {
       setLoading(false)
+      console.log('[Profile] fetchProfile 结束')
     }
   }
 
-  /** 每次页面显示时刷新用户信息 */
+  /** 每次页面显示时刷新用户信息（避免首次挂载重复调用） */
   useDidShow(() => {
-    fetchProfile()
+    console.log('[Profile] useDidShow 触发, mounted:', mounted)
+    if (mounted) {
+      fetchProfile()
+    }
   })
+
+  /** 组件挂载时调用一次 */
+  useEffect(() => {
+    console.log('[Profile] useEffect 触发')
+    setMounted(true)
+    fetchProfile()
+  }, [])
+
+  /** 判断是否有有效角色 */
+  const hasRole = (): boolean => {
+    const role = profile?.role ?? userInfo?.role
+    return role === 'teacher' || role === 'student'
+  }
 
   /** 获取用户昵称首字母（用于头像占位） */
   const getInitial = (): string => {
@@ -106,10 +131,10 @@ export default function Profile() {
       action: () => Taro.navigateTo({ url: '/pages/persona-overview/index' }),
     },
     {
-      key: 'assignments',
-      label: '作业管理',
+      key: 'curriculum-config',
+      label: '教材配置',
       roles: ['teacher'],
-      action: () => Taro.navigateTo({ url: '/pages/assignment-list/index' }),
+      action: () => Taro.navigateTo({ url: '/pages/curriculum-config/index' }),
     },
     {
       key: 'share-manage',
@@ -124,10 +149,15 @@ export default function Profile() {
       action: () => Taro.navigateTo({ url: '/pages/memories/index' }),
     },
     {
-      key: 'my-assignments',
-      label: '我的作业',
-      roles: ['student'],
-      action: () => Taro.navigateTo({ url: '/pages/my-assignments/index' }),
+      key: 'feedback',
+      label: '意见反馈',
+      action: () => Taro.navigateTo({ url: '/pages/feedback/index' }),
+    },
+    {
+      key: 'feedback-manage',
+      label: '反馈管理',
+      roles: ['teacher'],
+      action: () => Taro.navigateTo({ url: '/pages/feedback-manage/index' }),
     },
     {
       key: 'about',
@@ -149,6 +179,12 @@ export default function Profile() {
     return item.roles.includes(role)
   })
 
+  // 综合 profile 和 userInfo 的角色/昵称（兜底显示）
+  const displayNickname = profile?.nickname || userInfo?.nickname || '未知用户'
+  const displayRole = profile?.role ?? userInfo?.role ?? ''
+
+  console.log('[Profile] 即将渲染 JSX, displayNickname:', displayNickname, 'displayRole:', displayRole, 'error:', error, 'loading:', loading)
+
   return (
     <View className='profile-page'>
       {/* 用户信息区域 */}
@@ -157,9 +193,17 @@ export default function Profile() {
           <Text className='profile-page__avatar-text'>{getInitial()}</Text>
         </View>
         <View className='profile-page__info'>
-          <Text className='profile-page__nickname'>
-            {profile?.nickname || userInfo?.nickname || '加载中...'}
-          </Text>
+          <View className='profile-page__name-row'>
+            <Text className='profile-page__nickname'>
+              {profile?.nickname || userInfo?.nickname || '加载中...'}
+            </Text>
+            <View
+              className='profile-page__switch-role'
+              onClick={() => Taro.navigateTo({ url: '/pages/persona-select/index' })}
+            >
+              <Text className='profile-page__switch-role-text'>切换角色 ›</Text>
+            </View>
+          </View>
           <View
             className={`profile-page__role-tag ${isTeacher() ? 'profile-page__role-tag--teacher' : 'profile-page__role-tag--student'}`}
           >
@@ -168,43 +212,55 @@ export default function Profile() {
         </View>
       </View>
 
-      {/* 统计信息 */}
-      <View className='profile-page__stats'>
-        {isStudent() && (
-          <>
-            <View className='profile-page__stat-item'>
-              <Text className='profile-page__stat-num'>
-                {profile?.stats?.conversation_count ?? '-'}
-              </Text>
-              <Text className='profile-page__stat-label'>对话数</Text>
-            </View>
-            <View className='profile-page__stat-divider' />
-            <View className='profile-page__stat-item'>
-              <Text className='profile-page__stat-num'>
-                {profile?.stats?.memory_count ?? '-'}
-              </Text>
-              <Text className='profile-page__stat-label'>记忆数</Text>
-            </View>
-          </>
-        )}
-        {isTeacher() && (
-          <>
-            <View className='profile-page__stat-item'>
-              <Text className='profile-page__stat-num'>
-                {profile?.stats?.document_count ?? '-'}
-              </Text>
-              <Text className='profile-page__stat-label'>文档数</Text>
-            </View>
-            <View className='profile-page__stat-divider' />
-            <View className='profile-page__stat-item'>
-              <Text className='profile-page__stat-num'>
-                {profile?.stats?.conversation_count ?? '-'}
-              </Text>
-              <Text className='profile-page__stat-label'>被提问数</Text>
-            </View>
-          </>
-        )}
-      </View>
+      {/* 加载失败提示 */}
+      {error && !profile && (
+        <View className='profile-page__error'>
+          <Text className='profile-page__error-text'>加载失败，请点击重试</Text>
+          <View className='profile-page__error-btn' onClick={fetchProfile}>
+            <Text className='profile-page__error-btn-text'>重试</Text>
+          </View>
+        </View>
+      )}
+
+      {/* 统计信息（仅在有角色时显示） */}
+      {hasRole() && (
+        <View className='profile-page__stats'>
+          {isStudent() && (
+            <>
+              <View className='profile-page__stat-item'>
+                <Text className='profile-page__stat-num'>
+                  {profile?.stats?.conversation_count ?? '-'}
+                </Text>
+                <Text className='profile-page__stat-label'>对话数</Text>
+              </View>
+              <View className='profile-page__stat-divider' />
+              <View className='profile-page__stat-item'>
+                <Text className='profile-page__stat-num'>
+                  {profile?.stats?.memory_count ?? '-'}
+                </Text>
+                <Text className='profile-page__stat-label'>记忆数</Text>
+              </View>
+            </>
+          )}
+          {isTeacher() && (
+            <>
+              <View className='profile-page__stat-item'>
+                <Text className='profile-page__stat-num'>
+                  {profile?.stats?.document_count ?? '-'}
+                </Text>
+                <Text className='profile-page__stat-label'>文档数</Text>
+              </View>
+              <View className='profile-page__stat-divider' />
+              <View className='profile-page__stat-item'>
+                <Text className='profile-page__stat-num'>
+                  {profile?.stats?.conversation_count ?? '-'}
+                </Text>
+                <Text className='profile-page__stat-label'>被提问数</Text>
+              </View>
+            </>
+          )}
+        </View>
+      )}
 
       {/* 功能列表 */}
       <View className='profile-page__menu'>
@@ -225,6 +281,7 @@ export default function Profile() {
           </View>
         ))}
       </View>
+
     </View>
   )
 }

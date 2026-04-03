@@ -8,8 +8,8 @@ export interface Conversation {
   session_id: string
   role: 'user' | 'assistant'
   content: string
-  /** 消息发送者类型：student / ai / teacher */
-  sender_type?: 'student' | 'ai' | 'teacher' | ''
+  /** 消息发送者类型：student / ai / teacher / teacher_push */
+  sender_type?: 'student' | 'ai' | 'teacher' | 'teacher_push' | ''
   /** 引用的消息 ID（0 表示非引用回复） */
   reply_to_id?: number
   /** 引用的消息内容摘要 */
@@ -165,6 +165,8 @@ export function chatStream(
   const token = Taro.getStorageSync('token') || ''
 
   let buffer = '' // 用于缓存不完整的 SSE 数据
+  let chunkDone = false // 标记 onChunkReceived 是否已处理完 done 事件
+  let chunkStarted = false // 标记是否收到过 chunk 数据
 
   const requestTask = Taro.request({
     url: `${BASE_URL}/api/chat/stream`,
@@ -183,13 +185,127 @@ export function chatStream(
       'Content-Type': 'application/json',
       Authorization: `Bearer ${token}`,
     },
+    timeout: 60000, // AI回复可能需要较长时间
     enableChunked: true,
     responseType: 'text',
     success: (res) => {
-      // 非流式响应（错误情况）
+      // 如果 chunk 模式已处理完 done，直接返回，避免重复处理
+      if (chunkDone) return
+
+      // 如果 chunk 模式已启动但未完成，处理 buffer 中剩余的数据
+      if (chunkStarted && buffer) {
+        const trimmed = buffer.trim()
+        if (trimmed.startsWith('data: ')) {
+          const jsonStr = trimmed.slice(6)
+          try {
+            const event: StreamEvent = JSON.parse(jsonStr)
+            switch (event.type) {
+              case 'done':
+                chunkDone = true
+                callbacks.onDone?.(event.conversation_id)
+                return
+              case 'delta':
+                callbacks.onDelta?.(event.content)
+                break
+              case 'error':
+                callbacks.onError?.(event.code, event.message)
+                return
+            }
+          } catch {
+            // 忽略
+          }
+        }
+        // 如果 buffer 处理后仍未 done，手动触发 done
+        if (!chunkDone) {
+          callbacks.onDone?.(0)
+        }
+        return
+      }
+
       if (res.statusCode !== 200) {
-        const data = typeof res.data === 'string' ? JSON.parse(res.data) : res.data
-        callbacks.onError?.(data.code || res.statusCode, data.message || '请求失败')
+        // 非 200 响应（错误情况）
+        try {
+          const data = typeof res.data === 'string' ? JSON.parse(res.data) : res.data
+          callbacks.onError?.(data.code || res.statusCode, data.message || '请求失败')
+        } catch {
+          callbacks.onError?.(res.statusCode, '请求失败')
+        }
+        return
+      }
+
+      // 将 res.data 统一转为字符串处理
+      let rawData = ''
+      if (typeof res.data === 'string') {
+        rawData = res.data
+      } else if (res.data instanceof ArrayBuffer) {
+        // ArrayBuffer 转字符串
+        try {
+          const uint8 = new Uint8Array(res.data)
+          let str = ''
+          for (let i = 0; i < uint8.length; i++) {
+            str += String.fromCharCode(uint8[i])
+          }
+          rawData = decodeURIComponent(escape(str))
+        } catch {
+          rawData = ''
+        }
+      } else if (typeof res.data === 'object' && res.data !== null) {
+        // 后端返回了 JSON 对象（如接管状态 code=40030）
+        const data = res.data as any
+        if (data.code && data.code !== 0) {
+          callbacks.onError?.(data.code, data.message || '请求失败')
+        }
+        return
+      }
+
+      // 尝试解析 SSE 数据
+      if (rawData && rawData.includes('data: ')) {
+        const lines = rawData.split('\n')
+        let fullContent = ''
+        let hasDone = false
+        for (const line of lines) {
+          const trimmed = line.trim()
+          if (!trimmed || !trimmed.startsWith('data: ')) continue
+          const jsonStr = trimmed.slice(6)
+          if (!jsonStr) continue
+          try {
+            const event: StreamEvent = JSON.parse(jsonStr)
+            switch (event.type) {
+              case 'start':
+                callbacks.onStart?.(event.session_id)
+                break
+              case 'delta':
+                fullContent += event.content
+                callbacks.onDelta?.(event.content)
+                break
+              case 'done':
+                hasDone = true
+                chunkDone = true
+                callbacks.onDone?.(event.conversation_id)
+                break
+              case 'error':
+                callbacks.onError?.(event.code, event.message)
+                return
+            }
+          } catch {
+            // 忽略解析失败的行
+          }
+        }
+        // 如果解析了 delta 但没有收到 done 事件，手动触发 done
+        if (fullContent && !hasDone) {
+          callbacks.onDone?.(0)
+        }
+      } else if (rawData) {
+        // 尝试作为 JSON 解析
+        try {
+          const data = JSON.parse(rawData)
+          if (data.code && data.code !== 0) {
+            callbacks.onError?.(data.code, data.message || '请求失败')
+          }
+        } catch {
+          // 无法解析，忽略
+          console.warn('[chatStream] 无法解析响应数据:', rawData.substring(0, 200))
+        }
       }
     },
     fail: () => {
@@ -200,6 +316,7 @@ export function chatStream(
   // 监听分块数据
   requestTask.onChunkReceived?.((response: { data: ArrayBuffer }) => {
     try {
+      chunkStarted = true
       // 将 ArrayBuffer 转为字符串
       const text = arrayBufferToString(response.data)
       buffer += text
@@ -225,6 +342,7 @@ export function chatStream(
               callbacks.onDelta?.(event.content)
               break
             case 'done':
+              chunkDone = true
               callbacks.onDone?.(event.conversation_id)
               break
             case 'error':

@@ -1,0 +1,118 @@
+.approval-manage {
+  min-height: 100vh;
+  background-color: #f3f4f6;
+  padding-bottom: 40rpx;
+
+  // 统计
+  &__count {
+    padding: 24rpx 32rpx;
+    background-color: #ffffff;
+    border-bottom: 1rpx solid #f3f4f6;
+  }
+
+  &__count-text {
+    font-size: 26rpx;
+    color: #9ca3af;
+  }
+
+  // 列表
+  &__list {
+    padding: 16rpx 24rpx;
+  }
+
+  &__empty {
+    padding: 160rpx 0;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  &__empty-icon {
+    font-size: 80rpx;
+    margin-bottom: 24rpx;
+  }
+
+  &__empty-text {
+    font-size: 28rpx;
+    color: #9ca3af;
+  }
+
+  // 卡片
+  &__card {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    background-color: #ffffff;
+    border-radius: 16rpx;
+    padding: 28rpx 24rpx;
+    margin-bottom: 16rpx;
+    box-shadow: 0 1rpx 6rpx rgba(0, 0, 0, 0.04);
+
+    &:active {
+      opacity: 0.85;
+    }
+  }
+
+  &__card-left {
+    margin-right: 24rpx;
+  }
+
+  &__avatar {
+    width: 88rpx;
+    height: 88rpx;
+    border-radius: 50%;
+    overflow: hidden;
+
+    &--default {
+      background-color: #e8f0fe;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+  }
+
+  &__avatar-text {
+    font-size: 36rpx;
+    font-weight: bold;
+    color: #1890ff;
+  }
+
+  &__card-center {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+  }
+
+  &__card-name {
+    font-size: 30rpx;
+    font-weight: 600;
+    color: #333333;
+    margin-bottom: 8rpx;
+  }
+
+  &__card-time {
+    font-size: 24rpx;
+    color: #9ca3af;
+  }
+
+  &__card-right {
+    padding-left: 16rpx;
+  }
+
+  &__card-arrow {
+    font-size: 36rpx;
+    color: #d1d5db;
+  }
+
+  // 加载
+  &__loading {
+    padding: 32rpx 0;
+    text-align: center;
+  }
+
+  &__loading-text {
+    font-size: 26rpx;
+    color: #9ca3af;
+  }
+}

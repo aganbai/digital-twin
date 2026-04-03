@@ -167,9 +167,6 @@ func (h *Handler) HandleChat(c *gin.Context) {
 		if attachmentContent != "" {
 			message = message + "\n" + attachmentContent
 		}
-
-		// 在 assignments 表创建记录（自动关联 session_id）
-		h.createAssignmentFromAttachment(c, userIDInt64, personaIDInt64, req.TeacherID, req.TeacherPersonaID, req.SessionID, req.AttachmentURL, req.AttachmentType, req.AttachmentName)
 	}
 
 	// 构建管道输入
@@ -318,9 +315,14 @@ func (h *Handler) HandleGetConversations(c *gin.Context) {
 	}
 	convRepo := database.NewConversationRepository(db)
 
-	// 分身维度查询
-	if personaIDInt64 > 0 && teacherPersonaIDStr != "" {
-		teacherPersonaID, parseErr := strconv.ParseInt(teacherPersonaIDStr, 10, 64)
+	// 分身维度查询（优先使用 teacher_persona_id 参数，回退到 teacher_id 参数）
+	teacherPersonaIDForQuery := teacherPersonaIDStr
+	if teacherPersonaIDForQuery == "" && teacherIDStr != "" {
+		// V2.0 中 teacher_id 实际就是 teacher_persona_id，兼容处理
+		teacherPersonaIDForQuery = teacherIDStr
+	}
+	if personaIDInt64 > 0 && teacherPersonaIDForQuery != "" {
+		teacherPersonaID, parseErr := strconv.ParseInt(teacherPersonaIDForQuery, 10, 64)
 		if parseErr != nil || teacherPersonaID <= 0 {
 			Error(c, http.StatusBadRequest, 40004, "无效的 teacher_persona_id 参数")
 			return
@@ -539,9 +541,6 @@ func (h *Handler) HandleChatStream(c *gin.Context) {
 		if attachmentContent != "" {
 			streamMessage = streamMessage + "\n" + attachmentContent
 		}
-
-		// 在 assignments 表创建记录
-		h.createAssignmentFromAttachment(c, userIDInt64, personaIDInt64, req.TeacherID, req.TeacherPersonaID, sessionID, req.AttachmentURL, req.AttachmentType, req.AttachmentName)
 	}
 
 	// 构建插件输入
@@ -622,31 +621,4 @@ func (h *Handler) parseAttachment(attachmentURL, attachmentType, attachmentName 
 	}
 
 	return fmt.Sprintf("[附件: %s]\n%s\n[/附件]", attachmentName, content)
-}
-
-// createAssignmentFromAttachment 从附件创建作业记录
-func (h *Handler) createAssignmentFromAttachment(c *gin.Context, studentID, studentPersonaID, teacherID, teacherPersonaID int64, sessionID, attachmentURL, attachmentType, attachmentName string) {
-	db := h.manager.GetDB()
-	if db == nil {
-		return
-	}
-
-	assignmentRepo := database.NewAssignmentRepository(db)
-
-	assignment := &database.Assignment{
-		StudentID:        studentID,
-		TeacherID:        teacherID,
-		TeacherPersonaID: teacherPersonaID,
-		StudentPersonaID: studentPersonaID,
-		Title:            attachmentName,
-		Content:          fmt.Sprintf("通过对话附件提交（session: %s）", sessionID),
-		FilePath:         attachmentURL,
-		FileType:         attachmentType,
-		Status:           "submitted",
-	}
-
-	_, err := assignmentRepo.Create(assignment)
-	if err != nil {
-		log.Printf("[HandleChat] 创建作业记录失败: %v", err)
-	}
 }

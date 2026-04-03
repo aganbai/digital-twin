@@ -162,6 +162,7 @@ export function uploadDocument(
       header: {
         Authorization: `Bearer ${token}`,
       },
+      timeout: 120000, // 文件处理可能耗时较长
       success: (res) => {
         try {
           const data = JSON.parse(res.data)
@@ -248,6 +249,7 @@ export function previewUpload(filePath: string, title?: string, tags?: string) {
       header: {
         Authorization: `Bearer ${token}`,
       },
+      timeout: 120000, // 文件解析+LLM摘要可能耗时较长，设置120秒超时
       success: (res) => {
         try {
           const data = JSON.parse(res.data)
@@ -352,6 +354,7 @@ export function importChat(
       header: {
         Authorization: `Bearer ${token}`,
       },
+      timeout: 120000, // 聊天记录处理可能耗时较长
       success: (res) => {
         try {
           const data = JSON.parse(res.data)
@@ -359,6 +362,141 @@ export function importChat(
             resolve(data.data)
           } else {
             Taro.showToast({ title: data.message || '导入失败', icon: 'none' })
+            reject(new Error(data.message))
+          }
+        } catch {
+          reject(new Error('解析响应失败'))
+        }
+      },
+      fail: (err) => {
+        Taro.showToast({ title: '网络异常', icon: 'none' })
+        reject(err)
+      },
+    })
+  })
+}
+
+/** ========== V2.0 迭代8 新增接口 ========== */
+
+/** 知识库条目（V2） */
+export interface KnowledgeItem {
+  id: number
+  title: string
+  type: 'url' | 'text' | 'file'
+  content: string
+  url: string
+  file_urls: string[]
+  status: string
+  persona_id: number
+  created_at: string
+  updated_at: string
+}
+
+/** 统一上传请求体 */
+export interface KnowledgeUploadParams {
+  type: 'url' | 'text' | 'file'
+  content?: string
+  url?: string
+  file_urls?: string[]
+  title?: string
+  persona_id: number
+}
+
+/** 统一上传响应 */
+export interface KnowledgeUploadResponse {
+  id: number
+  title: string
+  type: string
+  status: string
+}
+
+/**
+ * 知识库统一上传
+ * @param params - 上传参数
+ */
+export function knowledgeUpload(params: KnowledgeUploadParams) {
+  return request<KnowledgeUploadResponse>({
+    url: '/api/knowledge/upload',
+    method: 'POST',
+    data: params,
+  })
+}
+
+/**
+ * 获取知识库列表（V2，支持搜索和类型筛选）
+ * @param page - 页码
+ * @param pageSize - 每页数量
+ * @param keyword - 搜索关键词（可选）
+ * @param type - 类型筛选：url / text / file（可选）
+ */
+export function getKnowledgeList(page = 1, pageSize = 20, keyword?: string, type?: string) {
+  let url = `/api/knowledge?page=${page}&page_size=${pageSize}`
+  if (keyword) url += `&keyword=${encodeURIComponent(keyword)}`
+  if (type) url += `&item_type=${type}`
+  return request<PaginatedData<KnowledgeItem>>({
+    url,
+    method: 'GET',
+  })
+}
+
+/**
+ * 获取知识库条目详情
+ * @param id - 条目 ID
+ */
+export function getKnowledgeDetail(id: number) {
+  return request<KnowledgeItem>({
+    url: `/api/knowledge/${id}`,
+    method: 'GET',
+  })
+}
+
+/**
+ * 更新知识库条目（重命名）
+ * @param id - 条目 ID
+ * @param title - 新标题
+ */
+export function updateKnowledge(id: number, title: string) {
+  return request<{ id: number; title: string }>({
+    url: `/api/knowledge/${id}`,
+    method: 'PUT',
+    data: { title },
+  })
+}
+
+/**
+ * 删除知识库条目（V2）
+ * @param id - 条目 ID
+ */
+export function deleteKnowledgeItem(id: number) {
+  return request<{ id: number; deleted: boolean }>({
+    url: `/api/knowledge/${id}`,
+    method: 'DELETE',
+  })
+}
+
+/**
+ * 上传知识库文件（用于统一输入框的文件上传，先上传获取 file_urls，再调用 knowledgeUpload）
+ * @param filePath - 本地文件路径
+ */
+export function uploadKnowledgeFile(filePath: string) {
+  const token = getToken()
+  return new Promise<{ url: string; filename: string }>((resolve, reject) => {
+    Taro.uploadFile({
+      url: `${BASE_URL}/api/upload`,
+      filePath,
+      name: 'file',
+      formData: { type: 'knowledge' },
+      header: {
+        Authorization: `Bearer ${token}`,
+      },
+      timeout: 120000,
+      success: (res) => {
+        try {
+          const data = JSON.parse(res.data)
+          if (data.code === 0) {
+            resolve(data.data)
+          } else {
+            Taro.showToast({ title: data.message || '上传失败', icon: 'none' })
             reject(new Error(data.message))
           }
         } catch {

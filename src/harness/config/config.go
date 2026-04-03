@@ -2,12 +2,12 @@ package config
 
 // HarnessConfig Harness 模式总配置结构体
 type HarnessConfig struct {
-	System       SystemConfig                `yaml:"system"`
-	Plugins      map[string]PluginConfig     `yaml:"plugins"`
-	Pipelines    map[string]PipelineConfig   `yaml:"pipelines"`
-	FeatureFlags FeatureFlagsConfig          `yaml:"feature_flags"`
-	Performance  PerformanceConfig           `yaml:"performance"`
-	Security     SecurityConfig              `yaml:"security"`
+	System       SystemConfig              `yaml:"system"`
+	Plugins      map[string]PluginConfig   `yaml:"plugins"`
+	Pipelines    map[string]PipelineConfig `yaml:"pipelines"`
+	FeatureFlags FeatureFlagsConfig        `yaml:"feature_flags"`
+	Performance  PerformanceConfig         `yaml:"performance"`
+	Security     SecurityConfig            `yaml:"security"`
 }
 
 // SystemConfig 系统配置
@@ -29,8 +29,8 @@ type LoggingConfig struct {
 
 // MonitoringConfig 监控配置
 type MonitoringConfig struct {
-	Enabled            bool   `yaml:"enabled"`
-	MetricsPort        int    `yaml:"metrics_port"`
+	Enabled             bool   `yaml:"enabled"`
+	MetricsPort         int    `yaml:"metrics_port"`
 	HealthCheckInterval string `yaml:"health_check_interval"`
 }
 
@@ -51,25 +51,27 @@ type PipelineConfig struct {
 
 // FeatureFlagsConfig 功能开关配置
 type FeatureFlagsConfig struct {
-	EnableAnalytics          bool `yaml:"enable_analytics"`
-	EnableExport             bool `yaml:"enable_export"`
-	EnableMultiTenant        bool `yaml:"enable_multi_tenant"`
-	EnablePluginMarketplace  bool `yaml:"enable_plugin_marketplace"`
+	EnableAnalytics         bool `yaml:"enable_analytics"`
+	EnableExport            bool `yaml:"enable_export"`
+	EnableMultiTenant       bool `yaml:"enable_multi_tenant"`
+	EnablePluginMarketplace bool `yaml:"enable_plugin_marketplace"`
 }
 
 // PerformanceConfig 性能配置
 type PerformanceConfig struct {
-	MaxConcurrentPlugins int              `yaml:"max_concurrent_plugins"`
-	PluginTimeout        string           `yaml:"plugin_timeout"`
-	CacheTTL             string           `yaml:"cache_ttl"`
+	MaxConcurrentPlugins int                `yaml:"max_concurrent_plugins"`
+	PluginTimeout        string             `yaml:"plugin_timeout"`
+	CacheTTL             string             `yaml:"cache_ttl"`
 	RateLimiting         RateLimitingConfig `yaml:"rate_limiting"`
 }
 
 // RateLimitingConfig 限流配置
 type RateLimitingConfig struct {
-	Enabled           bool `yaml:"enabled"`
-	RequestsPerMinute int  `yaml:"requests_per_minute"`
-	BurstSize         int  `yaml:"burst_size"`
+	Enabled               bool `yaml:"enabled"`
+	RequestsPerMinute     int  `yaml:"requests_per_minute"`      // 全局限流：每分钟请求数（默认6000，即100 req/s）
+	BurstSize             int  `yaml:"burst_size"`               // 全局限流：突发容量（默认20）
+	ChatRequestsPerMinute int  `yaml:"chat_requests_per_minute"` // 对话限流：每分钟请求数（默认10）
+	ChatBurstSize         int  `yaml:"chat_burst_size"`          // 对话限流：突发容量（默认5）
 }
 
 // SecurityConfig 安全配置

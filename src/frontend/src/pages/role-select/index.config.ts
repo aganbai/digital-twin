@@ -1,3 +1,3 @@
 export default definePageConfig({
-  navigationBarTitleText: '创建分身',
+  navigationBarTitleText: '选择身份',
 })

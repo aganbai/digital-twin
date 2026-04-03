@@ -6,6 +6,9 @@ import type { Conversation, TakeoverStatusResponse } from '@/api/chat'
 import { uploadFile } from '@/api/upload'
 import { useChatStore } from '@/store'
 import { formatTime } from '@/utils/format'
+import EmojiPanel from '@/components/EmojiPanel'
+// 语音功能暂停使用，待认证完成后开放
+// import { useVoiceInput } from '@/hooks/useVoiceInput'
 import './index.scss'
 
 /** 判断两条消息之间是否需要显示时间戳（间隔超过 5 分钟） */
@@ -21,6 +24,8 @@ export default function Chat() {
   const router = useRouter()
   const teacherId = Number(router.params.teacher_id) || 0
   const teacherName = decodeURIComponent(router.params.teacher_name || '教师')
+  // V2.0 中 teacher_id 实际就是 teacher_persona_id
+  const teacherPersonaId = teacherId
 
   const {
     messages,
@@ -33,6 +38,8 @@ export default function Chat() {
     clearMessages,
   } = useChatStore()
 
+  /** 状态栏高度 */
+  const [statusBarHeight, setStatusBarHeight] = useState(44)
   /** 输入框内容 */
   const [inputValue, setInputValue] = useState('')
   /** 用于 ScrollView 自动滚动的锚点 ID */
@@ -48,6 +55,8 @@ export default function Chat() {
     name: string
   } | null>(null)
   const [uploading, setUploading] = useState(false)
+  /** 引用回复的消息 */
+  const [replyToMsg, setReplyToMsg] = useState<{id?: number, content: string} | null>(null)
   /** 流式回复内容累积 */
   const [streamingContent, setStreamingContent] = useState('')
   /** 是否正在流式接收 */
@@ -56,23 +65,53 @@ export default function Chat() {
   const streamTaskRef = useRef<any>(null)
   /** 接管状态 */
   const [takeoverInfo, setTakeoverInfo] = useState<TakeoverStatusResponse | null>(null)
+  /** 是否显示 Emoji 面板 */
+  const [showEmoji, setShowEmoji] = useState(false)
+  /** 是否处于语音输入模式 */
+  // 语音功能暂停使用，待认证完成后开放
+  // const [voiceMode, setVoiceMode] = useState(false)
+
+  // 语音功能暂停使用，待认证完成后开放
+  // const {
+  //   voiceState,
+  //   recognizedText,
+  //   duration,
+  //   startRecording,
+  //   stopRecording,
+  //   cancelRecording,
+  // } = useVoiceInput()
+
+  // 语音功能暂停使用，待认证完成后开放
+  // // 语音识别结果填充到输入框
+  // useEffect(() => {
+  //   if (voiceState === 'idle' && recognizedText) {
+  //     setInputValue((prev) => prev + recognizedText)
+  //     setVoiceMode(false) // 识别完成后切回文字模式
+  //   }
+  // }, [voiceState, recognizedText])
 
   /** 设置导航栏标题 */
   useDidShow(() => {
     Taro.setNavigationBarTitle({ title: teacherName })
   })
 
+  /** 动态获取状态栏高度 */
+  useEffect(() => {
+    const sysInfo = Taro.getSystemInfoSync()
+    setStatusBarHeight(sysInfo.statusBarHeight || 44)
+  }, [])
+
   /** 加载历史消息 */
   const loadHistory = useCallback(async () => {
     try {
       const res = await getConversations({
-        teacher_id: teacherId,
+        teacher_persona_id: teacherPersonaId,
         page: 1,
         page_size: 50,
       })
       const items = res.data.items || []
-      // 接口返回按时间倒序，需要反转为正序
-      const sorted = [...items].reverse()
+      // 接口返回按时间正序（ASC），直接使用
+      const sorted = items
       const historyMessages = sorted.map((item) => ({
         id: item.id,
         role: item.role as 'user' | 'assistant',
@@ -86,7 +125,7 @@ export default function Chat() {
 
       // 从历史记录中获取最新的 session_id
       if (sorted.length > 0) {
-        const lastItem = items[0] // 倒序中第一条是最新的
+        const lastItem = sorted[sorted.length - 1] // 正序中最后一条是最新的
         if ((lastItem as any).session_id) {
           const sid = (lastItem as any).session_id
           setSessionId(sid)
@@ -97,7 +136,7 @@ export default function Chat() {
     } catch (error) {
       console.error('加载对话历史失败:', error)
     }
-  }, [teacherId, setMessages, setSessionId])
+  }, [teacherPersonaId, setMessages, setSessionId])
 
   /** 检查接管状态 */
   const checkTakeover = useCallback(async (sid: string) => {
@@ -112,11 +151,11 @@ export default function Chat() {
 
   /** 页面初始化 */
   useEffect(() => {
-    if (!initialized.current && teacherId) {
+    if (!initialized.current && teacherPersonaId) {
       initialized.current = true
       loadHistory()
     }
-  }, [teacherId, loadHistory])
+  }, [teacherPersonaId, loadHistory])
 
   /** 消息列表变化时自动滚动到底部 */
   useEffect(() => {
@@ -167,7 +206,7 @@ export default function Chat() {
       try {
         const task = chatStream(
           text,
-          teacherId,
+          teacherPersonaId,
           {
             onStart: (newSessionId) => {
               if (newSessionId) {
@@ -239,7 +278,7 @@ export default function Chat() {
         handleFallbackSend(text, userMsgIndex)
       }
     },
-    [teacherId, sessionId, addMessage, setLoading, setSessionId],
+    [teacherPersonaId, sessionId, addMessage, setLoading, setSessionId],
   )
 
   /** 降级到普通接口发送 */
@@ -249,7 +288,7 @@ export default function Chat() {
       setStreamingContent('')
 
       try {
-        const res = await sendMessage(text, teacherId, sessionId || undefined, attachment)
+        const res = await sendMessage(text, teacherPersonaId, sessionId || undefined, attachment)
         const { reply, session_id } = res.data
 
         if (session_id) {
@@ -265,11 +304,12 @@ export default function Chat() {
       } catch (error) {
         console.error('发送消息失败:', error)
         setFailedIndexes((prev) => new Set(prev).add(userMsgIndex))
+        Taro.showToast({ title: '发送失败，请点击重试', icon: 'none' })
       } finally {
         setLoading(false)
       }
     },
-    [teacherId, sessionId, addMessage, setLoading, setSessionId],
+    [teacherPersonaId, sessionId, addMessage, setLoading, setSessionId],
   )
 
   /** 发送消息 */
@@ -281,6 +321,8 @@ export default function Chat() {
     setInputValue('')
     const currentAttachment = attachmentInfo
     setAttachmentInfo(null)
+    const currentReply = replyToMsg
+    setReplyToMsg(null)
 
     // 优先使用流式接口
     handleStreamSend(text || `[附件] ${currentAttachment?.name || ''}`, currentAttachment || undefined)
@@ -316,10 +358,25 @@ export default function Chat() {
     handleSend()
   }, [handleSend])
 
+  /** 长按消息弹出操作菜单 */
+  const handleLongPress = useCallback((msg: any) => {
+    Taro.showActionSheet({
+      itemList: ['引用回复', '复制'],
+      success: (res) => {
+        if (res.tapIndex === 0) {
+          setReplyToMsg({ id: msg.id, content: msg.content })
+        } else if (res.tapIndex === 1) {
+          Taro.setClipboardData({ data: msg.content })
+        }
+      },
+    })
+  }, [])
+
   /** 获取消息气泡样式类 */
   const getBubbleClass = (msg: any) => {
     const senderType = msg.sender_type || (msg.role === 'user' ? 'student' : 'ai')
     if (senderType === 'teacher') return 'chat-bubble--teacher'
+    if (senderType === 'teacher_push') return 'chat-bubble--teacher-push'
     if (senderType === 'student' || msg.role === 'user') return 'chat-bubble--user'
     return 'chat-bubble--assistant'
   }
@@ -328,15 +385,42 @@ export default function Chat() {
   const getSenderLabel = (msg: any) => {
     const senderType = msg.sender_type || (msg.role === 'user' ? 'student' : 'ai')
     if (senderType === 'teacher') return `👨‍🏫 ${teacherName}(真人)`
+    if (senderType === 'teacher_push') return `📢 ${teacherName}(通知)`
     if (senderType === 'ai') return `🤖 ${teacherName}`
     return ''
   }
+
+  /** Emoji 选择回调 */
+  const handleEmojiSelect = useCallback((emoji: string) => {
+    setInputValue((prev) => prev + emoji)
+  }, [])
 
   /** 是否为空状态（无历史消息） */
   const isEmpty = messages.length === 0 && !loading && !isStreaming
 
   return (
     <View className='chat-page'>
+      {/* 自定义导航栏 */}
+      <View className='chat-page__navbar' style={{ paddingTop: `${statusBarHeight}px` }}>
+        <View className='chat-page__navbar-back' onClick={() => {
+          const pages = Taro.getCurrentPages()
+          if (pages.length > 1) {
+            Taro.navigateBack()
+          } else {
+            // 没有父页时进入发现页
+            Taro.switchTab({ url: '/pages/discover/index' })
+          }
+        }}>
+          <Text className='chat-page__navbar-back-icon'>←</Text>
+        </View>
+        <Text className='chat-page__navbar-title'>{teacherName}</Text>
+        <View className='chat-page__navbar-action' onClick={() => {
+          Taro.navigateTo({ url: '/pages/history/index' })
+        }}>
+          <Text className='chat-page__navbar-action-text'>历史</Text>
+        </View>
+      </View>
+
       {/* 接管状态提示条 */}
       {takeoverInfo?.is_taken_over && (
         <View className='chat-page__takeover-bar'>
@@ -375,7 +459,7 @@ export default function Chat() {
           const senderLabel = getSenderLabel(msg)
 
           return (
-            <View key={`msg-${index}`} id={`msg-${index}`}>
+            <View key={`msg-${index}`} id={`msg-${index}`} onLongPress={() => handleLongPress(msg)}>
               {/* 时间戳 */}
               {showTime && msg.created_at && (
                 <View className='chat-bubble__timestamp'>
@@ -383,7 +467,18 @@ export default function Chat() {
                 </View>
               )}
 
-              {/* 消息行 */}
+              {/* 教师推送消息 - 居中通知卡片 */}
+              {senderType === 'teacher_push' ? (
+                <View className='chat-push-card'>
+                  <View className='chat-push-card__header'>
+                    <Text className='chat-push-card__label'>📢 老师通知</Text>
+                    {msg.created_at && (
+                      <Text className='chat-push-card__time'>{formatTime(msg.created_at)}</Text>
+                    )}
+                  </View>
+                  <Text className='chat-push-card__content'>{msg.content}</Text>
+                </View>
+              ) : (
               <View className={`chat-bubble ${getBubbleClass(msg)}`}>
                 {/* 非用户消息：左侧头像 */}
                 {!isUser && (
@@ -421,6 +516,7 @@ export default function Chat() {
                   </View>
                 </View>
               </View>
+              )}
 
               {/* 发送失败提示 */}
               {failedIndexes.has(index) && (
@@ -485,6 +581,21 @@ export default function Chat() {
 
       {/* 底部输入区域 */}
       <View className='chat-page__input-bar safe-area-bottom'>
+        {/* 引用回复预览 */}
+        {replyToMsg && (
+          <View className='chat-page__quote-preview'>
+            <View className='chat-page__quote-preview-content'>
+              <Text className='chat-page__quote-preview-text'>
+                {replyToMsg.content.length > 40
+                  ? replyToMsg.content.substring(0, 40) + '...'
+                  : replyToMsg.content}
+              </Text>
+            </View>
+            <View className='chat-page__quote-preview-close' onClick={() => setReplyToMsg(null)}>
+              <Text className='chat-page__quote-preview-close-text'>✕</Text>
+            </View>
+          </View>
+        )}
         {/* M4: 附件预览 */}
         {attachmentInfo && (
           <View className='chat-page__attachment-preview'>
@@ -503,6 +614,7 @@ export default function Chat() {
             className={`chat-page__attach-btn ${uploading ? 'chat-page__attach-btn--disabled' : ''}`}
             onClick={() => {
               if (uploading) return
+              setShowEmoji(false)
               Taro.chooseMessageFile({
                 count: 1,
                 type: 'file',
@@ -515,7 +627,7 @@ export default function Chat() {
                   }
                   setUploading(true)
                   try {
-                    const uploadRes = await uploadFile(file.path, 'assignment')
+                    const uploadRes = await uploadFile(file.path, 'general')
                     const ext = file.name.split('.').pop()?.toLowerCase() || ''
                     const typeMap: Record<string, string> = {
                       pdf: 'pdf', docx: 'docx', txt: 'txt', md: 'txt',
@@ -538,6 +650,23 @@ export default function Chat() {
           >
             <Text className='chat-page__attach-btn-text'>{uploading ? '...' : '+'}</Text>
           </View>
+          {/* 语音/键盘切换按钮 - 暂停使用，待认证完成后开放 */}
+          {/*
+          <View
+            className='chat-page__voice-btn'
+            onClick={() => {
+              setVoiceMode(!voiceMode)
+              setShowEmoji(false)
+              if (voiceState === 'recording') {
+                cancelRecording()
+              }
+            }}
+          >
+            <Text className='chat-page__voice-btn-text'>{voiceMode ? '⌨️' : '🎤'}</Text>
+          </View>
+          */}
+
+          {/* 输入框 - 暂时始终显示输入框，不显示语音按钮 */}
           <Input
             className='chat-page__input'
             value={inputValue}
@@ -546,8 +675,21 @@ export default function Chat() {
             confirmType='send'
             onInput={handleInput}
             onConfirm={handleConfirm}
-            adjustPosition
+            onFocus={() => setShowEmoji(false)}
+            adjustPosition={!showEmoji}
           />
+
+          {/* Emoji 按钮 */}
+          <View
+            className='chat-page__emoji-btn'
+            onClick={() => {
+              setShowEmoji(!showEmoji)
+              // 语音功能暂停使用: setVoiceMode(false)
+            }}
+          >
+            <Text className='chat-page__emoji-btn-text'>{showEmoji ? '⌨️' : '😊'}</Text>
+          </View>
+
           <View
             className={`chat-page__send-btn ${
               (!inputValue.trim() && !attachmentInfo) || loading ? 'chat-page__send-btn--disabled' : ''
@@ -557,6 +699,9 @@ export default function Chat() {
             <Text className='chat-page__send-btn-text'>发送</Text>
           </View>
         </View>
+
+        {/* Emoji 面板 */}
+        <EmojiPanel visible={showEmoji} onSelect={handleEmojiSelect} />
       </View>
     </View>
   )

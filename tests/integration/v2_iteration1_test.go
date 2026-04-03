@@ -24,7 +24,6 @@ var (
 	v2i1TeacherID    float64
 	v2i1StudentID    float64
 	v2i1RelationID   float64 // 师生关系记录 ID
-	v2i1AssignmentID float64 // 作业 ID
 )
 
 // v2i1Setup 初始化 V2.0 迭代1 测试所需的教师和学生
@@ -809,137 +808,8 @@ func TestV2I1_IT50_SetDialogueStyleAndChat(t *testing.T) {
 	t.Logf("IT-50 通过: 教师设置问答风格 + 对话时生效验证成功")
 }
 
-// ======================== IT-51: 学生提交作业 + 教师点评 ========================
-func TestV2I1_IT51_SubmitAssignmentAndTeacherReview(t *testing.T) {
-	v2i1Setup(t) // 已建立 approved 关系
-
-	// 步骤1：学生提交作业
-	assignmentBody := map[string]interface{}{
-		"teacher_id": int(v2i1TeacherID),
-		"title":      "牛顿定律作业",
-		"content":    "牛顿第一定律是惯性定律，物体在不受外力作用时保持静止或匀速直线运动状态。",
-	}
-	resp, body, err := doRequest("POST", "/api/assignments", assignmentBody, v2i1StudentToken)
-	if err != nil {
-		t.Fatalf("IT-51 步骤1 提交作业请求失败: %v", err)
-	}
-	if resp.StatusCode != http.StatusOK {
-		t.Fatalf("IT-51 步骤1 HTTP状态码错误: 期望200, 实际%d, body: %s", resp.StatusCode, string(body))
-	}
-	apiResp, err := parseResponse(body)
-	if err != nil {
-		t.Fatalf("IT-51 步骤1 解析失败: %v", err)
-	}
-	if apiResp.Code != 0 {
-		t.Fatalf("IT-51 步骤1 业务码错误: 期望0, 实际%d, message: %s", apiResp.Code, apiResp.Message)
-	}
-
-	assignmentIDVal, ok := apiResp.Data["id"]
-	if !ok {
-		t.Fatal("IT-51 步骤1 响应缺少 id 字段")
-	}
-	v2i1AssignmentID = assignmentIDVal.(float64)
-	t.Logf("IT-51 步骤1: 作业提交成功, id=%v", v2i1AssignmentID)
-
-	// 验证 status = submitted
-	statusVal, ok := apiResp.Data["status"]
-	if !ok {
-		t.Fatal("IT-51 步骤1 响应缺少 status 字段")
-	}
-	if statusVal != "submitted" {
-		t.Fatalf("IT-51 步骤1 status 错误: 期望 submitted, 实际 %v", statusVal)
-	}
-
-	// 步骤2：教师点评作业
-	reviewPath := fmt.Sprintf("/api/assignments/%d/review", int(v2i1AssignmentID))
-	reviewBody := map[string]interface{}{
-		"content": "整体不错，概念理解准确，注意公式推导过程需要更严谨",
-		"score":   85,
-	}
-	resp, body, err = doRequest("POST", reviewPath, reviewBody, v2i1TeacherToken)
-	if err != nil {
-		t.Fatalf("IT-51 步骤2 教师点评请求失败: %v", err)
-	}
-	if resp.StatusCode != http.StatusOK {
-		t.Fatalf("IT-51 步骤2 HTTP状态码错误: 期望200, 实际%d, body: %s", resp.StatusCode, string(body))
-	}
-	apiResp, err = parseResponse(body)
-	if err != nil {
-		t.Fatalf("IT-51 步骤2 解析失败: %v", err)
-	}
-	if apiResp.Code != 0 {
-		t.Fatalf("IT-51 步骤2 业务码错误: 期望0, 实际%d, message: %s", apiResp.Code, apiResp.Message)
-	}
-
-	// 验证 reviewer_type = teacher
-	reviewerType, ok := apiResp.Data["reviewer_type"]
-	if !ok {
-		t.Fatal("IT-51 步骤2 响应缺少 reviewer_type 字段")
-	}
-	if reviewerType != "teacher" {
-		t.Fatalf("IT-51 步骤2 reviewer_type 错误: 期望 teacher, 实际 %v", reviewerType)
-	}
-
-	t.Logf("IT-51 通过: 学生提交作业 + 教师点评成功")
-}
-
-// ======================== IT-52: AI 自动点评作业 ========================
-func TestV2I1_IT52_AIReviewAssignment(t *testing.T) {
-	v2i1Setup(t)
-
-	// 如果 IT-51 没有创建作业，先创建一个
-	if v2i1AssignmentID <= 0 {
-		assignmentBody := map[string]interface{}{
-			"teacher_id": int(v2i1TeacherID),
-			"title":      "AI点评测试作业",
-			"content":    "牛顿第二定律 F=ma，物体加速度与合力成正比，与质量成反比。",
-		}
-		_, body, err := doRequest("POST", "/api/assignments", assignmentBody, v2i1StudentToken)
-		if err != nil {
-			t.Fatalf("IT-52 创建作业失败: %v", err)
-		}
-		apiResp, err := parseResponse(body)
-		if err != nil || apiResp.Code != 0 {
-			t.Fatalf("IT-52 创建作业解析失败: %v, code: %d, body: %s", err, apiResp.Code, string(body))
-		}
-		v2i1AssignmentID = apiResp.Data["id"].(float64)
-	}
-
-	// AI 自动点评
-	aiReviewPath := fmt.Sprintf("/api/assignments/%d/ai-review", int(v2i1AssignmentID))
-	resp, body, err := doRequest("POST", aiReviewPath, nil, v2i1TeacherToken)
-	if err != nil {
-		t.Fatalf("IT-52 AI点评请求失败: %v", err)
-	}
-	if resp.StatusCode != http.StatusOK {
-		t.Fatalf("IT-52 HTTP状态码错误: 期望200, 实际%d, body: %s", resp.StatusCode, string(body))
-	}
-
-	apiResp, err := parseResponse(body)
-	if err != nil {
-		t.Fatalf("IT-52 解析失败: %v", err)
-	}
-	if apiResp.Code != 0 {
-		t.Fatalf("IT-52 业务码错误: 期望0, 实际%d, message: %s", apiResp.Code, apiResp.Message)
-	}
-
-	// 验证 reviewer_type = ai
-	reviewerType, ok := apiResp.Data["reviewer_type"]
-	if !ok {
-		t.Fatal("IT-52 响应缺少 reviewer_type 字段")
-	}
-	if reviewerType != "ai" {
-		t.Fatalf("IT-52 reviewer_type 错误: 期望 ai, 实际 %v", reviewerType)
-	}
-
-	// 验证 content 非空
-	contentVal, ok := apiResp.Data["content"]
-	if !ok || contentVal == "" {
-		t.Fatalf("IT-52 响应缺少 content 或 content 为空")
-	}
-
-	t.Logf("IT-52 通过: AI 自动点评作业成功, reviewer_type=ai, content长度=%d", len(fmt.Sprintf("%v", contentVal)))
-}
+// ======================== IT-51/IT-52: 作业功能已移除（V2.0 迭代7） ========================
+// 原 TestV2I1_IT51_SubmitAssignmentAndTeacherReview 和 TestV2I1_IT52_AIReviewAssignment 已删除
 
 // ======================== IT-53: 上传 TXT 文件 → 自动解析入库 ========================
 func TestV2I1_IT53_UploadTXTFile(t *testing.T) {
@@ -1526,83 +1396,7 @@ func TestV2I1_IT60_FullEndToEndFlow(t *testing.T) {
 	}
 	t.Logf("IT-60 步骤8: 学生查看评语返回空列表（符合迭代5预期）")
 
-	// ===== 步骤9：学生提交作业 =====
-	t.Log("IT-60 步骤9: 学生提交作业")
-	assignmentBody := map[string]interface{}{
-		"teacher_id": int(teacherID),
-		"title":      "IT60全链路作业",
-		"content":    "牛顿第一定律是惯性定律，物体在不受外力时保持原有运动状态。",
-	}
-	resp, body, err = doRequest("POST", "/api/assignments", assignmentBody, studentToken)
-	if err != nil || resp.StatusCode != http.StatusOK {
-		t.Fatalf("IT-60 步骤9 提交作业失败: %v, status: %d, body: %s", err, resp.StatusCode, string(body))
-	}
-	apiResp, _ = parseResponse(body)
-	if apiResp.Code != 0 {
-		t.Fatalf("IT-60 步骤9 业务码错误: %d", apiResp.Code)
-	}
-	assignmentID := apiResp.Data["id"].(float64)
-	t.Logf("IT-60 步骤9: 提交作业成功, id=%v", assignmentID)
-
-	// ===== 步骤10：AI 自动点评 =====
-	t.Log("IT-60 步骤10: AI 自动点评")
-	aiReviewPath := fmt.Sprintf("/api/assignments/%d/ai-review", int(assignmentID))
-	resp, body, err = doRequest("POST", aiReviewPath, nil, teacherToken)
-	if err != nil || resp.StatusCode != http.StatusOK {
-		t.Fatalf("IT-60 步骤10 AI点评失败: %v, status: %d, body: %s", err, resp.StatusCode, string(body))
-	}
-	apiResp, _ = parseResponse(body)
-	if apiResp.Code != 0 {
-		t.Fatalf("IT-60 步骤10 业务码错误: %d", apiResp.Code)
-	}
-	t.Logf("IT-60 步骤10: AI 自动点评成功")
-
-	// ===== 步骤11：教师手动点评 =====
-	t.Log("IT-60 步骤11: 教师手动点评")
-	reviewPath := fmt.Sprintf("/api/assignments/%d/review", int(assignmentID))
-	reviewBody := map[string]interface{}{
-		"content": "IT60全链路教师点评：概念理解准确，继续加油！",
-		"score":   90,
-	}
-	resp, body, err = doRequest("POST", reviewPath, reviewBody, teacherToken)
-	if err != nil || resp.StatusCode != http.StatusOK {
-		t.Fatalf("IT-60 步骤11 教师点评失败: %v, status: %d, body: %s", err, resp.StatusCode, string(body))
-	}
-	apiResp, _ = parseResponse(body)
-	if apiResp.Code != 0 {
-		t.Fatalf("IT-60 步骤11 业务码错误: %d", apiResp.Code)
-	}
-	t.Logf("IT-60 步骤11: 教师手动点评成功")
-
-	// ===== 步骤12：查看作业详情（含所有点评） =====
-	t.Log("IT-60 步骤12: 查看作业详情")
-	detailPath := fmt.Sprintf("/api/assignments/%d", int(assignmentID))
-	resp, body, err = doRequest("GET", detailPath, nil, teacherToken)
-	if err != nil || resp.StatusCode != http.StatusOK {
-		t.Fatalf("IT-60 步骤12 查看详情失败: %v, status: %d, body: %s", err, resp.StatusCode, string(body))
-	}
-	apiResp, _ = parseResponse(body)
-	if apiResp.Code != 0 {
-		t.Fatalf("IT-60 步骤12 业务码错误: %d", apiResp.Code)
-	}
-
-	// 验证作业状态为 reviewed
-	if statusVal, ok := apiResp.Data["status"]; ok {
-		if statusVal != "reviewed" {
-			t.Logf("IT-60 步骤12 警告: 作业状态=%v (期望 reviewed)", statusVal)
-		}
-	}
-
-	// 验证 reviews 包含 AI 和教师点评
-	if reviewsVal, ok := apiResp.Data["reviews"]; ok && reviewsVal != nil {
-		reviews, ok := reviewsVal.([]interface{})
-		if ok {
-			t.Logf("IT-60 步骤12: 作业详情获取成功, 点评数量=%d", len(reviews))
-			if len(reviews) < 2 {
-				t.Logf("IT-60 步骤12 警告: 点评数量=%d (期望>=2)", len(reviews))
-			}
-		}
-	}
+	// 步骤9-12（作业功能）已移除（V2.0 迭代7）
 
 	// ===== 步骤13：上传文件 =====
 	t.Log("IT-60 步骤13: 上传 TXT 文件")

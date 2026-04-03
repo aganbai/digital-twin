@@ -11,15 +11,26 @@ import type { Conversation, TakeoverStatusResponse } from '@/api/chat'
 import { formatTime } from '@/utils/format'
 import './index.scss'
 
+/** 判断两条消息之间是否需要显示时间戳（间隔超过 5 分钟） */
+function shouldShowTimestamp(prev?: string, curr?: string): boolean {
+  if (!prev || !curr) return true
+  const prevTime = new Date(prev).getTime()
+  const currTime = new Date(curr).getTime()
+  if (isNaN(prevTime) || isNaN(currTime)) return true
+  return currTime - prevTime > 5 * 60 * 1000
+}
+
 export default function StudentChatHistory() {
   const router = useRouter()
   const studentPersonaId = Number(router.params.student_persona_id) || 0
   const studentName = decodeURIComponent(router.params.student_name || '学生')
 
+  const [statusBarHeight, setStatusBarHeight] = useState(44)
   const [messages, setMessages] = useState<Conversation[]>([])
   const [sessionId, setSessionId] = useState('')
   const [takeoverStatus, setTakeoverStatus] = useState<'active' | 'ended' | 'none'>('none')
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(false)
   const [sending, setSending] = useState(false)
   const [inputValue, setInputValue] = useState('')
   const [replyToMsg, setReplyToMsg] = useState<Conversation | null>(null)
@@ -28,21 +39,31 @@ export default function StudentChatHistory() {
 
   /** 设置导航栏标题 */
   useDidShow(() => {
-    Taro.setNavigationBarTitle({ title: `${studentName}的对话记录` })
+    Taro.setNavigationBarTitle({ title: `${studentName}的对话` })
   })
+
+  /** 动态获取状态栏高度 */
+  useEffect(() => {
+    const sysInfo = Taro.getSystemInfoSync()
+    setStatusBarHeight(sysInfo.statusBarHeight || 44)
+  }, [])
 
   /** 加载对话记录 */
   const loadConversations = useCallback(async () => {
     if (!studentPersonaId) return
     setLoading(true)
+    setLoadError(false)
     try {
       const res = await getStudentConversations(studentPersonaId)
       const data = res.data
-      setMessages(data.messages || [])
+      const msgList = data.messages || []
+      console.log('[StudentChatHistory] 加载到', msgList.length, '条消息')
+      setMessages(msgList)
       setSessionId(data.session_id || '')
       setTakeoverStatus(data.takeover_status || 'none')
     } catch (error) {
       console.error('加载对话记录失败:', error)
+      setLoadError(true)
     } finally {
       setLoading(false)
     }
@@ -65,17 +86,6 @@ export default function StudentChatHistory() {
     }
   }, [messages.length])
 
-  /** 查询接管状态 */
-  const checkTakeoverStatus = useCallback(async () => {
-    if (!sessionId) return
-    try {
-      const res = await getTakeoverStatus(sessionId)
-      setTakeoverStatus(res.data.is_taken_over ? 'active' : 'none')
-    } catch {
-      // 忽略
-    }
-  }, [sessionId])
-
   /** 发送教师回复 */
   const handleSend = useCallback(async () => {
     const text = inputValue.trim()
@@ -90,7 +100,6 @@ export default function StudentChatHistory() {
         reply_to_id: replyToMsg?.id || 0,
       })
 
-      // 添加新消息到列表
       const newMsg: Conversation = {
         id: res.data.conversation_id,
         session_id: sessionId,
@@ -107,6 +116,7 @@ export default function StudentChatHistory() {
       setTakeoverStatus('active')
     } catch (error) {
       console.error('发送回复失败:', error)
+      Taro.showToast({ title: '发送失败', icon: 'none' })
     } finally {
       setSending(false)
     }
@@ -124,34 +134,42 @@ export default function StudentChatHistory() {
     }
   }, [sessionId])
 
-  /** 选择引用回复 */
-  const handleQuoteReply = (msg: Conversation) => {
-    setReplyToMsg(msg)
+  /** 长按消息弹出操作菜单 */
+  const handleLongPress = (msg: Conversation) => {
+    Taro.showActionSheet({
+      itemList: ['引用回复', '复制'],
+      success: (res) => {
+        if (res.tapIndex === 0) {
+          setReplyToMsg(msg)
+        } else if (res.tapIndex === 1) {
+          Taro.setClipboardData({ data: msg.content })
+        }
+      },
+    })
   }
 
-  /** 取消引用 */
-  const handleCancelQuote = () => {
-    setReplyToMsg(null)
+  /** 获取消息气泡样式类（老师视角：教师消息靠右，学生/AI消息靠左） */
+  const getBubbleClass = (msg: Conversation) => {
+    const senderType = msg.sender_type || (msg.role === 'user' ? 'student' : 'ai')
+    if (senderType === 'teacher') return 'chat-bubble--teacher'
+    if (senderType === 'student') return 'chat-bubble--student'
+    return 'chat-bubble--ai'
   }
 
   /** 获取发送者标签 */
   const getSenderLabel = (msg: Conversation) => {
-    switch (msg.sender_type) {
-      case 'student':
-        return `👨‍🎓 ${studentName}`
-      case 'ai':
-        return '🤖 AI分身'
-      case 'teacher':
-        return '👨‍🏫 我(真人)'
-      default:
-        return msg.role === 'user' ? `👨‍🎓 ${studentName}` : '🤖 AI分身'
-    }
+    const senderType = msg.sender_type || (msg.role === 'user' ? 'student' : 'ai')
+    if (senderType === 'student') return `👨‍🎓 ${studentName}`
+    if (senderType === 'teacher') return '👨‍🏫 我(真人)'
+    return '🤖 AI分身'
   }
 
-  /** 获取消息样式类 */
-  const getMsgClass = (msg: Conversation) => {
+  /** 获取头像文字 */
+  const getAvatarText = (msg: Conversation) => {
     const senderType = msg.sender_type || (msg.role === 'user' ? 'student' : 'ai')
-    return `student-chat__msg student-chat__msg--${senderType}`
+    if (senderType === 'student') return studentName.charAt(0).toUpperCase()
+    if (senderType === 'teacher') return '师'
+    return 'AI'
   }
 
   if (loading) {
@@ -166,6 +184,22 @@ export default function StudentChatHistory() {
 
   return (
     <View className='student-chat'>
+      {/* 自定义导航栏 */}
+      <View className='student-chat__navbar' style={{ paddingTop: `${statusBarHeight}px` }}>
+        <View className='student-chat__navbar-back' onClick={() => {
+          const pages = Taro.getCurrentPages()
+          if (pages.length > 1) {
+            Taro.navigateBack()
+          } else {
+            Taro.switchTab({ url: '/pages/home/index' })
+          }
+        }}>
+          <Text className='student-chat__navbar-back-icon'>←</Text>
+        </View>
+        <Text className='student-chat__navbar-title'>{studentName}的对话</Text>
+        <View className='student-chat__navbar-placeholder' />
+      </View>
+
       {/* 接管状态栏 */}
       {takeoverStatus === 'active' && (
         <View className='student-chat__takeover-bar'>
@@ -185,61 +219,108 @@ export default function StudentChatHistory() {
         enhanced
         showScrollbar={false}
       >
-        {messages.length === 0 && (
+        {messages.length === 0 && !loadError && (
           <View className='student-chat__empty'>
             <Text className='student-chat__empty-text'>暂无对话记录</Text>
           </View>
         )}
 
-        {messages.map((msg, index) => (
-          <View key={msg.id || index} id={`msg-${index}`} className={getMsgClass(msg)}>
-            {/* 发送者标签 */}
-            <Text className='student-chat__sender'>{getSenderLabel(msg)}</Text>
-
-            {/* 引用消息 */}
-            {msg.reply_to_id && msg.reply_to_id > 0 && msg.reply_to_content && (
-              <View className='student-chat__quote'>
-                <Text className='student-chat__quote-text'>
-                  引用: {msg.reply_to_content.length > 50
-                    ? msg.reply_to_content.substring(0, 50) + '...'
-                    : msg.reply_to_content}
-                </Text>
-              </View>
-            )}
-
-            {/* 消息内容 */}
-            <Text className='student-chat__content'>{msg.content}</Text>
-
-            {/* 时间和操作 */}
-            <View className='student-chat__meta'>
-              <Text className='student-chat__time'>
-                {msg.created_at ? formatTime(msg.created_at) : ''}
-              </Text>
-              {/* 学生和 AI 消息可以引用回复 */}
-              {(msg.sender_type === 'student' || msg.sender_type === 'ai' || msg.role === 'user') && (
-                <View className='student-chat__reply-btn' onClick={() => handleQuoteReply(msg)}>
-                  <Text className='student-chat__reply-btn-text'>引用回复</Text>
-                </View>
-              )}
+        {loadError && (
+          <View className='student-chat__empty'>
+            <Text className='student-chat__empty-text'>加载失败</Text>
+            <View
+              className='student-chat__retry-btn'
+              onClick={loadConversations}
+            >
+              <Text className='student-chat__retry-btn-text'>点击重试</Text>
             </View>
           </View>
-        ))}
+        )}
+
+        {messages.map((msg, index) => {
+          const prevMsg = index > 0 ? messages[index - 1] : undefined
+          const showTime = shouldShowTimestamp(prevMsg?.created_at, msg.created_at)
+          const senderType = msg.sender_type || (msg.role === 'user' ? 'student' : 'ai')
+          const isStudent = senderType === 'student'
+          const isTeacher = senderType === 'teacher'
+          const isAI = !isStudent && !isTeacher
+          const senderLabel = getSenderLabel(msg)
+
+          return (
+            <View key={msg.id || index} id={`msg-${index}`} onLongPress={() => handleLongPress(msg)}>
+              {/* 时间戳 */}
+              {showTime && msg.created_at && (
+                <View className='chat-bubble__timestamp'>
+                  <Text className='chat-bubble__timestamp-text'>{formatTime(msg.created_at)}</Text>
+                </View>
+              )}
+
+              {/* 消息行（老师视角：教师消息靠右，学生/AI消息靠左） */}
+              <View className={`chat-bubble ${getBubbleClass(msg)}`}>
+                {/* 非教师消息：左侧头像（学生/AI） */}
+                {!isTeacher && (
+                  <View className={`chat-bubble__avatar ${isStudent ? 'chat-bubble__avatar--student' : 'chat-bubble__avatar--ai'}`}>
+                    <Text className='chat-bubble__avatar-text'>
+                      {getAvatarText(msg)}
+                    </Text>
+                  </View>
+                )}
+
+                <View className='chat-bubble__body'>
+                  {/* 发送者标签 */}
+                  <Text className={`chat-bubble__sender-label ${isTeacher ? 'chat-bubble__sender-label--teacher' : isAI ? 'chat-bubble__sender-label--ai' : ''}`}>
+                    {senderLabel}
+                  </Text>
+
+                  {/* 引用消息 */}
+                  {msg.reply_to_id && msg.reply_to_id > 0 && msg.reply_to_content && (
+                    <View className='chat-bubble__quote'>
+                      <Text className='chat-bubble__quote-text'>
+                        {msg.reply_to_content.length > 50
+                          ? msg.reply_to_content.substring(0, 50) + '...'
+                          : msg.reply_to_content}
+                      </Text>
+                    </View>
+                  )}
+
+                  {/* 气泡内容 */}
+                  <View className={`chat-bubble__content chat-bubble__content--${isStudent ? 'student' : isTeacher ? 'teacher' : 'ai'}`}>
+                    <Text className={`chat-bubble__text chat-bubble__text--dark`}>
+                      {msg.content}
+                    </Text>
+                  </View>
+                </View>
+
+                {/* 教师消息：右侧头像 */}
+                {isTeacher && (
+                  <View className='chat-bubble__avatar chat-bubble__avatar--teacher'>
+                    <Text className='chat-bubble__avatar-text'>
+                      {getAvatarText(msg)}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            </View>
+          )
+        })}
 
         <View className='student-chat__bottom-spacer' />
       </ScrollView>
 
       {/* 底部输入区域 */}
       <View className='student-chat__input-bar safe-area-bottom'>
-        {/* 引用提示 */}
+        {/* 引用回复预览 */}
         {replyToMsg && (
-          <View className='student-chat__quote-bar'>
-            <Text className='student-chat__quote-bar-text'>
-              引用: {replyToMsg.content.length > 30
-                ? replyToMsg.content.substring(0, 30) + '...'
-                : replyToMsg.content}
-            </Text>
-            <View className='student-chat__quote-cancel' onClick={handleCancelQuote}>
-              <Text className='student-chat__quote-cancel-text'>✕</Text>
+          <View className='student-chat__quote-preview'>
+            <View className='student-chat__quote-preview-content'>
+              <Text className='student-chat__quote-preview-text'>
+                {replyToMsg.content.length > 40
+                  ? replyToMsg.content.substring(0, 40) + '...'
+                  : replyToMsg.content}
+              </Text>
+            </View>
+            <View className='student-chat__quote-preview-close' onClick={() => setReplyToMsg(null)}>
+              <Text className='student-chat__quote-preview-close-text'>✕</Text>
             </View>
           </View>
         )}

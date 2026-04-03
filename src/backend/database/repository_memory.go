@@ -355,6 +355,33 @@ func (r *MemoryRepository) ListAllStudentPersonaPairs() ([][2]int64, error) {
 	return pairs, nil
 }
 
+// DeleteOldestEpisodicMemories 删除超出上限的最旧 episodic 记忆
+// 保留最新的 keepCount 条，删除其余的
+func (r *MemoryRepository) DeleteOldestEpisodicMemories(teacherPersonaID, studentPersonaID int64, keepCount int) error {
+	if keepCount < 0 {
+		keepCount = 0
+	}
+
+	// 使用子查询找出需要保留的记忆 ID，删除其余的
+	// SQLite 不支持 DELETE ... ORDER BY ... LIMIT，所以用子查询
+	_, err := r.db.Exec(
+		`DELETE FROM memories 
+		 WHERE teacher_persona_id = ? AND student_persona_id = ? AND COALESCE(memory_layer, 'episodic') = 'episodic'
+		 AND id NOT IN (
+		   SELECT id FROM memories 
+		   WHERE teacher_persona_id = ? AND student_persona_id = ? AND COALESCE(memory_layer, 'episodic') = 'episodic'
+		   ORDER BY updated_at DESC LIMIT ?
+		 )`,
+		teacherPersonaID, studentPersonaID,
+		teacherPersonaID, studentPersonaID, keepCount,
+	)
+	if err != nil {
+		return fmt.Errorf("删除最旧 episodic 记忆失败: %w", err)
+	}
+
+	return nil
+}
+
 // ==================== 辅助函数 ====================
 
 // defaultMemoryLayer 如果 memory_layer 为空，返回默认值 "episodic"

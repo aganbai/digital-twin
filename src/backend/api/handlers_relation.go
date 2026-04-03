@@ -292,6 +292,15 @@ func (h *Handler) HandleApproveRelation(c *gin.Context) {
 		return
 	}
 
+	// 解析请求体（可选参数：评语和班级）
+	var req struct {
+		Comment string `json:"comment"`  // 教师评语
+		ClassID *int64 `json:"class_id"` // 分配的班级ID
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		// 允许空 body，保持向后兼容
+	}
+
 	db := h.manager.GetDB()
 	if db == nil {
 		Error(c, http.StatusInternalServerError, 50001, "数据库服务不可用")
@@ -299,6 +308,7 @@ func (h *Handler) HandleApproveRelation(c *gin.Context) {
 	}
 
 	relationRepo := database.NewRelationRepository(db)
+	classRepo := database.NewClassRepository(db)
 
 	// 查询关系记录
 	rel, err := relationRepo.GetByID(relID)
@@ -317,15 +327,47 @@ func (h *Handler) HandleApproveRelation(c *gin.Context) {
 		return
 	}
 
-	// 更新状态为 approved
-	if err := relationRepo.UpdateStatus(relID, "approved"); err != nil {
+	// 如果指定了 class_id，校验班级存在且属于当前教师分身
+	if req.ClassID != nil {
+		class, err := classRepo.GetByID(*req.ClassID)
+		if err != nil {
+			Error(c, http.StatusInternalServerError, 50001, "查询班级失败: "+err.Error())
+			return
+		}
+		if class == nil {
+			Error(c, http.StatusNotFound, 40017, "班级不存在")
+			return
+		}
+		if class.PersonaID != rel.TeacherPersonaID {
+			Error(c, http.StatusForbidden, 40018, "无权操作该班级")
+			return
+		}
+	}
+
+	// 更新状态为 approved，同时保存评语和班级
+	if err := relationRepo.ApproveWithDetails(relID, req.Comment, req.ClassID); err != nil {
 		Error(c, http.StatusInternalServerError, 50001, "更新关系状态失败: "+err.Error())
 		return
+	}
+
+	// 如果指定了班级，将学生加入班级
+	var joinedClass bool
+	if req.ClassID != nil && rel.StudentPersonaID > 0 {
+		isMember, _ := classRepo.IsMember(*req.ClassID, rel.StudentPersonaID)
+		if !isMember {
+			_, err = classRepo.AddMember(*req.ClassID, rel.StudentPersonaID)
+			if err == nil {
+				joinedClass = true
+			}
+		}
 	}
 
 	Success(c, gin.H{
 		"id":                 relID,
 		"status":             "approved",
+		"comment":            req.Comment,
+		"class_id":           req.ClassID,
+		"joined_class":       joinedClass,
 		"teacher_persona_id": rel.TeacherPersonaID,
 		"student_persona_id": rel.StudentPersonaID,
 		"updated_at":         time.Now(),

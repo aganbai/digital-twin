@@ -1,0 +1,4 @@
+# Digital-Twin 批量文档导入脚本依赖
+PyPDF2>=3.0.0
+python-docx>=0.8.11
+requests>=2.28.0

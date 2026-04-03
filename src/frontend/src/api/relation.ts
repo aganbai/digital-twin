@@ -10,6 +10,8 @@ export interface RelationItemTeacher {
   initiated_by: 'teacher' | 'student'
   is_active?: boolean
   created_at: string
+  last_chat_time?: string
+  has_new_message?: boolean
 }
 
 /** 师生关系项（学生视角） */

@@ -8,6 +8,22 @@ import { usePersonaStore } from '@/store'
 import Empty from '@/components/Empty'
 import './index.scss'
 
+/** 格式化相对时间 */
+function formatRelativeTime(dateStr: string): string {
+  const date = new Date(dateStr)
+  const now = new Date()
+  const diff = now.getTime() - date.getTime()
+  const minutes = Math.floor(diff / 60000)
+  const hours = Math.floor(diff / 3600000)
+  const days = Math.floor(diff / 86400000)
+
+  if (minutes < 1) return '刚刚'
+  if (minutes < 60) return `${minutes}分钟前`
+  if (hours < 24) return `${hours}小时前`
+  if (days < 7) return `${days}天前`
+  return `${date.getMonth() + 1}/${date.getDate()}`
+}
+
 /** Tab 类型 - R4: 合并为4个Tab */
 type TabType = 'all' | 'byClass' | 'pending' | 'classSettings'
 
@@ -104,13 +120,15 @@ export default function TeacherStudents() {
   }
 
   /** 查看学生对话记录 */
-  const handleViewChatHistory = (studentPersonaId: number, studentName: string) => {
-    if (!studentPersonaId) {
+  const handleViewChatHistory = (studentPersonaId: number, studentName: string, studentId?: number) => {
+    // 优先使用 student_persona_id，回退到 student_id
+    const targetId = studentPersonaId || studentId
+    if (!targetId) {
       Taro.showToast({ title: '暂无分身信息', icon: 'none' })
       return
     }
     Taro.navigateTo({
-      url: `/pages/student-chat-history/index?student_persona_id=${studentPersonaId}&student_name=${encodeURIComponent(studentName)}`,
+      url: `/pages/student-chat-history/index?student_persona_id=${targetId}&student_name=${encodeURIComponent(studentName)}`,
     })
   }
 
@@ -121,14 +139,20 @@ export default function TeacherStudents() {
       Taro.showToast({ title: '请输入有效的学生ID', icon: 'none' })
       return
     }
+    console.log('Inviting student with ID:', id)
     try {
-      await inviteStudent(id)
+      const result = await inviteStudent(id)
+      console.log('Invite success:', result)
       Taro.showToast({ title: '邀请成功', icon: 'success' })
       setShowInviteModal(false)
       setInviteId('')
       fetchRelations()
     } catch (error) {
       console.error('邀请失败:', error)
+      console.error('错误详情:', JSON.stringify(error))
+      // 显示具体的错误信息
+      const errorMsg = error?.response?.data?.message || error?.message || '邀请失败'
+      Taro.showToast({ title: errorMsg, icon: 'none', duration: 3000 })
     }
   }
 
@@ -272,41 +296,60 @@ export default function TeacherStudents() {
 
   /** 渲染学生卡片（复用） */
   const renderStudentCard = (item: RelationItemTeacher) => (
-    <View key={item.id} className='teacher-students-page__card'>
-      <View className='teacher-students-page__card-info'>
-        <Text className='teacher-students-page__card-name'>
-          {item.student_nickname}
+    <View
+      key={item.id}
+      className='teacher-students-page__card'
+      onClick={() => {
+        if (item.status === 'approved') {
+          handleViewChatHistory(item.student_persona_id || 0, item.student_nickname, item.student_id)
+        }
+      }}
+    >
+      {/* 左侧头像 */}
+      <View className='teacher-students-page__card-avatar'>
+        <Text className='teacher-students-page__card-avatar-text'>
+          {(item.student_nickname || '学').charAt(0).toUpperCase()}
         </Text>
-        <Text className='teacher-students-page__card-desc'>
-          {item.status === 'approved' ? '已授权 ✅' : '申请使用'}
-        </Text>
+        {item.has_new_message && (
+          <View className='teacher-students-page__card-badge' />
+        )}
       </View>
-      <View className='teacher-students-page__card-actions'>
+      {/* 中间信息 */}
+      <View className='teacher-students-page__card-info'>
+        <View className='teacher-students-page__card-name-row'>
+          <Text className='teacher-students-page__card-name'>
+            {item.student_nickname || `学生${item.student_id}`}
+          </Text>
+          <Text className='teacher-students-page__card-tag'>
+            {item.status === 'approved' ? '已授权' : '申请中'}
+          </Text>
+        </View>
+        {item.last_chat_time && (
+          <Text className='teacher-students-page__card-time'>
+            最近聊天: {formatRelativeTime(item.last_chat_time)}
+          </Text>
+        )}
+        {!item.last_chat_time && (
+          <Text className='teacher-students-page__card-time'>暂无对话</Text>
+        )}
+      </View>
+      {/* 右侧操作 */}
+      <View className='teacher-students-page__card-actions' onClick={(e) => e.stopPropagation()}>
         {item.status === 'approved' && (
-          <>
-            <View
-              className={`teacher-students-page__toggle-btn ${(item.is_active ?? true) ? 'teacher-students-page__toggle-btn--active' : 'teacher-students-page__toggle-btn--inactive'} ${togglingRelationId === item.id ? 'teacher-students-page__toggle-btn--loading' : ''}`}
-              onClick={() => handleToggleStudent(item)}
-            >
-              <Text className={`teacher-students-page__toggle-btn-text ${(item.is_active ?? true) ? 'teacher-students-page__toggle-btn-text--active' : 'teacher-students-page__toggle-btn-text--inactive'}`}>
-                {togglingRelationId === item.id ? '操作中...' : ((item.is_active ?? true) ? '已启用' : '已停用')}
-              </Text>
-            </View>
-            {item.student_persona_id && (
-              <View
-                className='teacher-students-page__link teacher-students-page__link--chat'
-                onClick={() => handleViewChatHistory(item.student_persona_id!, item.student_nickname)}
-              >
-                <Text className='teacher-students-page__link-text--chat'>对话记录</Text>
-              </View>
-            )}
-          </>
+          <View
+            className={`teacher-students-page__toggle-btn ${(item.is_active ?? true) ? 'teacher-students-page__toggle-btn--active' : 'teacher-students-page__toggle-btn--inactive'} ${togglingRelationId === item.id ? 'teacher-students-page__toggle-btn--loading' : ''}`}
+            onClick={() => handleToggleStudent(item)}
+          >
+            <Text className={`teacher-students-page__toggle-btn-text ${(item.is_active ?? true) ? 'teacher-students-page__toggle-btn-text--active' : 'teacher-students-page__toggle-btn-text--inactive'}`}>
+              {togglingRelationId === item.id ? '...' : ((item.is_active ?? true) ? '启用' : '停用')}
+            </Text>
+          </View>
         )}
         <View
           className='teacher-students-page__link'
           onClick={() => handleViewDetail(item.student_id, item.student_nickname, item.student_persona_id)}
         >
-          <Text className='teacher-students-page__link-text'>详情 →</Text>
+          <Text className='teacher-students-page__link-text'>详情</Text>
         </View>
       </View>
     </View>
@@ -367,16 +410,6 @@ export default function TeacherStudents() {
           ) : (
             <Empty text='暂无学生' />
           )}
-
-          {/* 底部操作 */}
-          <View className='teacher-students-page__bottom-actions'>
-            <View
-              className='teacher-students-page__bottom-btn teacher-students-page__bottom-btn--secondary'
-              onClick={() => setShowInviteModal(true)}
-            >
-              <Text className='teacher-students-page__bottom-btn-text--secondary'>邀请学生</Text>
-            </View>
-          </View>
         </>
       )}
 
@@ -554,6 +587,14 @@ export default function TeacherStudents() {
         </>
       )}
 
+      {/* 全局邀请学生浮动按钮（所有 Tab 都显示） */}
+      <View
+        className='teacher-students-page__fab'
+        onClick={() => setShowInviteModal(true)}
+      >
+        <Text className='teacher-students-page__fab-text'>+ 邀请学生</Text>
+      </View>
+
       {/* 邀请学生弹窗 */}
       {showInviteModal && (
         <View className='teacher-students-page__modal-mask' onClick={() => setShowInviteModal(false)}>
@@ -561,11 +602,12 @@ export default function TeacherStudents() {
             <Text className='teacher-students-page__modal-title'>邀请学生</Text>
             <Input
               className='teacher-students-page__modal-input'
-              placeholder='请输入学生ID'
+              placeholder='请输入学生用户ID（可在学生详情页查看）'
               value={inviteId}
               type='number'
               onInput={(e) => setInviteId(e.detail.value)}
             />
+            <Text className='teacher-students-page__modal-hint'>注：请让学生在其学生详情页查看用户ID</Text>
             <View className='teacher-students-page__modal-actions'>
               <View
                 className='teacher-students-page__modal-btn teacher-students-page__modal-btn--cancel'
@@ -583,6 +625,7 @@ export default function TeacherStudents() {
           </View>
         </View>
       )}
+
     </View>
   )
 }

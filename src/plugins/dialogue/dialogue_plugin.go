@@ -16,11 +16,12 @@ import (
 // DialoguePlugin 对话插件
 type DialoguePlugin struct {
 	*core.BasePlugin
-	db        *sql.DB
-	convRepo  *database.ConversationRepository
-	memRepo   *database.MemoryRepository
-	llmClient *LLMClient
-	prompt    *PromptBuilder
+	db          *sql.DB
+	convRepo    *database.ConversationRepository
+	memRepo     *database.MemoryRepository
+	llmClient   *LLMClient
+	prompt      *PromptBuilder
+	adaptiveRAG *AdaptiveRAG
 
 	// 配置
 	historyLimit int // 对话历史条数限制
@@ -98,6 +99,23 @@ func (p *DialoguePlugin) Init(config map[string]interface{}) error {
 
 	// 创建 LLM 客户端
 	p.llmClient = NewLLMClient(mode, model, apiKey, baseURL, temperature, maxTokens)
+
+	// V2.0 迭代7 M2: 启动时加载学段模板配置文件
+	_ = LoadGradeLevelTemplates("configs/grade_level_templates.yaml")
+
+	// V2.0 迭代7 M7: 初始化 Adaptive RAG
+	adaptiveRAGEnabled := false
+	if v, ok := config["adaptive_rag.enabled"]; ok {
+		if b, ok := v.(bool); ok {
+			adaptiveRAGEnabled = b
+		}
+	}
+	p.adaptiveRAG = NewAdaptiveRAG(adaptiveRAGEnabled, p.llmClient)
+
+	// 读取 max_searches_per_turn 配置
+	if v, ok := config["adaptive_rag.max_searches_per_turn"]; ok {
+		p.adaptiveRAG.SetMaxSearchPerTurn(toInt(v, 2))
+	}
 
 	return nil
 }
@@ -242,8 +260,39 @@ func (p *DialoguePlugin) handleChat(input *core.PluginInput, pipelineStart time.
 		return nil, fmt.Errorf("查询对话历史失败: %w", err)
 	}
 
+	// 4.5 查询教材配置（R1）
+	var curriculumConfig *CurriculumConfig
+	curriculumRepo := database.NewCurriculumConfigRepository(p.db)
+	if teacherPersonaID > 0 {
+		currConfig, err := curriculumRepo.GetActiveByPersonaID(teacherPersonaID)
+		if err == nil && currConfig != nil {
+			var textbookVersions []string
+			var subjects []string
+			_ = json.Unmarshal([]byte(currConfig.TextbookVersions), &textbookVersions)
+			_ = json.Unmarshal([]byte(currConfig.Subjects), &subjects)
+			curriculumConfig = &CurriculumConfig{
+				GradeLevel:       currConfig.GradeLevel,
+				Grade:            currConfig.Grade,
+				TextbookVersions: textbookVersions,
+				Subjects:         subjects,
+				CurrentProgress:  currConfig.CurrentProgress,
+				Region:           currConfig.Region,
+			}
+		}
+	}
+
+	// 4.6 查询用户画像（R10）
+	var profileSnapshot string
+	userRepo := database.NewUserRepository(p.db)
+	if studentID > 0 {
+		user, err := userRepo.GetByID(studentID)
+		if err == nil && user != nil {
+			profileSnapshot = user.ProfileSnapshot
+		}
+	}
+
 	// 5. 用 PromptBuilder 构建完整 prompt（注入个性化风格）
-	systemPrompt := p.prompt.BuildSystemPrompt(chunks, memories, styleConfig)
+	systemPrompt := p.prompt.BuildSystemPrompt(chunks, memories, styleConfig, curriculumConfig, profileSnapshot)
 	chatMessages := p.prompt.BuildConversationMessages(systemPrompt, history, message)
 
 	// 6. 如果 styleConfig 指定了 temperature > 0，覆盖 LLM 默认值
@@ -252,11 +301,18 @@ func (p *DialoguePlugin) handleChat(input *core.PluginInput, pipelineStart time.
 		defer p.llmClient.ResetTemperature()
 	}
 
-	// 7. 调用 LLMClient 生成回复
-	chatResp, err := p.llmClient.Chat(chatMessages)
+	// 7. 调用 Adaptive RAG 生成回复（包含可能的搜索增强）
+	replyContent, toolsUsed, err := p.adaptiveRAG.ProcessWithRAG(chatMessages)
 	if err != nil {
 		return nil, fmt.Errorf("调用 LLM 失败: %w", err)
 	}
+
+	// 估算 token 数
+	promptTokens := 0
+	for _, msg := range chatMessages {
+		promptTokens += len([]rune(msg.Content)) / 2
+	}
+	completionTokens := len([]rune(replyContent)) / 2
 
 	// 8. 保存用户消息和 AI 回复到 conversations 表
 	userConv := &database.Conversation{
@@ -268,7 +324,7 @@ func (p *DialoguePlugin) handleChat(input *core.PluginInput, pipelineStart time.
 		Role:             "user",
 		Content:          message,
 		SenderType:       "student",
-		TokenCount:       chatResp.PromptTokens,
+		TokenCount:       promptTokens,
 	}
 	if teacherPersonaID > 0 || studentPersonaID > 0 {
 		_, err = p.convRepo.CreateWithPersonas(userConv)
@@ -286,9 +342,9 @@ func (p *DialoguePlugin) handleChat(input *core.PluginInput, pipelineStart time.
 		StudentPersonaID: studentPersonaID,
 		SessionID:        sessionID,
 		Role:             "assistant",
-		Content:          chatResp.Content,
+		Content:          replyContent,
 		SenderType:       "ai",
-		TokenCount:       chatResp.CompletionTokens,
+		TokenCount:       completionTokens,
 	}
 	var convID int64
 	if teacherPersonaID > 0 || studentPersonaID > 0 {
@@ -301,21 +357,22 @@ func (p *DialoguePlugin) handleChat(input *core.PluginInput, pipelineStart time.
 	}
 
 	// 9. 异步提取记忆并存储（传入分身 ID）
-	go p.extractAndStoreMemories(studentID, teacherID, teacherPersonaID, studentPersonaID, message, chatResp.Content)
+	go p.extractAndStoreMemories(studentID, teacherID, teacherPersonaID, studentPersonaID, message, replyContent)
 
 	// 10. 计算管道耗时
 	pipelineDuration := time.Since(pipelineStart).Milliseconds()
 
 	// 11. 返回结果（chat action 不需要 merge 上游 Data，是管道最后一个插件）
 	outputData := map[string]interface{}{
-		"reply":           chatResp.Content,
+		"reply":           replyContent,
 		"session_id":      sessionID,
 		"conversation_id": convID,
 		"token_usage": map[string]interface{}{
-			"prompt_tokens":     chatResp.PromptTokens,
-			"completion_tokens": chatResp.CompletionTokens,
-			"total_tokens":      chatResp.TotalTokens,
+			"prompt_tokens":     promptTokens,
+			"completion_tokens": completionTokens,
+			"total_tokens":      promptTokens + completionTokens,
 		},
+		"tools_used":           toolsUsed,
 		"pipeline_duration_ms": pipelineDuration,
 	}
 
@@ -465,8 +522,39 @@ func (p *DialoguePlugin) handleChatStream(ctx context.Context, input *core.Plugi
 		return nil, fmt.Errorf("查询对话历史失败: %w", err)
 	}
 
+	// 4.5 查询教材配置（R1）
+	var streamCurriculumConfig *CurriculumConfig
+	streamCurriculumRepo := database.NewCurriculumConfigRepository(p.db)
+	if teacherPersonaID > 0 {
+		currConfig, err := streamCurriculumRepo.GetActiveByPersonaID(teacherPersonaID)
+		if err == nil && currConfig != nil {
+			var textbookVersions []string
+			var subjects []string
+			_ = json.Unmarshal([]byte(currConfig.TextbookVersions), &textbookVersions)
+			_ = json.Unmarshal([]byte(currConfig.Subjects), &subjects)
+			streamCurriculumConfig = &CurriculumConfig{
+				GradeLevel:       currConfig.GradeLevel,
+				Grade:            currConfig.Grade,
+				TextbookVersions: textbookVersions,
+				Subjects:         subjects,
+				CurrentProgress:  currConfig.CurrentProgress,
+				Region:           currConfig.Region,
+			}
+		}
+	}
+
+	// 4.6 查询用户画像（R10）
+	var streamProfileSnapshot string
+	streamUserRepo := database.NewUserRepository(p.db)
+	if studentID > 0 {
+		user, err := streamUserRepo.GetByID(studentID)
+		if err == nil && user != nil {
+			streamProfileSnapshot = user.ProfileSnapshot
+		}
+	}
+
 	// 5. 用 PromptBuilder 构建完整 prompt（注入个性化风格）
-	systemPrompt := p.prompt.BuildSystemPrompt(chunks, memories, streamStyleConfig)
+	systemPrompt := p.prompt.BuildSystemPrompt(chunks, memories, streamStyleConfig, streamCurriculumConfig, streamProfileSnapshot)
 	chatMessages := p.prompt.BuildConversationMessages(systemPrompt, history, message)
 
 	// 如果 styleConfig 指定了 temperature > 0，覆盖 LLM 默认值
@@ -490,7 +578,20 @@ func (p *DialoguePlugin) handleChatStream(ctx context.Context, input *core.Plugi
 		}, nil
 	}
 
-	// 7. 流式调用 LLMClient
+	// 7. 先执行 Adaptive RAG 工具调用阶段（搜索增强），再流式生成最终回复
+	var toolsUsed []string
+	if p.adaptiveRAG != nil && p.adaptiveRAG.enabled {
+		// 执行工具调用阶段（非流式），获取搜索结果注入上下文
+		augmentedMessages, used, err := p.adaptiveRAG.ProcessToolCalls(chatMessages)
+		if err != nil {
+			fmt.Printf("[对话] Adaptive RAG 工具调用失败，回退到普通流式: %v\n", err)
+		} else {
+			chatMessages = augmentedMessages
+			toolsUsed = used
+		}
+	}
+
+	// 流式调用 LLMClient
 	onDelta := func(content string) {
 		sseWriter(content)
 	}
@@ -558,6 +659,7 @@ func (p *DialoguePlugin) handleChatStream(ctx context.Context, input *core.Plugi
 			"completion_tokens": chatResp.CompletionTokens,
 			"total_tokens":      chatResp.TotalTokens,
 		},
+		"tools_used":           toolsUsed,
 		"pipeline_duration_ms": pipelineDuration,
 	}
 

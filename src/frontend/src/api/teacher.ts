@@ -3,6 +3,7 @@ import { request, PaginatedData } from './request'
 /** 教师信息 */
 export interface Teacher {
   id: number
+  persona_id: number
   username: string
   nickname: string
   role: string

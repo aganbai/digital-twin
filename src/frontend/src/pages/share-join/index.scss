@@ -230,6 +230,84 @@
     font-weight: 500;
   }
 
+  // ========== 分享码输入区域 ==========
+  &__input-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding-top: 120rpx;
+  }
+
+  &__input-icon {
+    margin-bottom: 32rpx;
+  }
+
+  &__input-title {
+    display: block;
+    font-size: 40rpx;
+    font-weight: bold;
+    color: #333333;
+    margin-bottom: 16rpx;
+  }
+
+  &__input-desc {
+    display: block;
+    font-size: 28rpx;
+    color: #999999;
+    text-align: center;
+    margin-bottom: 48rpx;
+    line-height: 1.6;
+  }
+
+  &__input-row {
+    width: 100%;
+    padding: 0 32rpx;
+    box-sizing: border-box;
+    margin-bottom: 32rpx;
+  }
+
+  &__code-input {
+    width: 100%;
+    height: 96rpx;
+    background-color: #ffffff;
+    border: 2rpx solid #e5e7eb;
+    border-radius: 16rpx;
+    padding: 0 32rpx;
+    font-size: 36rpx;
+    text-align: center;
+    letter-spacing: 8rpx;
+    font-weight: 600;
+    color: #333333;
+    box-sizing: border-box;
+  }
+
+  &__code-input-placeholder {
+    font-size: 28rpx;
+    color: #cccccc;
+    letter-spacing: 0;
+    font-weight: 400;
+  }
+
+  &__lookup-btn {
+    width: calc(100% - 64rpx);
+    height: 96rpx;
+    background-color: #4F46E5;
+    border-radius: 48rpx;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    &--disabled {
+      opacity: 0.5;
+    }
+  }
+
+  &__lookup-btn-text {
+    font-size: 32rpx;
+    color: #ffffff;
+    font-weight: 500;
+  }
+
   // ========== 定向邀请信息 ==========
   &__target-info {
     background-color: #ffffff;

@@ -63,9 +63,9 @@ func setupDialoguePlugin(t *testing.T) (*DialoguePlugin, *database.Database, int
 	err := plugin.Init(map[string]interface{}{
 		"llm_provider.mode":                "mock",
 		"llm_provider.model":               "qwen-turbo",
-		"dialogue_strategy.temperature":     0.7,
-		"dialogue_strategy.max_tokens":      1000,
-		"context_management.history_limit":  10,
+		"dialogue_strategy.temperature":    0.7,
+		"dialogue_strategy.max_tokens":     1000,
+		"context_management.history_limit": 10,
 	})
 	if err != nil {
 		t.Fatalf("初始化插件失败: %v", err)
@@ -137,7 +137,7 @@ func TestPromptBuilder_BuildSystemPrompt_WithData(t *testing.T) {
 		{"content": "学生在循环方面有困难", "memory_type": "weakness"},
 	}
 
-	prompt := builder.BuildSystemPrompt(chunks, memories, nil)
+	prompt := builder.BuildSystemPrompt(chunks, memories, nil, nil, "")
 
 	// 验证包含关键内容
 	if prompt == "" {
@@ -157,7 +157,7 @@ func TestPromptBuilder_BuildSystemPrompt_WithData(t *testing.T) {
 func TestPromptBuilder_BuildSystemPrompt_Empty(t *testing.T) {
 	builder := NewPromptBuilder()
 
-	prompt := builder.BuildSystemPrompt(nil, nil, nil)
+	prompt := builder.BuildSystemPrompt(nil, nil, nil, nil, "")
 
 	if !contains(prompt, "暂无相关知识") {
 		t.Error("无知识时应显示默认文本")

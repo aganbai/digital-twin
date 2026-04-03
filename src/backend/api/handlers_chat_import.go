@@ -50,6 +50,18 @@ func (h *Handler) HandleImportChat(c *gin.Context) {
 		return
 	}
 
+	// 校验 persona_id（必填）
+	personaIDStr := c.PostForm("persona_id")
+	if personaIDStr == "" {
+		Error(c, http.StatusBadRequest, 40004, "persona_id 为必填参数")
+		return
+	}
+	personaID, err := strconv.ParseInt(personaIDStr, 10, 64)
+	if err != nil || personaID <= 0 {
+		Error(c, http.StatusBadRequest, 40004, "persona_id 参数无效")
+		return
+	}
+
 	// 读取文件内容
 	fileContent, err := io.ReadAll(file)
 	if err != nil {
@@ -82,14 +94,13 @@ func (h *Handler) HandleImportChat(c *gin.Context) {
 	if scope == "" {
 		scope = "global"
 	}
-	personaIDStr := c.PostForm("persona_id")
-	personaID, _ := strconv.ParseInt(personaIDStr, 10, 64)
+	scopeIDs := c.PostForm("scope_ids")
 
 	// 拼接为结构化 Q&A 文本
 	content := buildQAContent(conversations)
 
 	// 通过 knowledge 插件入库
-	plugin, err := h.manager.GetPlugin("knowledge-management")
+	plugin, err := h.manager.GetPlugin("knowledge-retrieval")
 	if err != nil {
 		// 如果 knowledge 插件不可用，直接写入 documents 表
 		db := h.manager.GetDB()
@@ -128,9 +139,14 @@ func (h *Handler) HandleImportChat(c *gin.Context) {
 	}
 
 	// 使用 knowledge 插件入库
-	scopeIDs := c.PostForm("scope_ids")
+	sourceSessionID := uuid.New().String()
+	userContext := &core.UserContext{
+		UserID: fmt.Sprintf("%d", teacherID),
+	}
+
 	input := &core.PluginInput{
-		RequestID: uuid.New().String(),
+		RequestID:   uuid.New().String(),
+		UserContext: userContext,
 		Data: map[string]interface{}{
 			"action":            "add",
 			"teacher_id":        teacherID,
@@ -141,7 +157,7 @@ func (h *Handler) HandleImportChat(c *gin.Context) {
 			"scope":             scope,
 			"scope_ids":         scopeIDs,
 			"persona_id":        personaID,
-			"source_session_id": uuid.New().String(),
+			"source_session_id": sourceSessionID,
 		},
 		Context: c.Request.Context(),
 	}
@@ -153,7 +169,16 @@ func (h *Handler) HandleImportChat(c *gin.Context) {
 	}
 
 	if !output.Success {
-		Error(c, http.StatusInternalServerError, 50001, "导入聊天记录失败: "+output.Error)
+		errorCode := 50001
+		if code, ok := output.Data["error_code"]; ok {
+			switch val := code.(type) {
+			case int:
+				errorCode = val
+			case float64:
+				errorCode = int(val)
+			}
+		}
+		Error(c, http.StatusInternalServerError, errorCode, "导入聊天记录失败: "+output.Error)
 		return
 	}
 
@@ -189,10 +214,25 @@ func (h *Handler) HandleImportChat(c *gin.Context) {
 
 // ======================== 聊天记录解析器 ========================
 
+// QAPair 问答对
+type QAPair struct {
+	Question string
+	Answer   string
+}
+
 // chatMessage 统一的聊天消息结构
 type chatMessage struct {
 	Role    string `json:"role"`
 	Content string `json:"content"`
+}
+
+// ParseChatJSON 解析聊天记录 JSON（支持3种格式）- 导出版本
+func ParseChatJSON(data []byte) ([]QAPair, error) {
+	messages, err := parseChatJSON(data)
+	if err != nil {
+		return nil, err
+	}
+	return extractQAPairs(messages), nil
 }
 
 // parseChatJSON 解析聊天记录 JSON（支持3种格式）
@@ -272,6 +312,21 @@ func parseChatJSON(data []byte) ([]chatMessage, error) {
 	}
 
 	return nil, fmt.Errorf("无法识别的 JSON 格式，支持 messages/conversations/顶层数组")
+}
+
+// extractQAPairs 从聊天消息中提取问答对
+func extractQAPairs(messages []chatMessage) []QAPair {
+	var pairs []QAPair
+	for i := 0; i < len(messages)-1; i++ {
+		if messages[i].Role == "user" && messages[i+1].Role == "assistant" {
+			pairs = append(pairs, QAPair{
+				Question: messages[i].Content,
+				Answer:   messages[i+1].Content,
+			})
+			i++ // 跳过已配对的 assistant 消息
+		}
+	}
+	return pairs
 }
 
 // normalizeRole 标准化角色名

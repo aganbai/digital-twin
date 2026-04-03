@@ -21,6 +21,11 @@ func SetupRouter(mgr *manager.HarnessManager) *gin.Engine {
 	// 全局中间件
 	r.Use(RecoveryMiddleware(), RequestLogMiddleware(), CORSMiddleware(corsConfig))
 
+	// V2.0 迭代7 M6: 全局API限流中间件
+	if cfg.Performance.RateLimiting.Enabled {
+		r.Use(GlobalRateLimitMiddleware(cfg.Performance.RateLimiting))
+	}
+
 	handler := NewHandler(mgr)
 
 	api := r.Group("/api")
@@ -41,7 +46,9 @@ func SetupRouter(mgr *manager.HarnessManager) *gin.Engine {
 		}
 		{
 			authorized.POST("/auth/complete-profile", handler.HandleCompleteProfile)
-			authorized.POST("/chat", handler.HandleChat)
+			// 对话接口（额外注册对话限流中间件）
+			chatRateLimit := ChatRateLimitMiddleware(cfg.Performance.RateLimiting)
+			authorized.POST("/chat", chatRateLimit, handler.HandleChat)
 			authorized.GET("/conversations/sessions", handler.HandleGetSessions)
 			authorized.GET("/conversations", handler.HandleGetConversations)
 			authorized.GET("/teachers", handler.HandleGetTeachers)
@@ -55,6 +62,10 @@ func SetupRouter(mgr *manager.HarnessManager) *gin.Engine {
 			authorized.PUT("/memories/:id", auth.RoleRequired("teacher"), handler.HandleUpdateMemory)
 			authorized.DELETE("/memories/:id", auth.RoleRequired("teacher"), handler.HandleDeleteMemory)
 			authorized.POST("/memories/summarize", auth.RoleRequired("teacher"), handler.HandleSummarizeMemories)
+
+			// V2.0 迭代6 风格配置
+			authorized.PUT("/styles", auth.RoleRequired("teacher"), handler.HandleSetStyleConfig)
+			authorized.GET("/styles", handler.HandleGetStyleConfig)
 
 			// V2.0 迭代1 新增路由
 
@@ -79,22 +90,12 @@ func SetupRouter(mgr *manager.HarnessManager) *gin.Engine {
 			authorized.PUT("/students/:id/dialogue-style", auth.RoleRequired("teacher"), handler.HandleSetDialogueStyle)
 			authorized.GET("/students/:id/dialogue-style", handler.HandleGetDialogueStyle)
 
-			// 作业
-			assignments := authorized.Group("/assignments")
-			{
-				assignments.POST("", auth.RoleRequired("student"), handler.HandleSubmitAssignment)
-				assignments.GET("", handler.HandleGetAssignments)
-				assignments.GET("/:id", handler.HandleGetAssignmentDetail)
-				assignments.POST("/:id/review", auth.RoleRequired("teacher"), handler.HandleReviewAssignment)
-				assignments.POST("/:id/ai-review", handler.HandleAIReviewAssignment)
-			}
-
 			// 知识库增强
 			authorized.POST("/documents/upload", auth.RoleRequired("teacher", "admin"), handler.HandleUploadDocument)
 			authorized.POST("/documents/import-url", auth.RoleRequired("teacher", "admin"), handler.HandleImportURL)
 
-			// SSE 流式对话
-			authorized.POST("/chat/stream", handler.HandleChatStream)
+			// SSE 流式对话（额外注册对话限流中间件）
+			authorized.POST("/chat/stream", chatRateLimit, handler.HandleChatStream)
 
 			// V2.0 迭代2 新增路由
 
@@ -169,6 +170,75 @@ func SetupRouter(mgr *manager.HarnessManager) *gin.Engine {
 
 			// 聊天记录导入
 			authorized.POST("/documents/import-chat", auth.RoleRequired("teacher", "admin"), handler.HandleImportChat)
+
+			// V2.0 迭代8 新增路由
+
+			// 智能知识库上传
+			authorized.POST("/knowledge/upload", auth.RoleRequired("teacher", "admin"), handler.HandleSmartUpload)
+			authorized.GET("/knowledge", auth.RoleRequired("teacher", "admin"), handler.HandleSearchKnowledge)
+			authorized.GET("/knowledge/:id", auth.RoleRequired("teacher", "admin"), handler.HandleGetKnowledgeDetail)
+			authorized.PUT("/knowledge/:id", auth.RoleRequired("teacher", "admin"), handler.HandleUpdateKnowledge)
+			authorized.DELETE("/knowledge/:id", auth.RoleRequired("teacher", "admin"), handler.HandleDeleteKnowledge)
+
+			// 班级管理增强（V8版本）
+			classes.POST("/v8", auth.RoleRequired("teacher"), handler.HandleCreateClassV8)
+			classes.GET("/:id/share-info", auth.RoleRequired("teacher"), handler.HandleGetClassShareInfo)
+			classes.GET("/:id/members/v8", auth.RoleRequired("teacher"), handler.HandleGetClassMembersV8)
+
+			// 学生加入班级申请
+			authorized.POST("/classes/join", auth.RoleRequired("student"), handler.HandleJoinClass)
+			authorized.GET("/join-requests/pending", auth.RoleRequired("teacher"), handler.HandleGetPendingRequests)
+			authorized.PUT("/join-requests/:id/approve", auth.RoleRequired("teacher"), handler.HandleApproveJoinRequest)
+			authorized.PUT("/join-requests/:id/reject", auth.RoleRequired("teacher"), handler.HandleRejectJoinRequest)
+
+			// 聊天列表重构
+			authorized.GET("/chat-list/teacher", auth.RoleRequired("teacher"), handler.HandleGetTeacherChatList)
+			authorized.GET("/chat-list/student", auth.RoleRequired("student"), handler.HandleGetStudentTeacherList)
+
+			// 置顶功能
+			authorized.POST("/chat-pins", handler.HandlePinChat)
+			authorized.DELETE("/chat-pins/:type/:id", handler.HandleUnpinChat)
+			authorized.GET("/chat-pins", handler.HandleGetPinnedChats)
+
+			// 发现页（P1优先级）
+			authorized.GET("/discover", handler.HandleGetDiscover)
+			authorized.GET("/discover/detail", handler.HandleGetDiscoverDetail)
+			authorized.GET("/discover/search", handler.HandleDiscoverSearch)
+
+			// 学生基础信息
+			authorized.PUT("/user/student-profile", auth.RoleRequired("student"), handler.HandleUpdateStudentProfile)
+
+			// 会话管理
+			authorized.POST("/chat/new-session", handler.HandleNewSession)
+			authorized.GET("/chat/quick-actions", handler.HandleGetQuickActions)
+
+			// V2.0 迭代7 新增路由
+
+			// 教师消息推送
+			authorized.POST("/teacher-messages", auth.RoleRequired("teacher"), handler.HandlePushTeacherMessage)
+			authorized.GET("/teacher-messages/history", auth.RoleRequired("teacher"), handler.HandleGetTeacherMessageHistory)
+
+			// 教材配置（R1）
+			authorized.POST("/curriculum-configs", auth.RoleRequired("teacher"), handler.HandleCreateCurriculumConfig)
+			authorized.GET("/curriculum-configs", auth.RoleRequired("teacher"), handler.HandleGetCurriculumConfigs)
+			authorized.DELETE("/curriculum-configs/:id", auth.RoleRequired("teacher"), handler.HandleDeleteCurriculumConfig)
+
+			// 用户反馈（R3）
+			authorized.POST("/feedbacks", handler.HandleCreateFeedback)
+			authorized.GET("/feedbacks", auth.RoleRequired("teacher", "admin"), handler.HandleGetFeedbacks)
+			authorized.PUT("/feedbacks/:id/status", auth.RoleRequired("teacher", "admin"), handler.HandleUpdateFeedbackStatus)
+
+			// 批量添加学生（R8）
+			authorized.POST("/students/parse-text", auth.RoleRequired("teacher"), handler.HandleParseStudentText)
+			authorized.POST("/students/batch-create", auth.RoleRequired("teacher"), handler.HandleBatchCreateStudents)
+
+			// 教材配置更新（R1补全 - M3）
+			authorized.PUT("/curriculum-configs/:id", auth.RoleRequired("teacher"), handler.HandleUpdateCurriculumConfig)
+			authorized.GET("/curriculum-versions", handler.HandleGetCurriculumVersions)
+
+			// 批量文档上传（R5 - M5）
+			authorized.POST("/documents/batch-upload", auth.RoleRequired("teacher", "admin"), handler.HandleBatchUpload)
+			authorized.GET("/batch-tasks/:task_id", auth.RoleRequired("teacher", "admin"), handler.HandleGetBatchTask)
 		}
 
 		// 分享码公开接口（可选鉴权）

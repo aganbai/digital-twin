@@ -91,7 +91,7 @@ func (r *PersonaRepository) ListByUserID(userID int64, roleFilter string) ([]Per
 		// 查询统计信息
 		if item.Role == "teacher" {
 			r.db.QueryRow(`SELECT COUNT(*) FROM teacher_student_relations WHERE teacher_persona_id = ? AND status = 'approved'`, item.ID).Scan(&item.StudentCount)
-			r.db.QueryRow(`SELECT COUNT(*) FROM documents WHERE persona_id = ? AND status = 'active'`, item.ID).Scan(&item.DocumentCount)
+			r.db.QueryRow(`SELECT COUNT(*) FROM knowledge_items WHERE persona_id = ? AND status = 'active'`, item.ID).Scan(&item.DocumentCount)
 			r.db.QueryRow(`SELECT COUNT(*) FROM classes WHERE persona_id = ?`, item.ID).Scan(&item.ClassCount)
 		} else {
 			r.db.QueryRow(`SELECT COUNT(*) FROM teacher_student_relations WHERE student_persona_id = ? AND status = 'approved'`, item.ID).Scan(&item.TeacherCount)
@@ -295,7 +295,7 @@ func (r *PersonaRepository) GetPersonaDashboard(personaID int64) (*DashboardData
 	// 5. 统计信息
 	var totalStudents, totalDocuments, totalClasses int
 	r.db.QueryRow(`SELECT COUNT(*) FROM teacher_student_relations WHERE teacher_persona_id = ? AND status = 'approved'`, personaID).Scan(&totalStudents)
-	r.db.QueryRow(`SELECT COUNT(*) FROM documents WHERE persona_id = ? AND status = 'active'`, personaID).Scan(&totalDocuments)
+	r.db.QueryRow(`SELECT COUNT(*) FROM knowledge_items WHERE persona_id = ? AND status = 'active'`, personaID).Scan(&totalDocuments)
 	r.db.QueryRow(`SELECT COUNT(*) FROM classes WHERE persona_id = ?`, personaID).Scan(&totalClasses)
 
 	dashboard.Stats = map[string]interface{}{
@@ -339,7 +339,7 @@ func (r *PersonaRepository) ListPublicPersonas(studentPersonaID int64, keyword s
 	// 查询列表
 	listQuery := `SELECT p.id, p.nickname, p.school, p.description,
 		COALESCE((SELECT COUNT(*) FROM teacher_student_relations WHERE teacher_persona_id = p.id AND status = 'approved'), 0) AS student_count,
-		COALESCE((SELECT COUNT(*) FROM documents WHERE persona_id = p.id AND status = 'active'), 0) AS document_count
+COALESCE((SELECT COUNT(*) FROM knowledge_items WHERE persona_id = p.id AND status = 'active'), 0) AS document_count
 		FROM personas p WHERE ` + baseWhere + ` ORDER BY p.created_at DESC LIMIT ? OFFSET ?`
 	listArgs := append(args, limit, offset)
 

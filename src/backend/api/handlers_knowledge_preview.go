@@ -149,10 +149,10 @@ func (h *Handler) HandlePreviewUpload(c *gin.Context) {
 	filename := header.Filename
 	ext := strings.ToLower(filepath.Ext(filename))
 	supportedFormats := map[string]bool{
-		".pdf": true, ".docx": true, ".txt": true, ".md": true,
+		".pdf": true, ".docx": true, ".txt": true, ".md": true, ".pptx": true,
 	}
 	if !supportedFormats[ext] {
-		Error(c, http.StatusBadRequest, 40010, "不支持的文件格式，仅支持 PDF/DOCX/TXT/MD")
+		Error(c, http.StatusBadRequest, 40010, "不支持的文件格式，仅支持 PDF/DOCX/TXT/MD/PPTX")
 		return
 	}
 

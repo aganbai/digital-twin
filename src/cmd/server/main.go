@@ -14,6 +14,7 @@ import (
 
 	"digital-twin/src/backend/api"
 	"digital-twin/src/harness/manager"
+	"digital-twin/src/plugins/memory"
 )
 
 func main() {
@@ -34,6 +35,38 @@ func main() {
 		log.Fatalf("[FATAL] 启动 HarnessManager 失败: %v", err)
 	}
 	log.Println("[INFO] HarnessManager 启动成功")
+
+	// 3.5 启动记忆摘要合并定时任务
+	var memorySummarizer *memory.MemorySummarizer
+	if memPlugin, err := mgr.GetPlugin("memory-management"); err == nil {
+		if mp, ok := memPlugin.(*memory.MemoryPlugin); ok {
+			config := mgr.GetConfig()
+			var llmBaseURL, llmAPIKey, llmModel string
+			if config != nil {
+				if memCfg, ok := config.Plugins["memory-management"]; ok {
+					if v, ok := memCfg.Config["llm_base_url"]; ok {
+						llmBaseURL, _ = v.(string)
+					}
+					if v, ok := memCfg.Config["llm_api_key"]; ok {
+						llmAPIKey, _ = v.(string)
+					}
+					if v, ok := memCfg.Config["llm_model"]; ok {
+						llmModel, _ = v.(string)
+					}
+				}
+			}
+			memorySummarizer = memory.NewMemorySummarizer(mp.GetRepo(), mp.GetStore(), mgr.GetDB(), llmBaseURL, llmAPIKey, llmModel)
+			memorySummarizer.StartMemorySummarizeScheduler()
+			log.Println("[INFO] 记忆摘要合并定时任务已启动")
+		}
+	} else if memPlugin, err := mgr.GetPlugin("memory"); err == nil {
+		// 回退到类型别名
+		if mp, ok := memPlugin.(*memory.MemoryPlugin); ok {
+			memorySummarizer = memory.NewMemorySummarizer(mp.GetRepo(), mp.GetStore(), mgr.GetDB(), "", "", "")
+			memorySummarizer.StartMemorySummarizeScheduler()
+			log.Println("[INFO] 记忆摘要合并定时任务已启动")
+		}
+	}
 
 	// 4. 设置路由
 	router := api.SetupRouter(mgr)
@@ -68,6 +101,12 @@ func main() {
 	defer cancel()
 	if err := srv.Shutdown(ctx); err != nil {
 		log.Printf("[ERROR] HTTP 服务关闭失败: %v", err)
+	}
+
+	// 停止记忆摘要合并定时任务
+	if memorySummarizer != nil {
+		memorySummarizer.Stop()
+		log.Println("[INFO] 记忆摘要合并定时任务已停止")
 	}
 
 	// 停止 HarnessManager

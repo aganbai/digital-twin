@@ -4,12 +4,14 @@ import Taro from '@tarojs/taro'
 import { previewDocument, previewUpload, previewUrl, importChat } from '@/api/knowledge'
 import { getClasses } from '@/api/class'
 import type { ClassInfo } from '@/api/class'
+import { batchUploadDocuments, getBatchTaskStatus } from '@/api/batch-upload'
+import type { BatchTask } from '@/api/batch-upload'
 import { usePersonaStore } from '@/store'
 import TagInput from '@/components/TagInput'
 import './add.scss'
 
 /** Tab 类型 */
-type TabType = 'text' | 'file' | 'url' | 'chat'
+type TabType = 'text' | 'file' | 'url' | 'chat' | 'batch'
 
 /** Scope 类型 */
 type ScopeType = 'global' | 'class' | 'student'
@@ -40,6 +42,13 @@ export default function KnowledgeAdd() {
   const [chatFileName, setChatFileName] = useState('')
   const [chatTitle, setChatTitle] = useState('')
   const [chatTags, setChatTags] = useState<string[]>([])
+
+  // 批量上传
+  const [batchFiles, setBatchFiles] = useState<{ path: string; name: string; size: number }[]>([])
+  const [, setBatchTaskId] = useState('')
+  const [batchTaskStatus, setBatchTaskStatus] = useState<BatchTask | null>(null)
+  const [batchUploading, setBatchUploading] = useState(false)
+  const [pollTimer, setPollTimer] = useState<ReturnType<typeof setInterval> | null>(null)
 
   // Scope 选择
   const [scope, setScope] = useState<ScopeType>('global')
@@ -77,7 +86,7 @@ export default function KnowledgeAdd() {
     Taro.chooseMessageFile({
       count: 1,
       type: 'file',
-      extension: ['pdf', 'docx', 'txt', 'md'],
+      extension: ['pdf', 'docx', 'txt', 'md', 'pptx'],
       success: (res) => {
         if (res.tempFiles && res.tempFiles.length > 0) {
           const file = res.tempFiles[0]
@@ -241,6 +250,157 @@ export default function KnowledgeAdd() {
     })
   }
 
+  /** 选择批量上传文件 */
+  const handleChooseBatchFiles = () => {
+    Taro.chooseMessageFile({
+      count: 20,
+      type: 'file',
+      extension: ['pdf', 'docx', 'txt', 'md'],
+      success: (res) => {
+        if (res.tempFiles && res.tempFiles.length > 0) {
+          const newFiles = res.tempFiles.map((f) => ({
+            path: f.path,
+            name: f.name,
+            size: f.size,
+          }))
+          // 合并已选文件，去重并限制20个
+          const merged = [...batchFiles]
+          for (const nf of newFiles) {
+            if (merged.length >= 20) break
+            if (!merged.find((mf) => mf.name === nf.name && mf.size === nf.size)) {
+              merged.push(nf)
+            }
+          }
+          // 检查总大小 ≤ 100MB
+          const totalSize = merged.reduce((sum, f) => sum + f.size, 0)
+          if (totalSize > 100 * 1024 * 1024) {
+            Taro.showToast({ title: '文件总大小不能超过100MB', icon: 'none' })
+            return
+          }
+          setBatchFiles(merged)
+        }
+      },
+      fail: () => {
+        // 用户取消选择
+      },
+    })
+  }
+
+  /** 移除批量上传中的某个文件 */
+  const handleRemoveBatchFile = (index: number) => {
+    setBatchFiles((prev) => prev.filter((_, i) => i !== index))
+  }
+
+  /** 格式化文件大小 */
+  const formatFileSize = (bytes: number): string => {
+    if (bytes < 1024) return `${bytes}B`
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)}KB`
+    return `${(bytes / (1024 * 1024)).toFixed(1)}MB`
+  }
+
+  /** 获取状态标签文本 */
+  const getStatusLabel = (status: string): string => {
+    const map: Record<string, string> = {
+      pending: '⏳ 等待处理',
+      processing: '🔄 处理中...',
+      success: '✅ 全部成功',
+      partial_success: '⚠️ 部分成功',
+      failed: '❌ 上传失败',
+    }
+    return map[status] || status
+  }
+
+  /** 开始批量上传 */
+  const handleBatchUpload = async () => {
+    if (batchFiles.length === 0) {
+      Taro.showToast({ title: '请先选择文件', icon: 'none' })
+      return
+    }
+    if (!currentPersona?.id) {
+      Taro.showToast({ title: '请先选择分身', icon: 'none' })
+      return
+    }
+
+    setBatchUploading(true)
+    setBatchTaskStatus(null)
+    try {
+      const filePaths = batchFiles.map((f) => f.path)
+      const result = await batchUploadDocuments(filePaths, currentPersona.id)
+      setBatchTaskId(result.task_id)
+
+      // 指数退避轮询配置
+      const INITIAL_INTERVAL = 2000 // 初始间隔2秒
+      const MAX_INTERVAL = 10000    // 最大间隔10秒
+      const BACKOFF_FACTOR = 1.5    // 指数因子1.5
+      const maxPollCount = 60       // 最多轮询60次
+
+      let pollCount = 0
+      let currentInterval = INITIAL_INTERVAL
+
+      // 使用递归setTimeout实现指数退避
+      const pollTaskStatus = () => {
+        pollCount++
+        if (pollCount > maxPollCount) {
+          setPollTimer(null)
+          setBatchUploading(false)
+          Taro.showToast({ title: '任务超时，请稍后查看结果', icon: 'none' })
+          return
+        }
+
+        getBatchTaskStatus(result.task_id)
+          .then((statusRes) => {
+            const task = statusRes.data
+            setBatchTaskStatus(task)
+
+            // 任务完成，停止轮询
+            if (task.status === 'success' || task.status === 'partial_success' || task.status === 'failed') {
+              setPollTimer(null)
+              setBatchUploading(false)
+              return
+            }
+
+            // 根据任务状态调整轮询间隔
+            // pending/processing 状态变化快，使用短间隔
+            // 接近完成时逐渐增加间隔
+            if (task.status === 'pending' || task.status === 'processing') {
+              // 计算下一次轮询间隔（指数退避）
+              currentInterval = Math.min(
+                currentInterval * BACKOFF_FACTOR,
+                MAX_INTERVAL
+              )
+            }
+
+            // 设置下一次轮询
+            const timer = setTimeout(pollTaskStatus, currentInterval)
+            setPollTimer(timer as unknown as ReturnType<typeof setInterval>)
+          })
+          .catch(() => {
+            // 轮询出错不中断，继续重试（保持当前间隔）
+            const timer = setTimeout(pollTaskStatus, currentInterval)
+            setPollTimer(timer as unknown as ReturnType<typeof setInterval>)
+          })
+      }
+
+      // 启动首次轮询
+      const initialTimer = setTimeout(pollTaskStatus, INITIAL_INTERVAL)
+      setPollTimer(initialTimer as unknown as ReturnType<typeof setInterval>)
+    } catch (error) {
+      console.error('批量上传失败:', error)
+      setBatchUploading(false)
+    }
+  }
+
+  // 组件卸载时清理轮询
+  useEffect(() => {
+    return () => {
+      if (pollTimer) {
+        // 同时清除interval和timeout
+        clearInterval(pollTimer)
+        clearTimeout(pollTimer)
+      }
+    }
+  }, [pollTimer])
+
   /** 导入聊天记录 */
   const handleImportChat = async () => {
     if (!chatFile) {
@@ -295,6 +455,9 @@ export default function KnowledgeAdd() {
       case 'chat':
         handleImportChat()
         break
+      case 'batch':
+        handleBatchUpload()
+        break
     }
   }
 
@@ -334,6 +497,17 @@ export default function KnowledgeAdd() {
           >
             <Text className={`knowledge-add-page__tab-text ${activeTab === 'chat' ? 'knowledge-add-page__tab-text--active' : ''}`}>
               💬 聊天记录
+            </Text>
+          </View>
+        )}
+        {/* 批量上传（仅教师端显示） */}
+        {isTeacher && (
+          <View
+            className={`knowledge-add-page__tab ${activeTab === 'batch' ? 'knowledge-add-page__tab--active' : ''}`}
+            onClick={() => setActiveTab('batch')}
+          >
+            <Text className={`knowledge-add-page__tab-text ${activeTab === 'batch' ? 'knowledge-add-page__tab-text--active' : ''}`}>
+              📦 批量上传
             </Text>
           </View>
         )}
@@ -442,7 +616,7 @@ export default function KnowledgeAdd() {
                   <Text className='knowledge-add-page__file-icon'>📁</Text>
                   <Text className='knowledge-add-page__file-hint'>点击上传文件</Text>
                   <Text className='knowledge-add-page__file-desc'>
-                    支持 PDF/DOCX/TXT/MD，最大 50MB
+                    支持 PDF/DOCX/TXT/MD/PPTX，最大 50MB
                   </Text>
                 </View>
               )}
@@ -533,13 +707,102 @@ export default function KnowledgeAdd() {
         </>
       )}
 
+      {/* 批量上传 Tab */}
+      {activeTab === 'batch' && (
+        <>
+          <View className='knowledge-add-page__section'>
+            <Text className='knowledge-add-page__label'>选择文件</Text>
+            <View className='knowledge-add-page__batch-picker' onClick={handleChooseBatchFiles}>
+              <View className='knowledge-add-page__file-placeholder'>
+                <Text className='knowledge-add-page__file-icon'>📦</Text>
+                <Text className='knowledge-add-page__file-hint'>点击选择文件（可多选）</Text>
+                <Text className='knowledge-add-page__file-desc'>
+                  支持 PDF/DOCX/TXT/MD，最多20个文件，总大小≤100MB
+                </Text>
+              </View>
+            </View>
+          </View>
+
+          {/* 已选文件列表 */}
+          {batchFiles.length > 0 && (
+            <View className='knowledge-add-page__section'>
+              <Text className='knowledge-add-page__label'>
+                已选文件（{batchFiles.length}/20）
+              </Text>
+              <View className='knowledge-add-page__batch-file-list'>
+                {batchFiles.map((file, index) => (
+                  <View key={`${file.name}-${index}`} className='knowledge-add-page__batch-file-item'>
+                    <Text className='knowledge-add-page__batch-file-icon'>📄</Text>
+                    <View className='knowledge-add-page__batch-file-info'>
+                      <Text className='knowledge-add-page__batch-file-name'>{file.name}</Text>
+                      <Text className='knowledge-add-page__batch-file-size'>{formatFileSize(file.size)}</Text>
+                    </View>
+                    <View
+                      className='knowledge-add-page__batch-file-delete'
+                      onClick={(e) => { e.stopPropagation(); handleRemoveBatchFile(index) }}
+                    >
+                      <Text className='knowledge-add-page__batch-file-delete-text'>✕</Text>
+                    </View>
+                  </View>
+                ))}
+              </View>
+              <Text className='knowledge-add-page__batch-total-size'>
+                总大小：{formatFileSize(batchFiles.reduce((sum, f) => sum + f.size, 0))}
+              </Text>
+            </View>
+          )}
+
+          {/* 任务状态卡片 */}
+          {batchTaskStatus && (
+            <View className='knowledge-add-page__section knowledge-add-page__batch-status-card'>
+              <Text className='knowledge-add-page__label'>任务状态</Text>
+              <View className='knowledge-add-page__batch-status-row'>
+                <Text className='knowledge-add-page__batch-status-label'>
+                  {getStatusLabel(batchTaskStatus.status)}
+                </Text>
+              </View>
+              {/* 进度条 */}
+              <View className='knowledge-add-page__batch-progress-bar'>
+                <View
+                  className='knowledge-add-page__batch-progress-fill'
+                  style={{
+                    width: batchTaskStatus.total_files > 0
+                      ? `${((batchTaskStatus.success_files + batchTaskStatus.failed_files) / batchTaskStatus.total_files) * 100}%`
+                      : '0%',
+                  }}
+                />
+              </View>
+              <View className='knowledge-add-page__batch-status-detail'>
+                <Text className='knowledge-add-page__batch-status-text'>
+                  总计：{batchTaskStatus.total_files} 个文件
+                </Text>
+                <Text className='knowledge-add-page__batch-status-text knowledge-add-page__batch-status-text--success'>
+                  成功：{batchTaskStatus.success_files}
+                </Text>
+                {batchTaskStatus.failed_files > 0 && (
+                  <Text className='knowledge-add-page__batch-status-text knowledge-add-page__batch-status-text--fail'>
+                    失败：{batchTaskStatus.failed_files}
+                  </Text>
+                )}
+              </View>
+            </View>
+          )}
+        </>
+      )}
+
       {/* 预览/导入按钮 */}
       <View
-        className={`knowledge-add-page__submit ${submitting ? 'knowledge-add-page__submit--disabled' : ''}`}
-        onClick={submitting ? undefined : handleSubmit}
+        className={`knowledge-add-page__submit ${submitting || batchUploading ? 'knowledge-add-page__submit--disabled' : ''}`}
+        onClick={submitting || batchUploading ? undefined : handleSubmit}
       >
         <Text className='knowledge-add-page__submit-text'>
-          {submitting ? '处理中...' : (activeTab === 'chat' ? '确认导入' : '预览')}
+          {submitting || batchUploading
+            ? '处理中...'
+            : activeTab === 'chat'
+              ? '确认导入'
+              : activeTab === 'batch'
+                ? '开始上传'
+                : '预览'}
         </Text>
       </View>
     </View>

@@ -1,3 +1,5 @@
+// Deprecated: 迭代8已废弃documents表，请使用repository_knowledge.go中的KnowledgeRepository。
+// 本文件仍被handlers_chat_import.go和handlers_knowledge.go引用，待后续迁移后移除。
 package database
 
 import (

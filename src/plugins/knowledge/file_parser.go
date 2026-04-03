@@ -1,7 +1,10 @@
 package knowledge
 
 import (
+	"archive/zip"
+	"encoding/xml"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -35,6 +38,11 @@ func (p *FileParser) Parse(filePath string) (string, error) {
 		return p.parsePDF(filePath)
 	case ".docx":
 		return p.parseDOCX(filePath)
+	case ".pptx":
+		return p.parsePPTX(filePath)
+	case ".ppt":
+		// PPT (老格式) 需要额外的库支持，暂不支持
+		return "", fmt.Errorf("暂不支持 PPT 格式，请转换为 PPTX 格式后上传")
 	default:
 		return "", fmt.Errorf("不支持的文件格式: %s", ext)
 	}
@@ -42,7 +50,7 @@ func (p *FileParser) Parse(filePath string) (string, error) {
 
 // SupportedFormats 返回支持的文件格式列表
 func (p *FileParser) SupportedFormats() []string {
-	return []string{".pdf", ".docx", ".txt", ".md"}
+	return []string{".pdf", ".docx", ".txt", ".md", ".pptx"}
 }
 
 // parsePlainText 解析纯文本文件（TXT/MD）
@@ -129,4 +137,76 @@ func stripXMLTags(s string) string {
 		}
 	}
 	return strings.TrimSpace(sb.String())
+}
+
+// parsePPTX 解析 PPTX 文件
+// PPTX 是一个 ZIP 压缩包，内部包含 XML 格式的幻灯片内容
+func (p *FileParser) parsePPTX(filePath string) (string, error) {
+	// 打开 ZIP 文件
+	r, err := zip.OpenReader(filePath)
+	if err != nil {
+		return "", fmt.Errorf("打开 PPTX 文件失败: %w", err)
+	}
+	defer r.Close()
+
+	var sb strings.Builder
+
+	// 遍历 ZIP 内的文件，查找幻灯片 XML
+	for _, f := range r.File {
+		// 幻灯片文件路径格式: ppt/slides/slideN.xml
+		if strings.HasPrefix(f.Name, "ppt/slides/slide") && strings.HasSuffix(f.Name, ".xml") {
+			rc, err := f.Open()
+			if err != nil {
+				continue // 单个幻灯片解析失败不中断
+			}
+
+			data, err := io.ReadAll(rc)
+			rc.Close()
+			if err != nil {
+				continue
+			}
+
+			// 解析 XML 提取文本
+			text := extractPPTXText(string(data))
+			if text != "" {
+				if sb.Len() > 0 {
+					sb.WriteString("\n\n") // 幻灯片之间用空行分隔
+				}
+				sb.WriteString(text)
+			}
+		}
+	}
+
+	if sb.Len() == 0 {
+		return "", fmt.Errorf("PPTX 文件内容为空")
+	}
+
+	return sb.String(), nil
+}
+
+// extractPPTXText 从 PPTX 幻灯片 XML 中提取文本
+func extractPPTXText(xmlContent string) string {
+	var sb strings.Builder
+
+	// 使用简单的 XML 解码器提取文本
+	decoder := xml.NewDecoder(strings.NewReader(xmlContent))
+	for {
+		token, err := decoder.Token()
+		if err != nil {
+			break
+		}
+
+		switch t := token.(type) {
+		case xml.CharData:
+			text := strings.TrimSpace(string(t))
+			if text != "" {
+				if sb.Len() > 0 {
+					sb.WriteString(" ")
+				}
+				sb.WriteString(text)
+			}
+		}
+	}
+
+	return sb.String()
 }

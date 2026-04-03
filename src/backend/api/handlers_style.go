@@ -16,6 +16,189 @@ import (
 
 // ======================== 问答风格接口 ========================
 
+// HandleSetStyleConfig 设置学生问答风格 (V2.0 迭代6)
+// PUT /api/styles
+func (h *Handler) HandleSetStyleConfig(c *gin.Context) {
+	// 从 JWT 获取 user_id
+	userID, _ := c.Get("user_id")
+	teacherID, ok := userID.(int64)
+	if !ok {
+		Error(c, http.StatusUnauthorized, 40001, "用户信息无效")
+		return
+	}
+
+	// 解析请求体
+	var req struct {
+		TeacherPersonaID int64 `json:"teacher_persona_id" binding:"required"`
+		StudentPersonaID int64 `json:"student_persona_id" binding:"required"`
+		StyleConfig      struct {
+			Temperature      *float64 `json:"temperature"`
+			GuidanceLevel    *string  `json:"guidance_level"`
+			TeachingStyle    *string  `json:"teaching_style"`
+			StylePrompt      *string  `json:"style_prompt"`
+			MaxTurnsPerTopic *int     `json:"max_turns_per_topic"`
+		} `json:"style_config" binding:"required"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		Error(c, http.StatusBadRequest, 40004, "请求参数无效: "+err.Error())
+		return
+	}
+
+	// 校验 temperature 范围
+	if req.StyleConfig.Temperature != nil {
+		if *req.StyleConfig.Temperature < 0.1 || *req.StyleConfig.Temperature > 1.0 {
+			Error(c, http.StatusBadRequest, 40004, "temperature 必须在 0.1-1.0 之间")
+			return
+		}
+	}
+
+	// 校验 guidance_level
+	if req.StyleConfig.GuidanceLevel != nil {
+		gl := *req.StyleConfig.GuidanceLevel
+		if gl != "low" && gl != "medium" && gl != "high" {
+			Error(c, http.StatusBadRequest, 40004, "guidance_level 必须为 low/medium/high")
+			return
+		}
+	}
+
+	// 校验 teaching_style
+	if req.StyleConfig.TeachingStyle != nil {
+		ts := *req.StyleConfig.TeachingStyle
+		if ts != "" && !import_dialogue.ValidTeachingStyles[ts] {
+			Error(c, http.StatusBadRequest, 40040, "无效的教学风格类型，可选值: socratic/explanatory/encouraging/strict/companion/custom")
+			return
+		}
+	}
+
+	db := h.manager.GetDB()
+	if db == nil {
+		Error(c, http.StatusInternalServerError, 50001, "数据库服务不可用")
+		return
+	}
+
+	// 鉴权：需要验证操作者是否拥有该 teacher_persona_id 的控制权
+	personaRepo := database.NewPersonaRepository(db)
+	teacherPersona, err := personaRepo.GetByID(req.TeacherPersonaID)
+	if err != nil || teacherPersona == nil {
+		Error(c, http.StatusBadRequest, 40004, "未找到指定的教师分身")
+		return
+	}
+	if teacherPersona.UserID != teacherID {
+		Error(c, http.StatusForbidden, 40003, "无权操作该教师分身")
+		return
+	}
+
+	// 获取学生 user_id（通过 student_persona_id）
+	studentPersona, err := personaRepo.GetByID(req.StudentPersonaID)
+	if err != nil || studentPersona == nil {
+		Error(c, http.StatusBadRequest, 40004, "未找到指定的学生分身")
+		return
+	}
+	studentID := studentPersona.UserID
+
+	// 构建 StyleConfig
+	styleConfig := database.StyleConfig{
+		TeachingStyle: "socratic", // 默认值
+	}
+	if req.StyleConfig.Temperature != nil {
+		styleConfig.Temperature = *req.StyleConfig.Temperature
+	}
+	if req.StyleConfig.GuidanceLevel != nil {
+		styleConfig.GuidanceLevel = *req.StyleConfig.GuidanceLevel
+	}
+	if req.StyleConfig.TeachingStyle != nil {
+		styleConfig.TeachingStyle = *req.StyleConfig.TeachingStyle
+	}
+	if req.StyleConfig.StylePrompt != nil {
+		styleConfig.StylePrompt = *req.StyleConfig.StylePrompt
+	}
+	if req.StyleConfig.MaxTurnsPerTopic != nil {
+		styleConfig.MaxTurnsPerTopic = *req.StyleConfig.MaxTurnsPerTopic
+	}
+
+	configJSON, err := json.Marshal(styleConfig)
+	if err != nil {
+		Error(c, http.StatusInternalServerError, 50001, "序列化风格配置失败: "+err.Error())
+		return
+	}
+
+	styleRepo := database.NewStyleRepository(db)
+	style := &database.StudentDialogueStyle{
+		TeacherID:        teacherID,
+		StudentID:        studentID,
+		TeacherPersonaID: req.TeacherPersonaID,
+		StudentPersonaID: req.StudentPersonaID,
+		StyleConfig:      string(configJSON),
+	}
+
+	id, err := styleRepo.UpsertWithPersonas(style)
+	if err != nil {
+		Error(c, http.StatusInternalServerError, 50001, "设置问答风格失败: "+err.Error())
+		return
+	}
+
+	Success(c, gin.H{
+		"id":                 id,
+		"teacher_id":         teacherID,
+		"student_id":         studentID,
+		"teacher_persona_id": req.TeacherPersonaID,
+		"student_persona_id": req.StudentPersonaID,
+		"style_config":       styleConfig,
+		"updated_at":         time.Now(),
+	})
+}
+
+// HandleGetStyleConfig 获取学生问答风格 (V2.0 迭代6)
+// GET /api/styles
+func (h *Handler) HandleGetStyleConfig(c *gin.Context) {
+	// 获取分身 ID 参数
+	tpStr := c.Query("teacher_persona_id")
+	spStr := c.Query("student_persona_id")
+	teacherPersonaID, _ := strconv.ParseInt(tpStr, 10, 64)
+	studentPersonaID, _ := strconv.ParseInt(spStr, 10, 64)
+
+	if teacherPersonaID <= 0 || studentPersonaID <= 0 {
+		Error(c, http.StatusBadRequest, 40004, "缺少或无效的分身 ID 参数")
+		return
+	}
+
+	db := h.manager.GetDB()
+	if db == nil {
+		Error(c, http.StatusInternalServerError, 50001, "数据库服务不可用")
+		return
+	}
+
+	styleRepo := database.NewStyleRepository(db)
+	style, err := styleRepo.GetByPersonas(teacherPersonaID, studentPersonaID)
+	if err != nil {
+		Error(c, http.StatusInternalServerError, 50001, "查询问答风格失败: "+err.Error())
+		return
+	}
+
+	if style == nil {
+		Success(c, nil)
+		return
+	}
+
+	var styleConfig database.StyleConfig
+	if err := json.Unmarshal([]byte(style.StyleConfig), &styleConfig); err != nil {
+		Error(c, http.StatusInternalServerError, 50001, "解析风格配置失败: "+err.Error())
+		return
+	}
+
+	Success(c, gin.H{
+		"id":                 style.ID,
+		"teacher_id":         style.TeacherID,
+		"student_id":         style.StudentID,
+		"teacher_persona_id": style.TeacherPersonaID,
+		"student_persona_id": style.StudentPersonaID,
+		"style_config":       styleConfig,
+		"created_at":         style.CreatedAt,
+		"updated_at":         style.UpdatedAt,
+	})
+}
+
 // HandleSetDialogueStyle 设置学生问答风格
 // PUT /api/students/:id/dialogue-style
 func (h *Handler) HandleSetDialogueStyle(c *gin.Context) {

@@ -2,7 +2,54 @@
   display: flex;
   flex-direction: column;
   height: 100vh;
-  background-color: #f3f4f6;
+  background-color: #F3F4F6;
+
+  // ========== 自定义导航栏 ==========
+  &__navbar {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    height: 44px;
+    padding: 0 16px;
+    // padding-top 改为动态设置
+    background-color: #FFFFFF;
+    border-bottom: 1px solid #E5E7EB;
+  }
+
+  &__navbar-back {
+    width: 60px;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 30px;
+    background-color: #F3F4F6;
+
+    &:active {
+      opacity: 0.8;
+    }
+  }
+
+  &__navbar-back-icon {
+    font-size: 32px;
+    color: #1F2937;
+  }
+
+  &__navbar-title {
+    font-size: 32px;
+    font-weight: 600;
+    color: #1F2937;
+    max-width: 60%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__navbar-placeholder {
+    width: 72px;
+    height: 72px;
+  }
 
   // ========== 接管状态栏 ==========
   &__takeover-bar {
@@ -10,25 +57,25 @@
     flex-direction: row;
     align-items: center;
     justify-content: space-between;
-    padding: 16rpx 32rpx;
+    padding: 12px 24px;
     background: linear-gradient(135deg, #d1fae5, #a7f3d0);
   }
 
   &__takeover-text {
-    font-size: 26rpx;
+    font-size: 26px;
     font-weight: 500;
     color: #065f46;
   }
 
   &__takeover-btn {
-    padding: 8rpx 24rpx;
+    padding: 8px 24px;
     background-color: #ffffff;
-    border-radius: 16rpx;
-    border: 2rpx solid #065f46;
+    border-radius: 16px;
+    border: 1px solid #065f46;
   }
 
   &__takeover-btn-text {
-    font-size: 22rpx;
+    font-size: 22px;
     color: #065f46;
     font-weight: 500;
   }
@@ -36,179 +83,127 @@
   // ========== 消息列表 ==========
   &__messages {
     flex: 1;
-    padding: 24rpx 0;
+    overflow: hidden;
+    padding-top: 16px;
   }
 
   &__empty {
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
-    padding: 200rpx 0;
+    padding-top: 200px;
   }
 
   &__empty-text {
-    font-size: 28rpx;
-    color: #9ca3af;
+    font-size: 28px;
+    color: #9CA3AF;
+    margin-bottom: 16px;
   }
 
-  // ========== 消息项 ==========
-  &__msg {
-    margin: 0 32rpx 24rpx;
-    padding: 24rpx;
-    border-radius: 20rpx;
-    background-color: #ffffff;
-    box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.04);
-
-    &--student {
-      border-left: 6rpx solid #3b82f6;
-    }
-
-    &--ai {
-      border-left: 6rpx solid #9ca3af;
-    }
-
-    &--teacher {
-      border-left: 6rpx solid #10b981;
-      background-color: #f0fdf4;
-    }
+  &__retry-btn {
+    padding: 12px 32px;
+    background-color: #4F46E5;
+    border-radius: 24px;
+    margin-top: 8px;
   }
 
-  &__sender {
-    display: block;
-    font-size: 24rpx;
-    font-weight: 600;
-    color: #6b7280;
-    margin-bottom: 8rpx;
+  &__retry-btn-text {
+    font-size: 26px;
+    color: #FFFFFF;
+    font-weight: 500;
   }
 
-  &__quote {
-    padding: 12rpx 16rpx;
-    margin-bottom: 12rpx;
+  &__bottom-spacer {
+    height: 16px;
+  }
+
+  // ========== 底部输入区域 ==========
+  &__input-bar {
+    background-color: #FFFFFF;
+    padding: 16px 24px;
+    border-top: 1px solid #E5E7EB;
+  }
+
+  &__quote-preview {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    margin-bottom: 8px;
     background-color: #f3f4f6;
-    border-left: 4rpx solid #d1d5db;
-    border-radius: 8rpx;
+    border-left: 3px solid #1890FF;
+    border-radius: 8px;
   }
 
-  &__quote-text {
-    font-size: 22rpx;
+  &__quote-preview-content {
+    flex: 1;
+    overflow: hidden;
+  }
+
+  &__quote-preview-text {
+    font-size: 24px;
     color: #6b7280;
     line-height: 1.4;
   }
 
-  &__content {
-    display: block;
-    font-size: 28rpx;
-    color: #1f2937;
-    line-height: 1.6;
-    word-break: break-all;
-  }
-
-  &__meta {
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    justify-content: space-between;
-    margin-top: 12rpx;
-  }
-
-  &__time {
-    font-size: 22rpx;
-    color: #9ca3af;
-  }
-
-  &__reply-btn {
-    padding: 4rpx 16rpx;
-    background-color: #eef2ff;
-    border-radius: 12rpx;
-  }
-
-  &__reply-btn-text {
-    font-size: 22rpx;
-    color: #4f46e5;
-  }
-
-  // ========== 底部输入 ==========
-  &__input-bar {
-    background-color: #ffffff;
-    border-top: 2rpx solid #e5e7eb;
-    padding: 16rpx 24rpx;
-  }
-
-  &__quote-bar {
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    justify-content: space-between;
-    padding: 12rpx 16rpx;
-    margin-bottom: 12rpx;
-    background-color: #f3f4f6;
-    border-radius: 12rpx;
-  }
-
-  &__quote-bar-text {
-    flex: 1;
-    font-size: 22rpx;
-    color: #6b7280;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  &__quote-cancel {
+  &__quote-preview-close {
     flex-shrink: 0;
-    margin-left: 16rpx;
-    padding: 4rpx 12rpx;
+    padding: 4px 12px;
   }
 
-  &__quote-cancel-text {
-    font-size: 28rpx;
+  &__quote-preview-close-text {
+    font-size: 28px;
     color: #9ca3af;
   }
 
   &__input-wrapper {
     display: flex;
-    flex-direction: row;
     align-items: center;
+    background-color: #F3F4F6;
+    border-radius: 40px;
+    padding: 8px 8px 8px 24px;
   }
 
   &__input {
     flex: 1;
-    height: 72rpx;
-    background-color: #f3f4f6;
-    border-radius: 36rpx;
-    padding: 0 24rpx;
-    font-size: 28rpx;
-    color: #1f2937;
+    height: 80rpx;
+    font-size: 30rpx;
+    color: #1F2937;
+    background-color: transparent;
   }
 
   &__input-placeholder {
-    color: #9ca3af;
+    color: #9CA3AF;
+    font-size: 30rpx;
   }
 
   &__send-btn {
-    flex-shrink: 0;
-    margin-left: 16rpx;
-    padding: 0 32rpx;
-    height: 72rpx;
-    background-color: #4f46e5;
-    border-radius: 36rpx;
     display: flex;
     align-items: center;
     justify-content: center;
+    width: 120px;
+    height: 64px;
+    border-radius: 32px;
+    background-color: #4F46E5;
+    flex-shrink: 0;
+    transition: opacity 0.2s;
+
+    &:active {
+      opacity: 0.8;
+    }
 
     &--disabled {
-      opacity: 0.5;
+      background-color: #D1D5DB;
+      pointer-events: none;
     }
   }
 
   &__send-btn-text {
-    font-size: 28rpx;
-    color: #ffffff;
+    font-size: 26px;
+    color: #FFFFFF;
     font-weight: 500;
-  }
-
-  &__bottom-spacer {
-    height: 32rpx;
   }
 
   // ========== 加载状态 ==========
@@ -216,11 +211,174 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 200rpx 0;
+    height: 100vh;
   }
 
   &__loading-text {
-    font-size: 28rpx;
-    color: #9ca3af;
+    font-size: 28px;
+    color: #9CA3AF;
+  }
+}
+
+/* ========== 气泡样式（与学生chat页对齐） ========== */
+.chat-bubble__timestamp {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 16px;
+  margin-top: 8px;
+  padding: 0 24px;
+
+  &-text {
+    font-size: 22px;
+    color: #9CA3AF;
+    background-color: rgba(0, 0, 0, 0.04);
+    padding: 4px 16px;
+    border-radius: 8px;
+  }
+}
+
+.chat-bubble {
+  display: flex;
+  align-items: flex-start;
+  padding: 0 24px;
+  margin-bottom: 16px;
+
+  /* 学生消息 - 靠左（老师视角：对方消息在左） */
+  &--student {
+    flex-direction: row;
+  }
+
+  /* AI 消息 - 靠左 */
+  &--ai {
+    flex-direction: row;
+  }
+
+  /* 教师真人消息 - 靠右（老师视角：自己的消息在右） */
+  &--teacher {
+    flex-direction: row-reverse;
+  }
+}
+
+.chat-bubble__avatar {
+  width: 72px;
+  height: 72px;
+  min-width: 72px;
+  border-radius: 50%;
+  background-color: #E5E7EB;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 16px;
+
+  &-text {
+    font-size: 28px;
+    font-weight: 600;
+    color: #6B7280;
+  }
+
+  /* 教师头像 - 绿色背景（老师视角：靠右，所以左边距） */
+  &--teacher {
+    background-color: #d1fae5;
+    margin-right: 0;
+    margin-left: 16px;
+
+    .chat-bubble__avatar-text {
+      color: #065f46;
+    }
+  }
+
+  /* AI 头像 - 蓝色背景 */
+  &--ai {
+    background-color: #dbeafe;
+
+    .chat-bubble__avatar-text {
+      color: #1e40af;
+    }
+  }
+
+  /* 学生头像 - 蓝色背景（老师视角：靠左，所以右边距） */
+  &--student {
+    background-color: #1890FF;
+
+    .chat-bubble__avatar-text {
+      color: #FFFFFF;
+    }
+  }
+}
+
+.chat-bubble__body {
+  max-width: 70%;
+  display: flex;
+  flex-direction: column;
+}
+
+.chat-bubble__sender-label {
+  font-size: 22px;
+  color: #6B7280;
+  margin-bottom: 6px;
+
+  &--teacher {
+    color: #065f46;
+    font-weight: 500;
+  }
+
+  &--ai {
+    color: #1e40af;
+  }
+}
+
+/* 引用消息 */
+.chat-bubble__quote {
+  padding: 8px 12px;
+  margin-bottom: 8px;
+  background-color: #f3f4f6;
+  border-left: 3px solid #d1d5db;
+  border-radius: 6px;
+}
+
+.chat-bubble__quote-text {
+  font-size: 22px;
+  color: #6b7280;
+  line-height: 1.4;
+}
+
+.chat-bubble__content {
+  padding: 20px 24px;
+  border-radius: 24px;
+  word-break: break-all;
+
+  /* 学生消息气泡 - 白色（老师视角：对方消息，靠左） */
+  &--student {
+    background-color: #FFFFFF;
+    border-top-left-radius: 4px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  }
+
+  /* AI 消息气泡 - 白色 */
+  &--ai {
+    background-color: #FFFFFF;
+    border-top-left-radius: 4px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  }
+
+  /* 教师真人消息气泡 - 绿色（老师视角：自己的消息，靠右） */
+  &--teacher {
+    background-color: #ecfdf5;
+    border-top-right-radius: 4px;
+    border: 1px solid #a7f3d0;
+    box-shadow: 0 2px 8px rgba(16, 185, 129, 0.1);
+  }
+}
+
+.chat-bubble__text {
+  font-size: 30px;
+  line-height: 1.6;
+
+  &--light {
+    color: #FFFFFF;
+  }
+
+  &--dark {
+    color: #333333;
   }
 }

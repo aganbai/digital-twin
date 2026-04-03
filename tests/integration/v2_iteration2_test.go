@@ -1150,49 +1150,8 @@ func TestV2I2_IT83_CommentWithPersona(t *testing.T) {
 	t.Logf("IT-83 通过: 评语使用分身维度成功, id=%v", apiResp.Data["id"])
 }
 
-// ======================== IT-84: 作业使用分身维度 ========================
-func TestV2I2_IT84_AssignmentWithPersona(t *testing.T) {
-	v2i2Setup(t)
-
-	if v2i2StudentToken == "" || v2i2TeacherPersonaID <= 0 {
-		t.Skip("IT-84 跳过: 前置条件不满足")
-	}
-
-	asgBody := map[string]interface{}{
-		"teacher_id":         int(v2i2UserAID),
-		"teacher_persona_id": int(v2i2TeacherPersonaID),
-		"title":              "IT84分身维度作业",
-		"content":            "请完成量子力学第三章的习题。",
-	}
-
-	resp, body, err := doRequest("POST", "/api/assignments", asgBody, v2i2StudentToken)
-	if err != nil {
-		t.Fatalf("IT-84 请求失败: %v", err)
-	}
-	if resp.StatusCode != http.StatusOK {
-		t.Fatalf("IT-84 HTTP 状态码错误: 期望 200, 实际 %d, body: %s", resp.StatusCode, string(body))
-	}
-
-	apiResp, err := parseResponse(body)
-	if err != nil {
-		t.Fatalf("IT-84 解析响应失败: %v", err)
-	}
-	if apiResp.Code != 0 {
-		t.Fatalf("IT-84 业务码错误: 期望 0, 实际 %d, message: %s", apiResp.Code, apiResp.Message)
-	}
-
-	// 验证返回 id
-	if _, ok := apiResp.Data["id"]; !ok {
-		t.Fatal("IT-84 响应缺少 id 字段")
-	}
-
-	// 验证返回 teacher_persona_id 和 student_persona_id
-	if _, ok := apiResp.Data["teacher_persona_id"]; !ok {
-		t.Fatal("IT-84 响应缺少 teacher_persona_id 字段")
-	}
-
-	t.Logf("IT-84 通过: 作业使用分身维度成功, id=%v", apiResp.Data["id"])
-}
+// ======================== IT-84: 作业功能已移除（V2.0 迭代7） ========================
+// 原 TestV2I2_IT84_AssignmentWithPersona 已删除
 
 // ======================== IT-85: 数据迁移：旧用户通过 complete-profile 创建分身后验证 ========================
 func TestV2I2_IT85_LegacyUserMigration(t *testing.T) {

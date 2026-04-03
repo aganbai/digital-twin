@@ -241,28 +241,16 @@ func (p *MemoryPlugin) handleStore(input *core.PluginInput) (*core.PluginOutput,
 		}, nil
 	}
 
-	// V2.0 迭代6: 获取记忆层级（如果指定了 memory_layer 则使用，否则默认 episodic）
+	// V2.0 迭代6: 获取记忆层级（如果指定了 memory_layer 则使用，否则调用 LLM 判断）
 	memoryLayer, _ := input.Data["memory_layer"].(string)
 	if memoryLayer == "" {
 		memoryLayer = p.callLLMForMemoryLayer(content, memoryType)
 	}
 
-	// 限制 episodic 上限
-	if memoryLayer == "episodic" && teacherPersonaID > 0 && studentPersonaID > 0 {
-		count, err := p.memRepo.CountEpisodicMemories(teacherPersonaID, studentPersonaID)
-		if err == nil && count >= 50 {
-			// 超过上限，返回错误，后续由定时任务合并
-			return &core.PluginOutput{
-				Success: false,
-				Data:    map[string]interface{}{"error_code": 40005},
-				Error:   "episodic 记忆超过上限 50 条",
-			}, nil
-		}
-	}
-
-	// 当 persona_id > 0 时，使用分身维度存储（带层级）
 	var memoryID int64
 	var storeErr error
+
+	// 统一通过 store.StoreMemoryWithLayer 存储（内部已包含 core 记忆的更新覆盖逻辑）
 	if teacherPersonaID > 0 && studentPersonaID > 0 {
 		memoryID, storeErr = p.store.StoreMemoryWithLayer(studentID, teacherID, teacherPersonaID, studentPersonaID, memoryType, memoryLayer, content, importance)
 	} else {
@@ -272,9 +260,18 @@ func (p *MemoryPlugin) handleStore(input *core.PluginInput) (*core.PluginOutput,
 		return nil, fmt.Errorf("存储记忆失败: %w", storeErr)
 	}
 
+	// episodic 记忆：检查上限 50 条，超过时自动删除最旧的
+	if memoryLayer != "core" && teacherPersonaID > 0 && studentPersonaID > 0 {
+		count, err := p.memRepo.CountEpisodicMemories(teacherPersonaID, studentPersonaID)
+		if err == nil && count > 50 {
+			_ = p.memRepo.DeleteOldestEpisodicMemories(teacherPersonaID, studentPersonaID, 50)
+		}
+	}
+
 	// merge 上游 Data
 	outputData := mergeData(input.Data, map[string]interface{}{
-		"memory_id": memoryID,
+		"memory_id":    memoryID,
+		"memory_layer": memoryLayer,
 	})
 
 	return &core.PluginOutput{
@@ -543,10 +540,14 @@ func (p *MemoryPlugin) callLLMForMemoryLayer(content, memoryType string) string 
 		model = "gpt-3.5-turbo"
 	}
 
-	prompt := fmt.Sprintf("你是一个记忆分析助手。请判断以下记忆内容是核心记忆(core)还是片段记忆(episodic)。"+
-		"核心记忆通常包含用户的长期偏好、能力特征、人生目标等；"+
-		"片段记忆通常包含具体的交互对话、单次提问、反馈等。\n"+
-		"记忆类型：%s\n记忆内容：%s\n\n请直接输出'core'或'episodic'，不要输出其他任何内容。", memoryType, content)
+	prompt := fmt.Sprintf(`请判断以下学生记忆信息属于哪个层级：
+- core（核心画像）：关于学生的长期特征、能力水平、学习风格、性格特点等持久性结论
+- episodic（情景事件）：关于某次具体学习事件、某个问题的讨论、某次作业的表现等临时性记录
+
+记忆类型: %s
+记忆内容: %s
+
+请只回答 "core" 或 "episodic"，不要其他内容。`, memoryType, content)
 
 	reqBody := map[string]interface{}{
 		"model": model,

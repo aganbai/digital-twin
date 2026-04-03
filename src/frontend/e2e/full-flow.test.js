@@ -342,11 +342,10 @@ describe('第2阶段：教师功能', () => {
     await sleep(5000)
     page = await miniProgram.currentPage()
     console.log('分身选择后跳转到:', page.path)
-    // 教师角色使用 redirectTo 跳转知识库页，学生角色使用 switchTab 跳转首页
+    // 教师角色使用 switchTab 跳转知识库页，学生角色使用 switchTab 跳转首页
     expect(
       page.path === 'pages/home/index' ||
-      page.path === 'pages/knowledge/index' ||
-      page.path === 'pages/persona-select/index'  // 切换可能仍在当前页（API 失败时）
+      page.path === 'pages/knowledge/index'
     ).toBeTruthy()
 
     console.log('✅ SM-B01 分身选择页测试通过')
@@ -466,7 +465,7 @@ describe('第2阶段：教师功能', () => {
       console.log('⚠️ 暂无待审批申请')
     }
 
-    // V5: 快捷操作区（分身概览、知识库管理、作业管理、学生管理）
+    // V5: 快捷操作区（分身概览、知识库管理、学生管理）
     const actionsCard = await page.$('.teacher-dashboard__actions-card')
     if (!actionsCard) {
       // Dashboard 数据可能仍在加载中，等待后重试
@@ -813,25 +812,6 @@ describe('第2阶段：教师功能', () => {
     console.log('✅ SM-F01 教师学生管理页（V5 4Tab合并版）测试通过')
   })
 
-  // SM-I03: 教师查看作业列表+点评
-  test('SM-I03: 教师查看作业列表+点评', async () => {
-    page = await safeReLaunch('/pages/assignment-list/index')
-    expect(page.path).toBe('pages/assignment-list/index')
-
-    // 验证页面渲染
-    const list = await page.$('.assignment-list-page__list')
-    const emptyState = await page.$('.empty')
-
-    if (list) {
-      const items = await page.$$('.assignment-list-page__item')
-      console.log(`作业数量: ${items.length}`)
-    } else if (emptyState) {
-      console.log('⚠️ 暂无学生作业')
-    }
-
-    console.log('✅ SM-I03 教师作业列表测试通过')
-  })
-
   // SM-L01: 教师个人中心
   test('SM-L01: 教师个人中心', async () => {
     // 重新注入教师 token（确保 storage 中角色信息正确）
@@ -1064,12 +1044,12 @@ describe('第4阶段：学生功能', () => {
       expect(joinBtn).toBeTruthy()
     }
 
-    // V5: 快捷操作区（我的作业、发现）
+    // V5: 快捷操作区（发现）
     // 注意：如果学生没有老师（0个），会渲染引导页而非快捷操作区
     const actionItems = await page.$$('.student-home__action-item')
     console.log(`快捷操作数量: ${actionItems.length}`)
 
-    if (actionItems.length >= 2) {
+    if (actionItems.length >= 1) {
       const actionLabels = await page.$$('.student-home__action-label')
       const actionTexts = []
       for (const label of actionLabels) {
@@ -1078,7 +1058,6 @@ describe('第4阶段：学生功能', () => {
       }
       console.log('快捷操作:', actionTexts.join(', '))
       expect(actionTexts).toContain('发现')
-      expect(actionTexts).toContain('我的作业')
     } else {
       // 0个老师时显示引导页，验证引导页元素
       const guideTitle = await page.$('.student-home__guide-title')
@@ -1351,75 +1330,6 @@ describe('第4阶段：学生功能', () => {
     }
 
     console.log('✅ SM-F02 我的教师页测试通过')
-  })
-
-  // SM-I01: 学生提交作业
-  test('SM-I01: 学生提交作业', async () => {
-    // 获取教师 persona_id
-    const relResp = await apiGet('/api/relations?status=approved', state.studentToken)
-    const approvedItems = relResp.data?.items || []
-    const teacherPersonaId = approvedItems.length > 0 ? (approvedItems[0].teacher_id || approvedItems[0].teacher_persona_id) : 0
-
-    page = await safeReLaunch(
-      `/pages/submit-assignment/index?teacher_persona_id=${teacherPersonaId}`
-    )
-    expect(page.path).toBe('pages/submit-assignment/index')
-
-    const titleInput = await page.$('.submit-assignment-page__title-input')
-    if (titleInput) {
-      await titleInput.input('E2E测试作业')
-      await sleep(500)
-    }
-
-    const contentTextarea = await page.$('.submit-assignment-page__textarea')
-    if (contentTextarea) {
-      await contentTextarea.input('这是E2E自动化测试提交的作业内容。Python列表推导式是一种简洁的创建列表的方式。')
-      await sleep(500)
-    }
-
-    const submitBtn = await page.$('.submit-assignment-page__btn')
-    if (submitBtn) {
-      await submitBtn.tap()
-      await sleep(3000)
-      console.log('✅ 作业提交成功')
-    }
-
-    console.log('✅ SM-I01 学生提交作业测试通过')
-  })
-
-  // SM-I02: 学生查看我的作业
-  test('SM-I02: 学生查看我的作业', async () => {
-    page = await safeReLaunch('/pages/my-assignments/index')
-    expect(page.path).toBe('pages/my-assignments/index')
-
-    const list = await page.$('.my-assignments-page__list')
-    const emptyState = await page.$('.empty')
-
-    if (list) {
-      const items = await page.$$('.my-assignments-page__item')
-      console.log(`我的作业数量: ${items.length}`)
-
-      if (items.length > 0) {
-        // 点击进入作业详情
-        await items[0].tap()
-        await sleep(3000)
-        page = await miniProgram.currentPage()
-        console.log('作业详情页:', page.path)
-
-        if (page.path === 'pages/assignment-detail/index') {
-          // 验证内容 + AI 点评 + 教师点评
-          const content = await page.$('.assignment-detail-page__content')
-          if (content) console.log('✅ 作业内容区域存在')
-
-          const aiComment = await page.$('.assignment-detail-page__ai-comment')
-          if (aiComment) console.log('✅ AI 点评区域存在')
-        }
-      }
-    } else if (emptyState) {
-      console.log('⚠️ 暂无作业记录')
-    }
-
-    console.log('✅ SM-I02 学生查看作业测试通过')
   })
 
   // SM-J01: 教师写学生备注 + 学生不可见（V5改造）

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, useRef } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { View, Text } from '@tarojs/components'
 import Taro, { usePullDownRefresh, useDidShow } from '@tarojs/taro'
 import { getTeachers, Teacher } from '@/api/teacher'
@@ -6,9 +6,13 @@ import { useTeacherStore } from '@/store'
 import Empty from '@/components/Empty'
 import './index.scss'
 
+// 使用模块级变量，避免组件重新挂载时重置
+let hasAutoRedirected = false
+
 export default function StudentHome() {
   const { teachers, loading: teacherLoading, setTeachers, setLoading: setTeacherLoading } = useTeacherStore()
-  const autoRedirected = useRef(false)
+  /** 是否已完成首次数据加载（防止初始渲染时闪现引导页） */
+  const [initialized, setInitialized] = useState(false)
 
   /** 获取教师列表（学生视角） */
   const fetchTeachers = useCallback(async () => {
@@ -23,6 +27,7 @@ export default function StudentHome() {
       return []
     } finally {
       setTeacherLoading(false)
+      setInitialized(true)
     }
   }, [setTeachers, setTeacherLoading])
 
@@ -30,23 +35,33 @@ export default function StudentHome() {
   useEffect(() => {
     const init = async () => {
       const items = await fetchTeachers()
-      // R3: 学生只有1个已授权老师时，直接跳转对话页
-      if (items.length === 1 && !autoRedirected.current) {
-        autoRedirected.current = true
+      // R3: 学生只有1个已授权老师时，直接跳转对话页（仅首次）
+      if (items.length === 1 && !hasAutoRedirected) {
+        hasAutoRedirected = true
         const teacher = items[0]
-        Taro.redirectTo({
-          url: `/pages/chat/index?teacher_id=${teacher.id}&teacher_name=${encodeURIComponent(teacher.nickname)}`,
+        const teacherPersonaId = teacher.persona_id || teacher.id
+        Taro.navigateTo({
+          url: `/pages/chat/index?teacher_id=${teacherPersonaId}&teacher_name=${encodeURIComponent(teacher.nickname)}`,
         })
       }
     }
     init()
   }, [fetchTeachers])
 
-  /** 页面显示时刷新数据 */
+  /** 页面显示时刷新数据并判断自动跳转 */
   useDidShow(() => {
-    // 如果已经自动跳转过，重新进入首页时重置标记
-    autoRedirected.current = false
-    fetchTeachers()
+    const refresh = async () => {
+      const items = await fetchTeachers()
+      // R3: 学生只有1个已授权老师时，自动跳转对话页
+      if (items.length === 1) {
+        const teacher = items[0]
+        const teacherPersonaId = teacher.persona_id || teacher.id
+        Taro.navigateTo({
+          url: `/pages/chat/index?teacher_id=${teacherPersonaId}&teacher_name=${encodeURIComponent(teacher.nickname)}`,
+        })
+      }
+    }
+    refresh()
   })
 
   /** 下拉刷新 */
@@ -55,20 +70,39 @@ export default function StudentHome() {
     Taro.stopPullDownRefresh()
   })
 
-  /** 跳转快捷操作 */
+  /** 跳转快捷操作（自动判断 tabBar 页面使用 switchTab） */
   const handleQuickAction = (path: string) => {
-    Taro.navigateTo({ url: path })
+    // tabBar 页面必须使用 switchTab，否则 navigateTo 无效
+    const tabBarPages = ['/pages/home/index', '/pages/discover/index', '/pages/knowledge/index', '/pages/teacher-students/index', '/pages/profile/index']
+    if (tabBarPages.some((p) => path.startsWith(p))) {
+      Taro.switchTab({ url: path })
+    } else {
+      Taro.navigateTo({ url: path })
+    }
   }
 
   /** 学生点击开始对话 */
   const handleChat = (teacher: Teacher) => {
+    // 使用 persona_id 作为 teacher_id 参数（V2.0 中 teacher_id 实际就是 persona_id）
+    const teacherPersonaId = teacher.persona_id || teacher.id
     Taro.navigateTo({
-      url: `/pages/chat/index?teacher_id=${teacher.id}&teacher_name=${encodeURIComponent(teacher.nickname)}`,
+      url: `/pages/chat/index?teacher_id=${teacherPersonaId}&teacher_name=${encodeURIComponent(teacher.nickname)}`,
     })
   }
 
+  // 未初始化完成或正在加载时，显示加载状态
+  if (!initialized || teacherLoading) {
+    return (
+      <View className='student-home'>
+        <View className='student-home__loading'>
+          <Text className='student-home__loading-text'>加载中...</Text>
+        </View>
+      </View>
+    )
+  }
+
   // 0个老师 → 引导页
-  if (!teacherLoading && teachers.length === 0) {
+  if (teachers.length === 0) {
     return (
       <View className='student-home'>
         <View className='student-home__guide'>
@@ -103,14 +137,6 @@ export default function StudentHome() {
       {/* 快捷操作 */}
       <View className='student-home__card student-home__actions-card'>
         <View className='student-home__actions'>
-          <View
-            className='student-home__action-item'
-            onClick={() => handleQuickAction('/pages/my-assignments/index')}
-          >
-            <Text className='student-home__action-icon'>📝</Text>
-            <Text className='student-home__action-label'>我的作业</Text>
-          </View>
-          {/* M2: 移除"我的评语"入口，评语改为教师私有备注，学生不可见 */}
           <View
             className='student-home__action-item'
             onClick={() => handleQuickAction('/pages/discover/index')}

@@ -1,0 +1,346 @@
+.batch-page {
+  min-height: 100vh;
+  background-color: #f3f4f6;
+  padding-bottom: 40px;
+}
+
+.batch-page__header {
+  padding: 40px 32px 24px;
+  background: linear-gradient(135deg, #7c3aed, #8b5cf6);
+}
+
+.batch-page__title {
+  font-size: 40px;
+  font-weight: 700;
+  color: #ffffff;
+  display: block;
+}
+
+.batch-page__subtitle {
+  font-size: 26px;
+  color: rgba(255, 255, 255, 0.8);
+  margin-top: 8px;
+  display: block;
+}
+
+.batch-page__section {
+  margin: 24px;
+}
+
+.batch-page__tip {
+  padding: 20px 24px;
+  background-color: #eff6ff;
+  border-radius: 12px;
+  margin-bottom: 16px;
+}
+
+.batch-page__tip-text {
+  font-size: 24px;
+  color: #1e40af;
+  line-height: 1.6;
+}
+
+.batch-page__textarea {
+  width: 100%;
+  height: 300px;
+  padding: 20px 24px;
+  font-size: 28px;
+  color: #1f2937;
+  background-color: #ffffff;
+  border-radius: 16px;
+  border: 1px solid #e5e7eb;
+  box-sizing: border-box;
+  line-height: 1.6;
+}
+
+.batch-page__char-count {
+  font-size: 22px;
+  color: #9ca3af;
+  text-align: right;
+  margin-top: 8px;
+  display: block;
+}
+
+.batch-page__btn {
+  padding: 24px 0;
+  background: linear-gradient(135deg, #7c3aed, #8b5cf6);
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 16px;
+
+  &:active {
+    opacity: 0.8;
+  }
+
+  &--disabled {
+    background: #d1d5db;
+    pointer-events: none;
+  }
+
+  &--secondary {
+    background: #ffffff;
+    border: 2px solid #7c3aed;
+  }
+}
+
+.batch-page__btn-text {
+  font-size: 30px;
+  font-weight: 600;
+  color: #ffffff;
+
+  &--secondary {
+    color: #7c3aed;
+  }
+}
+
+.batch-page__btn-group {
+  display: flex;
+  flex-direction: row;
+  gap: 16px;
+  margin-top: 16px;
+
+  .batch-page__btn {
+    flex: 1;
+    margin-top: 0;
+  }
+}
+
+.batch-page__info-tip {
+  padding: 20px 24px;
+  background-color: #fef3c7;
+  border-radius: 12px;
+  margin-bottom: 16px;
+}
+
+.batch-page__info-tip-text {
+  font-size: 24px;
+  color: #92400e;
+  line-height: 1.6;
+}
+
+.batch-page__student-list {
+  max-height: 900px;
+}
+
+.batch-page__student-card {
+  padding: 24px;
+  background-color: #ffffff;
+  border-radius: 16px;
+  margin-bottom: 16px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+}
+
+.batch-page__student-header {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.batch-page__student-no {
+  font-size: 28px;
+  font-weight: 600;
+  color: #7c3aed;
+}
+
+.batch-page__student-remove {
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.batch-page__student-remove-text {
+  font-size: 28px;
+  color: #ef4444;
+}
+
+.batch-page__student-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.batch-page__student-field {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+
+  &--column {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+.batch-page__student-field-label {
+  font-size: 24px;
+  color: #6b7280;
+  width: 140px;
+  flex-shrink: 0;
+
+  &--required {
+    color: #1f2937;
+    font-weight: 500;
+  }
+}
+
+.batch-page__student-input {
+  flex: 1;
+  padding: 12px 16px;
+  font-size: 26px;
+  color: #1f2937;
+  background-color: #f9fafb;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+}
+
+// 性别选择器
+.batch-page__student-picker {
+  flex: 1;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background-color: #f9fafb;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+  min-width: 200px;
+}
+
+.batch-page__student-picker-text {
+  font-size: 26px;
+  color: #1f2937;
+
+  &--placeholder {
+    color: #9ca3af;
+  }
+}
+
+.batch-page__student-picker-arrow {
+  font-size: 24px;
+  color: #9ca3af;
+  margin-left: 8px;
+}
+
+// 展开/收起按钮
+.batch-page__expand-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px 0 8px;
+  margin-top: 12px;
+  border-top: 1px dashed #e5e7eb;
+}
+
+.batch-page__expand-toggle-text {
+  font-size: 24px;
+  color: #7c3aed;
+  font-weight: 500;
+}
+
+// 展开的详细信息
+.batch-page__student-detail {
+  margin-top: 16px;
+}
+
+.batch-page__detail-section {
+  margin-bottom: 20px;
+}
+
+.batch-page__detail-section-title {
+  font-size: 26px;
+  font-weight: 600;
+  color: #374151;
+  display: block;
+  margin-bottom: 12px;
+}
+
+// 预设性格标签
+.batch-page__preset-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 12px;
+  width: 100%;
+}
+
+.batch-page__preset-tag {
+  padding: 8px 20px;
+  background-color: #f3f4f6;
+  border-radius: 24px;
+  border: 1px solid #e5e7eb;
+
+  &:active {
+    opacity: 0.7;
+  }
+
+  &--active {
+    background-color: #ede9fe;
+    border-color: #7c3aed;
+  }
+}
+
+.batch-page__preset-tag-text {
+  font-size: 24px;
+  color: #6b7280;
+
+  &--active {
+    color: #7c3aed;
+    font-weight: 500;
+  }
+}
+
+// 学生卡片内的文本域
+.batch-page__student-textarea {
+  width: 100%;
+  height: 120px;
+  padding: 16px;
+  font-size: 26px;
+  color: #1f2937;
+  background-color: #f9fafb;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+  box-sizing: border-box;
+  line-height: 1.5;
+}
+
+// 结果列表
+.batch-page__results {
+  margin-bottom: 16px;
+}
+
+.batch-page__result-item {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px;
+  background-color: #ffffff;
+  border-radius: 12px;
+  margin-bottom: 8px;
+
+  &--success {
+    border-left: 6px solid #059669;
+  }
+
+  &--failed {
+    border-left: 6px solid #ef4444;
+  }
+}
+
+.batch-page__result-name {
+  font-size: 28px;
+  font-weight: 500;
+  color: #1f2937;
+}
+
+.batch-page__result-status {
+  font-size: 24px;
+  color: #6b7280;
+}

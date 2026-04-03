@@ -1,6 +1,7 @@
 package api
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -365,6 +366,19 @@ func (h *Handler) HandleSwitchPersona(c *gin.Context) {
 
 	personaRepo := database.NewPersonaRepository(db)
 	userRepo := database.NewUserRepository(db)
+
+	// 切换前：如果当前分身是教师，自动结束所有活跃的接管会话（AI自动接管）
+	currentPersonaID, _ := c.Get("persona_id")
+	if currentPID, ok := currentPersonaID.(int64); ok && currentPID > 0 {
+		takeoverRepo := database.NewTakeoverRepository(db)
+		ended, err := takeoverRepo.EndAllByTeacherPersona(currentPID)
+		if err != nil {
+			// 仅记录日志，不阻断切换流程
+			fmt.Printf("[SwitchPersona] 自动结束接管失败: %v\n", err)
+		} else if ended > 0 {
+			fmt.Printf("[SwitchPersona] 自动结束了 %d 个活跃接管会话\n", ended)
+		}
+	}
 
 	// 校验分身存在且属于当前用户且处于启用状态
 	persona, err := personaRepo.GetByID(personaID)

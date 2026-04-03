@@ -3,11 +3,11 @@
   background-color: #f5f5f5;
   padding: 0 32rpx;
   box-sizing: border-box;
-  padding-bottom: 120rpx;
+  padding-bottom: 220rpx;
 
   &__header {
     padding-top: 48rpx;
-    padding-bottom: 32rpx;
+    padding-bottom: 24rpx;
   }
 
   &__title {
@@ -24,8 +24,49 @@
     color: #999999;
   }
 
-  /* Scope 筛选 Tab */
-  &__scope-tabs {
+  // ========== 搜索框 ==========
+  &__search {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    margin-bottom: 20rpx;
+  }
+
+  &__search-input {
+    flex: 1;
+    height: 72rpx;
+    background-color: #ffffff;
+    border-radius: 36rpx;
+    padding: 0 28rpx;
+    font-size: 28rpx;
+    color: #333333;
+    box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.05);
+  }
+
+  &__search-placeholder {
+    color: #9ca3af;
+  }
+
+  &__search-btn {
+    flex-shrink: 0;
+    margin-left: 16rpx;
+    padding: 0 28rpx;
+    height: 72rpx;
+    background-color: #1890ff;
+    border-radius: 36rpx;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  &__search-btn-text {
+    font-size: 28rpx;
+    color: #ffffff;
+    font-weight: 500;
+  }
+
+  // ========== 类型筛选 ==========
+  &__type-tabs {
     display: flex;
     flex-direction: row;
     background-color: #ffffff;
@@ -34,7 +75,7 @@
     margin-bottom: 20rpx;
   }
 
-  &__scope-tab {
+  &__type-tab {
     flex: 1;
     height: 64rpx;
     display: flex;
@@ -47,8 +88,8 @@
     }
   }
 
-  &__scope-tab-text {
-    font-size: 26rpx;
+  &__type-tab-text {
+    font-size: 24rpx;
     color: #666666;
 
     &--active {
@@ -57,36 +98,7 @@
     }
   }
 
-  /* 班级筛选 */
-  &__class-filter {
-    display: flex;
-    flex-direction: row;
-    flex-wrap: wrap;
-    gap: 12rpx;
-    margin-bottom: 20rpx;
-  }
-
-  &__class-chip {
-    padding: 8rpx 24rpx;
-    background-color: #ffffff;
-    border-radius: 24rpx;
-    border: 2rpx solid #e5e7eb;
-
-    &--active {
-      border-color: #1890ff;
-      background-color: #e6f7ff;
-    }
-  }
-
-  &__class-chip-text {
-    font-size: 24rpx;
-    color: #666666;
-
-    &--active {
-      color: #1890ff;
-    }
-  }
-
+  // ========== 列表内容 ==========
   &__content {
     padding-bottom: 32rpx;
   }
@@ -104,48 +116,81 @@
   }
 
   &__list {
-    /* 文档列表容器 */
+    /* 列表容器 */
+  }
+
+  // ========== 列表项（支持左滑） ==========
+  &__item-wrapper {
+    position: relative;
+    margin-bottom: 20rpx;
+    overflow: hidden;
+    border-radius: 16rpx;
+  }
+
+  &__item-container {
+    display: flex;
+    flex-direction: row;
+    transition: transform 0.3s ease;
+
+    &--slid {
+      transform: translateX(-240rpx);
+    }
   }
 
   &__item {
+    flex-shrink: 0;
+    width: 100%;
     background-color: #ffffff;
     border-radius: 16rpx;
-    padding: 32rpx;
-    margin-bottom: 24rpx;
+    padding: 28rpx 32rpx;
     box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.04);
+    box-sizing: border-box;
   }
 
   &__item-header {
     display: flex;
+    flex-direction: row;
     align-items: center;
-    justify-content: space-between;
-    margin-bottom: 16rpx;
+    margin-bottom: 12rpx;
+  }
+
+  &__item-type-icon {
+    font-size: 32rpx;
+    margin-right: 12rpx;
+    flex-shrink: 0;
   }
 
   &__item-title {
-    font-size: 32rpx;
+    flex: 1;
+    font-size: 30rpx;
     font-weight: 500;
     color: #333333;
-    flex: 1;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
 
-  &__item-tags {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 12rpx;
-    margin-bottom: 16rpx;
-  }
-
-  &__item-tag {
-    display: inline-block;
-    background-color: #e6f7ff;
-    color: #1890ff;
-    font-size: 24rpx;
+  &__item-type-badge {
+    flex-shrink: 0;
+    margin-left: 12rpx;
     padding: 4rpx 16rpx;
     border-radius: 8rpx;
+    background-color: #e6f7ff;
+  }
+
+  &__item-type-badge-text {
+    font-size: 22rpx;
+    color: #1890ff;
+  }
+
+  &__item-url {
+    display: block;
+    font-size: 24rpx;
+    color: #1890ff;
+    margin-bottom: 8rpx;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   &__item-time {
@@ -154,26 +199,182 @@
     color: #999999;
   }
 
-  /* FAB 浮动按钮 */
-  &__fab {
-    position: fixed;
-    right: 48rpx;
-    bottom: 96rpx;
-    width: 112rpx;
-    height: 112rpx;
-    border-radius: 50%;
-    background-color: #1890ff;
+  // ========== 左滑操作按钮 ==========
+  &__item-actions {
+    display: flex;
+    flex-direction: row;
+    flex-shrink: 0;
+  }
+
+  &__action-btn {
+    width: 120rpx;
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 8rpx 24rpx rgba(24, 144, 255, 0.4);
-    z-index: 100;
+
+    &--rename {
+      background-color: #faad14;
+    }
+
+    &--delete {
+      background-color: #ff4d4f;
+    }
   }
 
-  &__fab-icon {
-    font-size: 56rpx;
+  &__action-btn-text {
+    font-size: 24rpx;
     color: #ffffff;
-    line-height: 1;
-    margin-top: -4rpx;
+    font-weight: 500;
+  }
+
+  &__item-mask {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 240rpx;
+    bottom: 0;
+    z-index: 1;
+  }
+
+  // ========== 重命名 ==========
+  &__rename-row {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+  }
+
+  &__rename-input {
+    flex: 1;
+    height: 72rpx;
+    background-color: #f5f5f5;
+    border-radius: 8rpx;
+    padding: 0 20rpx;
+    font-size: 28rpx;
+    color: #333333;
+    box-sizing: border-box;
+  }
+
+  &__rename-actions {
+    display: flex;
+    flex-direction: row;
+    margin-left: 12rpx;
+    gap: 8rpx;
+  }
+
+  &__rename-btn {
+    width: 56rpx;
+    height: 56rpx;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    &--confirm {
+      background-color: #52c41a;
+    }
+
+    &--cancel {
+      background-color: #d9d9d9;
+    }
+  }
+
+  &__rename-btn-text {
+    font-size: 28rpx;
+    color: #ffffff;
+    font-weight: bold;
+  }
+
+  // ========== 加载更多 ==========
+  &__loadmore {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 32rpx 0;
+  }
+
+  &__loadmore-text {
+    font-size: 28rpx;
+    color: #1890ff;
+  }
+
+  // ========== 底部统一输入框 ==========
+  &__input-bar {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #ffffff;
+    padding: 20rpx 32rpx;
+    padding-bottom: calc(20rpx + env(safe-area-inset-bottom));
+    box-shadow: 0 -4rpx 16rpx rgba(0, 0, 0, 0.06);
+    z-index: 200;
+  }
+
+  &__input-row {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+  }
+
+  &__file-btn {
+    width: 72rpx;
+    height: 72rpx;
+    border-radius: 50%;
+    background-color: #f5f5f5;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 16rpx;
+    flex-shrink: 0;
+  }
+
+  &__file-btn-icon {
+    font-size: 36rpx;
+  }
+
+  &__unified-input {
+    flex: 1;
+    height: 72rpx;
+    background-color: #f5f5f5;
+    border-radius: 36rpx;
+    padding: 0 28rpx;
+    font-size: 28rpx;
+    color: #333333;
+  }
+
+  &__input-placeholder {
+    color: #bfbfbf;
+  }
+
+  &__send-btn {
+    flex-shrink: 0;
+    margin-left: 16rpx;
+    padding: 0 28rpx;
+    height: 72rpx;
+    background-color: #1890ff;
+    border-radius: 36rpx;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    &--disabled {
+      background-color: #d9d9d9;
+    }
+  }
+
+  &__send-btn-text {
+    font-size: 28rpx;
+    color: #ffffff;
+    font-weight: 500;
+  }
+
+  &__input-hint {
+    margin-top: 8rpx;
+    padding-left: 88rpx;
+  }
+
+  &__input-hint-text {
+    font-size: 22rpx;
+    color: #999999;
   }
 }

@@ -13,7 +13,7 @@ export interface UploadResponse {
 /**
  * 通用文件上传
  * @param filePath - 本地文件路径
- * @param type - 用途标识：assignment / document / general
+ * @param type - 用途标识：document / general
  */
 export function uploadFile(filePath: string, type = 'general'): Promise<{ data: UploadResponse }> {
   return new Promise((resolve, reject) => {

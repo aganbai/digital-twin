@@ -14,8 +14,10 @@ import (
 
 // ChatMessage 聊天消息
 type ChatMessage struct {
-	Role    string `json:"role"`
-	Content string `json:"content"`
+	Role       string     `json:"role"`
+	Content    string     `json:"content"`
+	ToolCalls  []ToolCall `json:"tool_calls,omitempty"`   // assistant 消息中的工具调用
+	ToolCallID string     `json:"tool_call_id,omitempty"` // tool 消息中关联的工具调用ID
 }
 
 // ChatResponse 聊天响应
@@ -93,6 +95,104 @@ func (c *LLMClient) ChatStream(messages []ChatMessage, onDelta func(content stri
 	default:
 		return c.chatStreamMock(messages, onDelta)
 	}
+}
+
+// ChatWithTools 带工具定义的对话调用（支持 Function Calling）
+func (c *LLMClient) ChatWithTools(messages []ChatMessage, tools []map[string]interface{}) (*ChatResponseWithTools, error) {
+	switch c.mode {
+	case "api":
+		return c.chatWithToolsAPI(messages, tools)
+	case "mock":
+		return c.chatWithToolsMock(messages, tools)
+	default:
+		return c.chatWithToolsMock(messages, tools)
+	}
+}
+
+// chatWithToolsAPI 调用 API（带 tools 参数）
+func (c *LLMClient) chatWithToolsAPI(messages []ChatMessage, tools []map[string]interface{}) (*ChatResponseWithTools, error) {
+	reqBody := map[string]interface{}{
+		"model":       c.model,
+		"messages":    messages,
+		"temperature": c.temperature,
+		"max_tokens":  c.maxTokens,
+		"tools":       tools,
+	}
+
+	jsonData, err := json.Marshal(reqBody)
+	if err != nil {
+		return nil, fmt.Errorf("序列化请求失败: %w", err)
+	}
+
+	url := fmt.Sprintf("%s/chat/completions", c.baseURL)
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return nil, fmt.Errorf("创建请求失败: %w", err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.apiKey))
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("调用 LLM API 失败: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("读取响应失败: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("LLM API 返回错误状态码 %d: %s", resp.StatusCode, string(body))
+	}
+
+	// 解析包含 tool_calls 的响应
+	var apiResp struct {
+		Choices []struct {
+			Message struct {
+				Content   string     `json:"content"`
+				ToolCalls []ToolCall `json:"tool_calls"`
+			} `json:"message"`
+		} `json:"choices"`
+		Usage struct {
+			PromptTokens     int `json:"prompt_tokens"`
+			CompletionTokens int `json:"completion_tokens"`
+			TotalTokens      int `json:"total_tokens"`
+		} `json:"usage"`
+	}
+
+	if err := json.Unmarshal(body, &apiResp); err != nil {
+		return nil, fmt.Errorf("解析响应失败: %w", err)
+	}
+
+	if len(apiResp.Choices) == 0 {
+		return nil, fmt.Errorf("LLM API 返回空的 choices")
+	}
+
+	return &ChatResponseWithTools{
+		Content:          apiResp.Choices[0].Message.Content,
+		ToolCalls:        apiResp.Choices[0].Message.ToolCalls,
+		PromptTokens:     apiResp.Usage.PromptTokens,
+		CompletionTokens: apiResp.Usage.CompletionTokens,
+		TotalTokens:      apiResp.Usage.TotalTokens,
+	}, nil
+}
+
+// chatWithToolsMock Mock 模式的工具调用（不触发工具调用，直接返回）
+func (c *LLMClient) chatWithToolsMock(messages []ChatMessage, tools []map[string]interface{}) (*ChatResponseWithTools, error) {
+	resp, err := c.chatMock(messages)
+	if err != nil {
+		return nil, err
+	}
+	return &ChatResponseWithTools{
+		Content:          resp.Content,
+		ToolCalls:        nil, // Mock 模式不触发工具调用
+		PromptTokens:     resp.PromptTokens,
+		CompletionTokens: resp.CompletionTokens,
+		TotalTokens:      resp.TotalTokens,
+	}, nil
 }
 
 // apiRequest API 请求体

@@ -1,0 +1,229 @@
+.teacher-msg-page {
+  min-height: 100vh;
+  background-color: #f3f4f6;
+  padding-bottom: 40px;
+}
+
+.teacher-msg-page__header {
+  padding: 40px 32px 24px;
+  background: linear-gradient(135deg, #4f46e5, #6366f1);
+}
+
+.teacher-msg-page__title {
+  font-size: 40px;
+  font-weight: 700;
+  color: #ffffff;
+  display: block;
+}
+
+.teacher-msg-page__subtitle {
+  font-size: 26px;
+  color: rgba(255, 255, 255, 0.8);
+  margin-top: 8px;
+  display: block;
+}
+
+.teacher-msg-page__form {
+  margin: 24px;
+  padding: 32px;
+  background-color: #ffffff;
+  border-radius: 20px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+}
+
+.teacher-msg-page__field {
+  margin-bottom: 28px;
+}
+
+.teacher-msg-page__label {
+  font-size: 28px;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 12px;
+  display: block;
+}
+
+.teacher-msg-page__type-tabs {
+  display: flex;
+  flex-direction: row;
+  gap: 16px;
+}
+
+.teacher-msg-page__type-tab {
+  flex: 1;
+  padding: 16px 0;
+  border-radius: 12px;
+  background-color: #f3f4f6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+
+  &--active {
+    background-color: #4f46e5;
+  }
+}
+
+.teacher-msg-page__type-tab-text {
+  font-size: 28px;
+  color: #6b7280;
+}
+
+.teacher-msg-page__type-tab--active .teacher-msg-page__type-tab-text {
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.teacher-msg-page__picker {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px;
+  background-color: #f9fafb;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+}
+
+.teacher-msg-page__picker-text {
+  font-size: 28px;
+  color: #6b7280;
+}
+
+.teacher-msg-page__picker-arrow {
+  font-size: 28px;
+  color: #9ca3af;
+}
+
+.teacher-msg-page__input-wrap {
+  padding: 0;
+}
+
+.teacher-msg-page__input {
+  width: 100%;
+  padding: 20px 24px;
+  font-size: 28px;
+  color: #1f2937;
+  background-color: #f9fafb;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  box-sizing: border-box;
+}
+
+.teacher-msg-page__textarea {
+  width: 100%;
+  height: 200px;
+  padding: 20px 24px;
+  font-size: 28px;
+  color: #1f2937;
+  background-color: #f9fafb;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  box-sizing: border-box;
+  line-height: 1.6;
+}
+
+.teacher-msg-page__char-count {
+  font-size: 22px;
+  color: #9ca3af;
+  text-align: right;
+  margin-top: 8px;
+  display: block;
+}
+
+.teacher-msg-page__send-btn {
+  padding: 24px 0;
+  background: linear-gradient(135deg, #4f46e5, #6366f1);
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 16px;
+
+  &:active {
+    opacity: 0.8;
+  }
+
+  &--disabled {
+    background: #d1d5db;
+    pointer-events: none;
+  }
+}
+
+.teacher-msg-page__send-btn-text {
+  font-size: 30px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.teacher-msg-page__history {
+  margin: 0 24px;
+}
+
+.teacher-msg-page__history-title {
+  font-size: 32px;
+  font-weight: 600;
+  color: #1f2937;
+  margin-bottom: 16px;
+  display: block;
+}
+
+.teacher-msg-page__history-empty {
+  font-size: 26px;
+  color: #9ca3af;
+  text-align: center;
+  padding: 40px 0;
+  display: block;
+}
+
+.teacher-msg-page__history-item {
+  padding: 24px;
+  background-color: #ffffff;
+  border-radius: 16px;
+  margin-bottom: 16px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+}
+
+.teacher-msg-page__history-header {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.teacher-msg-page__history-target {
+  font-size: 24px;
+  font-weight: 500;
+  color: #4f46e5;
+}
+
+.teacher-msg-page__history-time {
+  font-size: 22px;
+  color: #9ca3af;
+}
+
+.teacher-msg-page__history-content {
+  font-size: 28px;
+  color: #374151;
+  line-height: 1.6;
+  display: block;
+  margin-bottom: 8px;
+}
+
+.teacher-msg-page__history-status {
+  font-size: 22px;
+  display: block;
+
+  &--sent {
+    color: #059669;
+  }
+
+  &--failed {
+    color: #dc2626;
+  }
+
+  &--pending {
+    color: #d97706;
+  }
+}

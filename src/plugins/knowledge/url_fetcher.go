@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"os"
 	"strings"
 	"time"
 
@@ -25,17 +24,6 @@ const maxContentLength = 100000
 
 // Fetch 抓取 URL 内容，返回标题和正文
 func (f *URLFetcher) Fetch(url string) (title string, content string, err error) {
-	// Mock 模式：直接返回模拟数据，不进行真实 HTTP 请求
-	if os.Getenv("WX_MODE") == "mock" {
-		mockTitle := "Mock 文档 - " + url
-		mockContent := "这是通过 URL 导入的模拟文档内容。\n\n" +
-			"URL: " + url + "\n\n" +
-			"Python 是一种高级编程语言，广泛用于数据科学、人工智能和 Web 开发。\n" +
-			"Go 是 Google 开发的编程语言，以其并发性能和简洁语法著称。\n" +
-			"JavaScript 是 Web 开发的核心语言，支持前端和后端开发。"
-		return mockTitle, mockContent, nil
-	}
-
 	// 创建带超时的 HTTP 客户端
 	client := &http.Client{
 		Timeout: 10 * time.Second,

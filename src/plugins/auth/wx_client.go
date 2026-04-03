@@ -56,9 +56,17 @@ func (c *RealWxClient) Code2Session(code string) (*WxSessionResult, error) {
 // MockWxClient 测试用 mock 客户端
 type MockWxClient struct{}
 
-// Code2Session 返回 mock_openid_{code}，方便测试区分不同用户
+// Code2Session 返回固定的 mock openid
+// 微信小程序每次调用 wx.login() 获取的 code 都不同，
+// 但同一设备/用户应该对应同一个 openid。
+// Mock 模式下使用固定 openid，确保再次登录能识别为同一用户。
+// 如果 code 以 "test_user_" 开头，则使用 code 作为区分（方便 E2E 测试模拟多用户）。
 func (m *MockWxClient) Code2Session(code string) (*WxSessionResult, error) {
+	openid := "mock_openid_default_user"
+	if len(code) > 10 && code[:10] == "test_user_" {
+		openid = "mock_openid_" + code
+	}
 	return &WxSessionResult{
-		OpenID: "mock_openid_" + code,
+		OpenID: openid,
 	}, nil
 }

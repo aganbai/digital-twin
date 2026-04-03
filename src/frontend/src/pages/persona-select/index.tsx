@@ -43,12 +43,23 @@ export default function PersonaSelect() {
     setSwitching(true)
     try {
       const res = await switchPersona(persona.id)
-      const { token, persona: switchedPersona } = res.data
+      const { token, persona_id, role, nickname, school, description } = res.data
+
+      // 后端返回扁平结构，组装成 persona 对象
+      const switchedPersona: Persona = {
+        id: persona_id,
+        role: role as 'teacher' | 'student',
+        nickname,
+        school,
+        description,
+        is_active: true,
+        created_at: '',
+      }
 
       // 更新 token 和用户信息
       setToken(token)
       setUserInfo({
-        id: persona.id,
+        id: switchedPersona.id,
         nickname: switchedPersona.nickname,
         role: switchedPersona.role,
       })
@@ -58,7 +69,7 @@ export default function PersonaSelect() {
       if (switchedPersona.role === 'student') {
         Taro.switchTab({ url: '/pages/home/index' })
       } else if (switchedPersona.role === 'teacher') {
-        Taro.redirectTo({ url: '/pages/knowledge/index' })
+        Taro.switchTab({ url: '/pages/home/index' })
       }
     } catch (error) {
       console.error('切换分身失败:', error)
@@ -75,8 +86,8 @@ export default function PersonaSelect() {
   return (
     <View className='persona-select'>
       <View className='persona-select__header'>
-        <Text className='persona-select__title'>选择分身</Text>
-        <Text className='persona-select__subtitle'>请选择一个分身进入</Text>
+        <Text className='persona-select__title'>选择身份</Text>
+        <Text className='persona-select__subtitle'>你可以拥有多个身份，随时切换</Text>
       </View>
 
       {loading ? (
@@ -86,10 +97,10 @@ export default function PersonaSelect() {
       ) : (
         <View className='persona-select__content'>
           {/* 教师分身 */}
-          {teacherPersonas.length > 0 && (
-            <View className='persona-select__section'>
-              <Text className='persona-select__section-title'>教师分身</Text>
-              {teacherPersonas.map((p) => (
+          <View className='persona-select__section'>
+            <Text className='persona-select__section-title'>教师分身</Text>
+            {teacherPersonas.length > 0 ? (
+              teacherPersonas.map((p) => (
                 <View
                   key={p.id}
                   className='persona-select__card'
@@ -109,15 +120,26 @@ export default function PersonaSelect() {
                     <Text className='persona-select__card-tag-text'>教师</Text>
                   </View>
                 </View>
-              ))}
-            </View>
-          )}
+              ))
+            ) : (
+              <View
+                className='persona-select__card persona-select__card--empty'
+                onClick={() => Taro.navigateTo({ url: '/pages/role-select/index?role=teacher' })}
+              >
+                <View className='persona-select__card-icon'>➕</View>
+                <View className='persona-select__card-info'>
+                  <Text className='persona-select__card-name'>创建教师分身</Text>
+                  <Text className='persona-select__card-desc'>成为教师，管理学生和班级</Text>
+                </View>
+              </View>
+            )}
+          </View>
 
           {/* 学生分身 */}
-          {studentPersonas.length > 0 && (
-            <View className='persona-select__section'>
-              <Text className='persona-select__section-title'>学生分身</Text>
-              {studentPersonas.map((p) => (
+          <View className='persona-select__section'>
+            <Text className='persona-select__section-title'>学生分身</Text>
+            {studentPersonas.length > 0 ? (
+              studentPersonas.map((p) => (
                 <View
                   key={p.id}
                   className='persona-select__card'
@@ -131,14 +153,25 @@ export default function PersonaSelect() {
                     <Text className='persona-select__card-tag-text'>学生</Text>
                   </View>
                 </View>
-              ))}
-            </View>
-          )}
+              ))
+            ) : (
+              <View
+                className='persona-select__card persona-select__card--empty'
+                onClick={() => Taro.navigateTo({ url: '/pages/role-select/index?role=student' })}
+              >
+                <View className='persona-select__card-icon'>➕</View>
+                <View className='persona-select__card-info'>
+                  <Text className='persona-select__card-name'>创建学生分身</Text>
+                  <Text className='persona-select__card-desc'>成为学生，与AI老师对话学习</Text>
+                </View>
+              </View>
+            )}
+          </View>
 
-          {/* 空状态 */}
+          {/* 空状态 - 只有当没有任何分身时显示 */}
           {teacherPersonas.length === 0 && studentPersonas.length === 0 && (
             <View className='persona-select__empty'>
-              <Text className='persona-select__empty-text'>暂无可用分身</Text>
+              <Text className='persona-select__empty-text'>点击上方卡片创建你的第一个分身</Text>
             </View>
           )}
         </View>
@@ -150,7 +183,7 @@ export default function PersonaSelect() {
           className={`persona-select__create-btn ${switching ? 'persona-select__create-btn--disabled' : ''}`}
           onClick={switching ? undefined : handleCreate}
         >
-          <Text className='persona-select__create-btn-text'>+ 创建新分身</Text>
+          <Text className='persona-select__create-btn-text'>+ 创建新身份</Text>
         </View>
       </View>
     </View>

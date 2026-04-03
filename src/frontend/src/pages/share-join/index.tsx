@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { View, Text } from '@tarojs/components'
+import { View, Text, Input } from '@tarojs/components'
 import Taro, { useRouter } from '@tarojs/taro'
 import { getShareInfo, joinShare } from '@/api/share'
 import { getPersonas } from '@/api/persona'
@@ -24,58 +24,78 @@ interface ShareDetailExtended {
 
 export default function ShareJoin() {
   const router = useRouter()
-  const code = router.params.code || ''
+  const paramCode = router.params.code || ''
   const { token } = useUserStore()
+
+  // 当前生效的分享码（来自 URL 参数或手动输入）
+  const [activeCode, setActiveCode] = useState(paramCode)
+  // 手动输入的分享码
+  const [inputCode, setInputCode] = useState('')
 
   const [shareInfo, setShareInfo] = useState<ShareDetailExtended | null>(null)
   const [studentPersonas, setStudentPersonas] = useState<Persona[]>([])
   const [selectedPersonaId, setSelectedPersonaId] = useState<number | undefined>(undefined)
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
   const [joining, setJoining] = useState(false)
   const [applying, setApplying] = useState(false)
 
   /** 获取分享码信息和学生分身列表 */
-  useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true)
-      try {
-        const shareRes = await getShareInfo(code)
-        const info = shareRes.data as ShareDetailExtended
-        setShareInfo(info)
+  const fetchShareData = async (code: string) => {
+    if (!code) return
+    setLoading(true)
+    setShareInfo(null)
+    try {
+      const shareRes = await getShareInfo(code)
+      const info = shareRes.data as ShareDetailExtended
+      setShareInfo(info)
 
-        // 如果需要选择分身，获取分身列表
-        if (info.join_status === 'can_join' || !info.join_status) {
-          try {
-            const personaRes = await getPersonas()
-            const students = (personaRes.data.personas || []).filter(
-              (p) => p.role === 'student' && p.is_active,
-            )
-            setStudentPersonas(students)
-            if (students.length === 1) {
-              setSelectedPersonaId(students[0].id)
-            }
-          } catch {
-            // 未登录时获取分身会失败，忽略
+      // 如果需要选择分身，获取分身列表
+      if (info.join_status === 'can_join' || !info.join_status) {
+        try {
+          const personaRes = await getPersonas()
+          const students = (personaRes.data.personas || []).filter(
+            (p) => p.role === 'student' && p.is_active,
+          )
+          setStudentPersonas(students)
+          if (students.length === 1) {
+            setSelectedPersonaId(students[0].id)
           }
+        } catch {
+          // 未登录时获取分身会失败，忽略
         }
-      } catch (error) {
-        console.error('获取分享信息失败:', error)
-      } finally {
-        setLoading(false)
       }
+    } catch (error) {
+      console.error('获取分享信息失败:', error)
+    } finally {
+      setLoading(false)
     }
+  }
 
-    if (code) {
-      fetchData()
+  /** URL 带 code 参数时自动查询 */
+  useEffect(() => {
+    if (paramCode) {
+      setActiveCode(paramCode)
+      fetchShareData(paramCode)
     }
-  }, [code])
+  }, [paramCode])
+
+  /** 手动输入分享码后查询 */
+  const handleLookup = () => {
+    const code = inputCode.trim().toUpperCase()
+    if (!code) {
+      Taro.showToast({ title: '请输入分享码', icon: 'none' })
+      return
+    }
+    setActiveCode(code)
+    fetchShareData(code)
+  }
 
   /** 确认加入 */
   const handleJoin = async () => {
-    if (joining || !shareInfo?.is_valid) return
+    if (joining || !shareInfo?.is_valid || !activeCode) return
     setJoining(true)
     try {
-      const res = await joinShare(code, selectedPersonaId)
+      const res = await joinShare(activeCode, selectedPersonaId)
       const data = res.data as any
 
       // 检查是否为非目标学生引导
@@ -84,7 +104,7 @@ export default function ShareJoin() {
         return
       }
 
-      Taro.showToast({ title: '加入成功', icon: 'success' })
+      Taro.showToast({ title: '申请已提交，等待老师审批', icon: 'success' })
       setTimeout(() => {
         Taro.switchTab({ url: '/pages/home/index' })
       }, 1500)
@@ -119,6 +139,40 @@ export default function ShareJoin() {
     Taro.redirectTo({ url: '/pages/role-select/index' })
   }
 
+  // 未传入 code 且尚未手动查询 → 显示输入框
+  if (!activeCode && !shareInfo) {
+    return (
+      <View className='share-join'>
+        <View className='share-join__input-section'>
+          <View className='share-join__input-icon'>
+            <Text style={{ fontSize: '48px' }}>🔗</Text>
+          </View>
+          <Text className='share-join__input-title'>输入分享码</Text>
+          <Text className='share-join__input-desc'>
+            输入老师分享的邀请码，加入班级开始学习
+          </Text>
+          <View className='share-join__input-row'>
+            <Input
+              className='share-join__code-input'
+              placeholder='请输入分享码'
+              placeholderClass='share-join__code-input-placeholder'
+              maxlength={10}
+              value={inputCode}
+              onInput={(e) => setInputCode(e.detail.value)}
+              onConfirm={handleLookup}
+            />
+          </View>
+          <View
+            className={`share-join__lookup-btn ${!inputCode.trim() ? 'share-join__lookup-btn--disabled' : ''}`}
+            onClick={inputCode.trim() ? handleLookup : undefined}
+          >
+            <Text className='share-join__lookup-btn-text'>查询</Text>
+          </View>
+        </View>
+      </View>
+    )
+  }
+
   if (loading) {
     return (
       <View className='share-join'>
@@ -137,9 +191,14 @@ export default function ShareJoin() {
           <Text className='share-join__invalid-text'>分享码无效或已过期</Text>
           <View
             className='share-join__back-btn'
-            onClick={() => Taro.navigateBack()}
+            onClick={() => {
+              // 重置状态，允许重新输入
+              setActiveCode('')
+              setShareInfo(null)
+              setInputCode('')
+            }}
           >
-            <Text className='share-join__back-btn-text'>返回</Text>
+            <Text className='share-join__back-btn-text'>重新输入</Text>
           </View>
         </View>
       </View>

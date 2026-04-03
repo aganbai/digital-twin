@@ -449,7 +449,7 @@ describe('教师流程 E2E 测试', () => {
     }
     console.log('快捷操作:', labelTexts.join(', '))
     // 教师视角应包含分身概览、知识库管理、师生管理
-    // 学生视角包含我的作业、我的评语
+    // 学生视角包含我的评语
     if (actionItems.length >= 4) {
       expect(labelTexts).toContain('分身概览')
       expect(labelTexts).toContain('知识库管理')

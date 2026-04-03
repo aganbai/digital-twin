@@ -18,11 +18,17 @@ import (
 // Handler API 请求处理器
 type Handler struct {
 	manager *manager.HarnessManager
+	db      *database.Database
 }
 
 // NewHandler 创建请求处理器
 func NewHandler(mgr *manager.HarnessManager) *Handler {
-	return &Handler{manager: mgr}
+	h := &Handler{manager: mgr}
+	// 初始化 db 字段，包装 manager 的 sql.DB 为 database.Database
+	if sqlDB := mgr.GetDB(); sqlDB != nil {
+		h.db = &database.Database{DB: sqlDB}
+	}
+	return h
 }
 
 // ======================== 认证接口 ========================

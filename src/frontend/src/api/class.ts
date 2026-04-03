@@ -126,3 +126,111 @@ export function toggleClass(classId: number, isActive: boolean) {
     data: { is_active: isActive },
   })
 }
+
+// ===================== 迭代8 新增 =====================
+
+/** V8 班级创建请求体 */
+export interface CreateClassV8Params {
+  teacher_display_name: string
+  subject: string
+  age_group: string[]
+  name: string
+  description?: string
+}
+
+/** V8 班级创建响应 */
+export interface ClassInfoV8 {
+  id: number
+  teacher_display_name: string
+  subject: string
+  age_group: string[]
+  name: string
+  description?: string
+  member_count: number
+  is_active?: boolean
+  created_at: string
+}
+
+/** 班级分享信息 */
+export interface ClassShareInfo {
+  share_link: string
+  invite_code: string
+  qr_code_url: string
+}
+
+/** 待审批加入请求 */
+export interface JoinRequestItem {
+  id: number
+  student_avatar?: string
+  student_nickname: string
+  request_time: string
+  status: string
+  /** 学生详细信息（审批详情中使用） */
+  age?: number
+  gender?: string
+  family_info?: string
+}
+
+/**
+ * V8 创建班级
+ */
+export function createClassV8(params: CreateClassV8Params) {
+  return request<ClassInfoV8>({
+    url: '/api/classes/v8',
+    method: 'POST',
+    data: params,
+  })
+}
+
+/**
+ * 获取班级分享信息
+ * @param classId - 班级 ID
+ */
+export function getClassShareInfo(classId: number) {
+  return request<ClassShareInfo>({
+    url: `/api/classes/${classId}/share-info`,
+    method: 'GET',
+  })
+}
+
+/**
+ * 获取待审批加入请求列表
+ */
+export function getPendingJoinRequests() {
+  return request<JoinRequestItem[]>({
+    url: '/api/join-requests/pending',
+    method: 'GET',
+  })
+}
+
+/** 审批通过请求体 */
+export interface ApproveJoinParams {
+  teacher_evaluation?: string
+  age?: number
+  gender?: string
+  family_info?: string
+}
+
+/**
+ * 审批通过加入请求
+ * @param id - 加入请求 ID
+ * @param params - 审批信息
+ */
+export function approveJoinRequest(id: number, params: ApproveJoinParams) {
+  return request<{ message: string }>({
+    url: `/api/join-requests/${id}/approve`,
+    method: 'PUT',
+    data: params,
+  })
+}
+
+/**
+ * 拒绝加入请求
+ * @param id - 加入请求 ID
+ */
+export function rejectJoinRequest(id: number) {
+  return request<{ message: string }>({
+    url: `/api/join-requests/${id}/reject`,
+    method: 'PUT',
+  })
+}

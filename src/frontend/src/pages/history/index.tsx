@@ -103,6 +103,7 @@ export default function History() {
           <Empty text='暂无对话记录' />
         )}
       </View>
+
     </View>
   )
 }

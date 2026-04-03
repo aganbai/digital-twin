@@ -95,6 +95,24 @@ func (r *TakeoverRepository) EndTakeover(sessionID string, teacherPersonaID int6
 	return nil
 }
 
+// EndAllByTeacherPersona 结束某个教师分身的所有活跃接管（用于教师切换/退出分身时自动释放接管）
+func (r *TakeoverRepository) EndAllByTeacherPersona(teacherPersonaID int64) (int64, error) {
+	now := time.Now()
+	result, err := r.db.Exec(
+		`UPDATE teacher_takeovers SET status = 'ended', ended_at = ? WHERE teacher_persona_id = ? AND status = 'active'`,
+		now, teacherPersonaID,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("批量结束接管失败: %w", err)
+	}
+
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return 0, fmt.Errorf("获取影响行数失败: %w", err)
+	}
+	return affected, nil
+}
+
 // IsSessionTakenOver 检查会话是否被接管
 func (r *TakeoverRepository) IsSessionTakenOver(sessionID string) (bool, error) {
 	var count int

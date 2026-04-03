@@ -55,3 +55,28 @@ src/frontend/.swc/
 
 # 快照文件
 *.snapshot
+
+# 编译产物
+dt-server
+echo
+main
+
+# 测试结果文件
+result.txt
+*.txt.bak
+
+# 生产环境配置
+deployments/.env.production
+
+# E2E 测试截图
+src/frontend/e2e/screenshots-*/
+src/frontend/e2e/*.txt
+src/frontend/e2e/*.json
+
+# 测试结果
+src/frontend/tests/e2e/*.txt
+
+# SSL证书文件（生产环境）
+deployments/nginx/ssl/*.pem
+deployments/nginx/ssl/*.key
+!deployments/nginx/ssl/.gitkeep

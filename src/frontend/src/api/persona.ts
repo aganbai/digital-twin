@@ -18,10 +18,15 @@ export interface PersonaListResponse {
   default_persona_id: number
 }
 
-/** 切换分身响应 */
+/** 切换分身响应（后端返回扁平结构） */
 export interface SwitchPersonaResponse {
   token: string
-  persona: Persona
+  persona_id: number
+  role: 'teacher' | 'student'
+  nickname: string
+  school?: string
+  description?: string
+  expires_at: string
 }
 
 /**

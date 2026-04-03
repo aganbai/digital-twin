@@ -291,18 +291,28 @@ func (p *KnowledgePlugin) handleAdd(input *core.PluginInput) (*core.PluginOutput
 		}, nil
 	}
 
+	// 获取 doc_type（默认 "text"）
+	docType, _ := input.Data["doc_type"].(string)
+	if docType == "" {
+		docType = "text"
+	}
+
+	// 获取 source_session_id（聊天记录导入时使用）
+	sourceSessionID, _ := input.Data["source_session_id"].(string)
+
 	// 创建文档记录
 	doc := &database.Document{
-		TeacherID: teacherID,
-		Title:     title,
-		Content:   content,
-		DocType:   "text",
-		Tags:      tags,
-		Status:    "active",
-		Scope:     scope,
-		ScopeID:   scopeID,
-		PersonaID: personaID,
-		Summary:   summary,
+		TeacherID:       teacherID,
+		Title:           title,
+		Content:         content,
+		DocType:         docType,
+		Tags:            tags,
+		Status:          "active",
+		Scope:           scope,
+		ScopeID:         scopeID,
+		PersonaID:       personaID,
+		Summary:         summary,
+		SourceSessionID: sourceSessionID,
 	}
 
 	docID, err := p.docRepo.Create(doc)

@@ -57,12 +57,6 @@ const STUDENT_TABS: TabItem[] = [
     selectedIcon: '💬',
   },
   {
-    pagePath: 'pages/history/index',
-    text: '历史',
-    icon: '📋',
-    selectedIcon: '📋',
-  },
-  {
     pagePath: 'pages/discover/index',
     text: '发现',
     icon: '🌐',

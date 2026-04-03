@@ -1,0 +1,567 @@
+/* 聊天列表页样式 */
+
+.chat-list-page {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background-color: #F3F4F6;
+}
+
+/* ========== 页面头部 ========== */
+.chat-list__header {
+  padding: 24px 32px 20px;
+  background-color: #FFFFFF;
+  border-bottom: 1px solid #E5E7EB;
+}
+
+.chat-list__title {
+  font-size: 36px;
+  font-weight: 700;
+  color: #1F2937;
+  display: block;
+  margin-bottom: 8px;
+}
+
+.chat-list__subtitle {
+  font-size: 24px;
+  color: #9CA3AF;
+}
+
+/* ========== 主体区域 ========== */
+.chat-list__body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.chat-list__scroll {
+  flex: 1;
+  overflow: hidden;
+}
+
+/* ========== 加载状态 ========== */
+.chat-list__loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-top: 200px;
+}
+
+.chat-list__loading-text {
+  font-size: 28px;
+  color: #9CA3AF;
+}
+
+/* ========== 空状态 ========== */
+.chat-list__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding-top: 200px;
+}
+
+.chat-list__empty-hint {
+  font-size: 24px;
+  color: #9CA3AF;
+  margin-top: 16px;
+}
+
+/* ========== 聊天列表项（学生端 - 老师列表） ========== */
+.chat-list__item {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  padding: 24px 32px;
+  background-color: #FFFFFF;
+  border-bottom: 1px solid #F3F4F6;
+
+  &:active {
+    background-color: #F9FAFB;
+  }
+
+  &--pinned {
+    background-color: #FFFBEB;
+  }
+}
+
+/* 头像 */
+.chat-list__avatar {
+  width: 96px;
+  height: 96px;
+  min-width: 96px;
+  border-radius: 48px;
+  background: linear-gradient(135deg, #818CF8, #4F46E5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 24px;
+}
+
+.chat-list__avatar-text {
+  font-size: 36px;
+  font-weight: 600;
+  color: #FFFFFF;
+}
+
+/* 信息区 */
+.chat-list__info {
+  flex: 1;
+  overflow: hidden;
+}
+
+.chat-list__info-top {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.chat-list__name-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  flex: 1;
+  overflow: hidden;
+}
+
+.chat-list__pin-icon {
+  font-size: 22px;
+  margin-right: 6px;
+
+  &--small {
+    font-size: 18px;
+  }
+}
+
+.chat-list__name {
+  font-size: 30px;
+  font-weight: 600;
+  color: #1F2937;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chat-list__subject {
+  font-size: 22px;
+  color: #4F46E5;
+  background-color: #EEF2FF;
+  padding: 2px 12px;
+  border-radius: 8px;
+  margin-left: 12px;
+  flex-shrink: 0;
+}
+
+.chat-list__time {
+  font-size: 22px;
+  color: #9CA3AF;
+  flex-shrink: 0;
+  margin-left: 16px;
+}
+
+.chat-list__info-bottom {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.chat-list__message {
+  font-size: 26px;
+  color: #6B7280;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 未读计数徽章 */
+.chat-list__badge {
+  min-width: 36px;
+  height: 36px;
+  border-radius: 18px;
+  background-color: #EF4444;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 10px;
+  margin-left: 12px;
+  flex-shrink: 0;
+}
+
+.chat-list__badge-text {
+  font-size: 20px;
+  color: #FFFFFF;
+  font-weight: 600;
+}
+
+/* ========== 底部输入栏（仿微信） ========== */
+.chat-list__bottom-bar {
+  background-color: #FFFFFF;
+  padding: 16px 24px;
+  border-top: 1px solid #E5E7EB;
+}
+
+.chat-list__bottom-wrapper {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+}
+
+.chat-list__bar-btn {
+  flex-shrink: 0;
+  width: 72px;
+  height: 72px;
+  border-radius: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  &:active {
+    background-color: #F3F4F6;
+  }
+
+  &--plus {
+    background-color: #4F46E5;
+
+    &:active {
+      opacity: 0.8;
+    }
+
+    .chat-list__bar-btn-text {
+      color: #FFFFFF;
+    }
+  }
+}
+
+.chat-list__bar-btn-text {
+  font-size: 32px;
+}
+
+.chat-list__bar-input {
+  flex: 1;
+  height: 72px;
+  background-color: #F3F4F6;
+  border-radius: 36px;
+  display: flex;
+  align-items: center;
+  padding: 0 24px;
+  margin: 0 12px;
+
+  &:active {
+    background-color: #E5E7EB;
+  }
+}
+
+.chat-list__bar-input-placeholder {
+  font-size: 28px;
+  color: #9CA3AF;
+}
+
+/* ========== 新会话弹层 ========== */
+.chat-list__modal-mask {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.chat-list__modal {
+  width: 100%;
+  background-color: #FFFFFF;
+  border-radius: 32px 32px 0 0;
+  padding: 32px;
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+.chat-list__modal-header {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+}
+
+.chat-list__modal-title {
+  font-size: 32px;
+  font-weight: 600;
+  color: #1F2937;
+  flex: 1;
+}
+
+.chat-list__modal-close {
+  width: 56px;
+  height: 56px;
+  border-radius: 28px;
+  background-color: #F3F4F6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.chat-list__modal-close-text {
+  font-size: 28px;
+  color: #6B7280;
+}
+
+/* 隔离线 */
+.chat-list__modal-divider {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  margin: 24px 0;
+}
+
+.chat-list__modal-divider-line {
+  flex: 1;
+  height: 1px;
+  background-color: #E5E7EB;
+}
+
+.chat-list__modal-divider-text {
+  font-size: 22px;
+  color: #9CA3AF;
+  padding: 0 16px;
+}
+
+/* 快捷指令 */
+.chat-list__quick-actions {
+  margin-bottom: 24px;
+}
+
+.chat-list__quick-actions-title {
+  font-size: 26px;
+  color: #6B7280;
+  margin-bottom: 16px;
+  display: block;
+}
+
+.chat-list__quick-actions-empty {
+  font-size: 24px;
+  color: #9CA3AF;
+}
+
+.chat-list__quick-action-item {
+  display: inline-flex;
+  padding: 16px 24px;
+  background-color: #F3F4F6;
+  border-radius: 24px;
+  margin-right: 16px;
+  margin-bottom: 16px;
+
+  &:active {
+    background-color: #E5E7EB;
+  }
+}
+
+.chat-list__quick-action-text {
+  font-size: 26px;
+  color: #4F46E5;
+}
+
+/* 开始对话按钮 */
+.chat-list__modal-start-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 88px;
+  background: linear-gradient(135deg, #818CF8, #4F46E5);
+  border-radius: 44px;
+  margin-top: 16px;
+
+  &:active {
+    opacity: 0.8;
+  }
+}
+
+.chat-list__modal-start-text {
+  font-size: 30px;
+  font-weight: 600;
+  color: #FFFFFF;
+}
+
+/* ========== 教师端 - 班级卡片 ========== */
+.chat-list__class {
+  margin: 16px 24px;
+  background-color: #FFFFFF;
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+
+  &--pinned {
+    border: 2px solid #FCD34D;
+    background-color: #FFFBEB;
+  }
+}
+
+.chat-list__class-header {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  padding: 24px 28px;
+  border-bottom: 1px solid #F3F4F6;
+
+  &:active {
+    background-color: #F9FAFB;
+  }
+}
+
+.chat-list__class-info {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  flex: 1;
+}
+
+.chat-list__class-name {
+  font-size: 30px;
+  font-weight: 600;
+  color: #1F2937;
+}
+
+.chat-list__class-subject {
+  font-size: 22px;
+  color: #4F46E5;
+  background-color: #EEF2FF;
+  padding: 2px 12px;
+  border-radius: 8px;
+  margin-left: 12px;
+}
+
+.chat-list__class-count {
+  font-size: 22px;
+  color: #9CA3AF;
+  flex-shrink: 0;
+}
+
+/* 学生列表 */
+.chat-list__students {
+  padding: 0 12px;
+}
+
+.chat-list__student {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  padding: 20px 16px;
+  border-bottom: 1px solid #F9FAFB;
+
+  &:last-child {
+    border-bottom: none;
+  }
+
+  &:active {
+    background-color: #F9FAFB;
+  }
+
+  &--pinned {
+    background-color: #FFFEF5;
+  }
+}
+
+.chat-list__student-avatar {
+  width: 80px;
+  height: 80px;
+  min-width: 80px;
+  border-radius: 40px;
+  background: linear-gradient(135deg, #6EE7B7, #10B981);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 20px;
+}
+
+.chat-list__student-avatar-text {
+  font-size: 32px;
+  font-weight: 600;
+  color: #FFFFFF;
+}
+
+.chat-list__student-info {
+  flex: 1;
+  overflow: hidden;
+}
+
+.chat-list__student-top {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.chat-list__student-name-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  flex: 1;
+  overflow: hidden;
+}
+
+.chat-list__student-name {
+  font-size: 28px;
+  font-weight: 500;
+  color: #1F2937;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chat-list__student-time {
+  font-size: 22px;
+  color: #9CA3AF;
+  flex-shrink: 0;
+  margin-left: 16px;
+}
+
+.chat-list__student-bottom {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.chat-list__student-message {
+  font-size: 24px;
+  color: #6B7280;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 查看更多 / 收起 按钮 */
+.chat-list__expand-btn {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  padding: 20px 0;
+  border-top: 1px solid #F3F4F6;
+
+  &:active {
+    background-color: #F9FAFB;
+  }
+}
+
+.chat-list__expand-text {
+  font-size: 24px;
+  color: #4F46E5;
+  margin-right: 8px;
+}
+
+.chat-list__expand-arrow {
+  font-size: 20px;
+  color: #4F46E5;
+}

@@ -5,14 +5,14 @@
   box-sizing: border-box;
 
   &__header {
-    padding-top: 60rpx;
-    padding-bottom: 60rpx;
+    padding-top: 80rpx;
+    padding-bottom: 80rpx;
     text-align: center;
   }
 
   &__title {
     display: block;
-    font-size: 36rpx;
+    font-size: 40rpx;
     font-weight: bold;
     color: #333333;
     margin-bottom: 16rpx;
@@ -25,7 +25,7 @@
   }
 
   &__cards {
-    margin-bottom: 32rpx;
+    margin-bottom: 48rpx;
   }
 
   &__card {
@@ -34,7 +34,7 @@
     align-items: center;
     background-color: #ffffff;
     border-radius: 16rpx;
-    padding: 32rpx;
+    padding: 40rpx 32rpx;
     margin-bottom: 24rpx;
     border: 4rpx solid transparent;
     position: relative;
@@ -87,55 +87,6 @@
     font-size: 28rpx;
     font-weight: bold;
     flex-shrink: 0;
-  }
-
-  &__input-wrap {
-    margin-bottom: 24rpx;
-    position: relative;
-  }
-
-  &__field-label {
-    display: block;
-    font-size: 26rpx;
-    color: #666666;
-    margin-bottom: 12rpx;
-    font-weight: 500;
-  }
-
-  &__input {
-    width: 100%;
-    height: 96rpx;
-    background-color: #ffffff;
-    border-radius: 16rpx;
-    padding: 0 32rpx;
-    font-size: 28rpx;
-    color: #333333;
-    box-sizing: border-box;
-  }
-
-  &__input-placeholder {
-    color: #cccccc;
-    font-size: 28rpx;
-  }
-
-  &__textarea {
-    width: 100%;
-    min-height: 160rpx;
-    background-color: #ffffff;
-    border-radius: 16rpx;
-    padding: 24rpx 32rpx;
-    font-size: 28rpx;
-    color: #333333;
-    box-sizing: border-box;
-    line-height: 1.6;
-  }
-
-  &__char-count {
-    display: block;
-    text-align: right;
-    font-size: 22rpx;
-    color: #cccccc;
-    margin-top: 8rpx;
   }
 
   &__btn {

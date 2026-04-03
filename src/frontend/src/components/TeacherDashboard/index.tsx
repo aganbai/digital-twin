@@ -64,7 +64,16 @@ export default function TeacherDashboard({ personaId }: TeacherDashboardProps) {
 
   /** 跳转快捷操作 */
   const handleQuickAction = (path: string) => {
-    Taro.navigateTo({ url: path })
+    console.log('handleQuickAction called with path:', path)
+    console.log('Current personaId:', personaId)
+    // 学生管理是tabBar页面，需要特殊处理
+    if (path === '/pages/teacher-students/index') {
+      console.log('Switching to tab:', path)
+      Taro.switchTab({ url: path })
+    } else {
+      console.log('Navigating to:', path)
+      Taro.navigateTo({ url: path })
+    }
   }
 
   if (dashboardLoading && !dashboardData) {
@@ -132,13 +141,6 @@ export default function TeacherDashboard({ personaId }: TeacherDashboardProps) {
           >
             <Text className='teacher-dashboard__action-icon'>📚</Text>
             <Text className='teacher-dashboard__action-label'>知识库管理</Text>
-          </View>
-          <View
-            className='teacher-dashboard__action-item'
-            onClick={() => handleQuickAction('/pages/assignment-list/index')}
-          >
-            <Text className='teacher-dashboard__action-icon'>📝</Text>
-            <Text className='teacher-dashboard__action-label'>作业管理</Text>
           </View>
           <View
             className='teacher-dashboard__action-item'

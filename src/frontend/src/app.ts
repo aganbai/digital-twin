@@ -5,10 +5,16 @@ import './app.scss'
 
 class App extends Component<PropsWithChildren> {
   componentDidMount() {
-    this.checkAuth()
+    // 延迟检查登录态，确保路由已初始化
+    setTimeout(() => {
+      this.checkAuth()
+    }, 100)
   }
 
-  componentDidShow() {}
+  componentDidShow() {
+    // 每次小程序切到前台时检查登录态
+    this.checkAuth()
+  }
 
   componentDidHide() {}
 
@@ -18,10 +24,15 @@ class App extends Component<PropsWithChildren> {
     const currentPage = Taro.getCurrentInstance()?.router?.path || ''
 
     // 白名单页面不需要登录
-    const whiteList = ['/pages/login/index', 'pages/login/index']
+    const whiteList = ['/pages/login/index', 'pages/login/index', '/pages/role-select/index', 'pages/role-select/index']
     const isWhiteListed = whiteList.some((path) => currentPage.includes(path))
 
-    if (!token && !isWhiteListed) {
+    // 如果当前页面未确定或已在白名单中，不做跳转
+    if (!currentPage || isWhiteListed) {
+      return
+    }
+
+    if (!token) {
       Taro.redirectTo({ url: '/pages/login/index' })
     }
   }

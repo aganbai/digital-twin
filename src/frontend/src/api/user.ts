@@ -18,6 +18,13 @@ export interface UserProfile {
   stats: UserStats
 }
 
+/** 学生基础信息 */
+export interface StudentProfileData {
+  age?: number
+  gender?: string
+  family_info?: string
+}
+
 /**
  * 获取当前用户信息
  */
@@ -25,5 +32,17 @@ export function getUserProfile() {
   return request<UserProfile>({
     url: '/api/user/profile',
     method: 'GET',
+  })
+}
+
+/**
+ * 更新学生基础信息
+ * @param data - 学生信息（年龄、性别、家庭情况）
+ */
+export function updateStudentProfile(data: StudentProfileData) {
+  return request<{ message: string }>({
+    url: '/api/user/student-profile',
+    method: 'PUT',
+    data,
   })
 }

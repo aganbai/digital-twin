@@ -1,34 +1,20 @@
 #!/bin/bash
+# 数据备份脚本
 set -e
 
-BACKUP_DIR="./backups/$(date +%Y%m%d_%H%M%S)"
+BACKUP_DIR="${1:-./backups}"
+TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+
 mkdir -p "$BACKUP_DIR"
 
-echo "=== Starting data backup ==="
+echo "📦 备份数据库..."
+docker compose cp backend:/app/data/digital_twin.db "$BACKUP_DIR/digital_twin_${TIMESTAMP}.db"
 
-echo "1. Backing up SQLite database..."
-if [ -d "./data/sqlite" ]; then
-    cp -r ./data/sqlite "$BACKUP_DIR/"
-else
-    echo "No SQLite data found, skipping..."
-fi
+echo "📦 备份向量索引..."
+docker compose cp knowledge:/app/data "$BACKUP_DIR/knowledge_data_${TIMESTAMP}"
 
-echo "2. Backing up uploaded files..."
-if [ -d "./uploads" ]; then
-    cp -r ./uploads "$BACKUP_DIR/"
-else
-    echo "No uploads directory found, skipping..."
-fi
+echo "📦 备份上传文件..."
+docker compose cp backend:/app/uploads "$BACKUP_DIR/uploads_${TIMESTAMP}"
 
-echo "3. Backing up vector index..."
-if [ -d "./data/vector_store" ]; then
-    cp -r ./data/vector_store "$BACKUP_DIR/"
-else
-    echo "No vector store found, skipping..."
-fi
-
-echo "4. Creating compressed tarball..."
-tar -czf "${BACKUP_DIR}.tar.gz" -C "./backups" "$(basename "$BACKUP_DIR")"
-rm -rf "$BACKUP_DIR"
-
-echo "=== Backup completed: ${BACKUP_DIR}.tar.gz ==="
+echo "✅ 备份完成: $BACKUP_DIR"
+ls -la "$BACKUP_DIR"

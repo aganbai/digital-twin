@@ -62,6 +62,12 @@
     padding: 32rpx;
     margin-bottom: 16rpx;
     box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.04);
+
+    &--empty {
+      border: 2rpx dashed #d9d9d9;
+      background-color: #fafafa;
+      box-shadow: none;
+    }
   }
 
   &__card-icon {

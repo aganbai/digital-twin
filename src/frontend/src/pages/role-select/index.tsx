@@ -1,7 +1,8 @@
 import { useState } from 'react'
-import { View, Text, Input, Textarea, Button } from '@tarojs/components'
+import { View, Text, Button } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { createPersona } from '@/api/persona'
+import { getClasses } from '@/api/class'
 import { useUserStore, usePersonaStore } from '@/store'
 import './index.scss'
 
@@ -10,78 +11,82 @@ type RoleType = 'teacher' | 'student' | ''
 
 export default function RoleSelect() {
   const [selectedRole, setSelectedRole] = useState<RoleType>('')
-  const [nickname, setNickname] = useState('')
-  const [school, setSchool] = useState('')
-  const [description, setDescription] = useState('')
   const [loading, setLoading] = useState(false)
   const { setUserInfo, setToken } = useUserStore()
   const { setCurrentPersona } = usePersonaStore()
 
-  /** 昵称是否合法（1-20 字符） */
-  const isNicknameValid = nickname.trim().length >= 1 && nickname.trim().length <= 20
-
-  /** 教师额外字段是否合法 */
-  const isTeacherFieldsValid =
-    selectedRole !== 'teacher' ||
-    (school.trim().length >= 1 && school.trim().length <= 128 &&
-      description.trim().length >= 1 && description.trim().length <= 500)
-
   /** 按钮是否可用 */
-  const canSubmit = !!selectedRole && isNicknameValid && isTeacherFieldsValid && !loading
+  const canSubmit = !!selectedRole && !loading
 
-  /** 提交创建分身 */
+  /** 获取微信用户昵称 */
+  const getWxNickname = (): string => {
+    // 微信小程序中，昵称通过后端从微信接口获取，前端传默认值
+    // 后端 createPersona 会自动使用微信昵称
+    return '微信用户'
+  }
+
+  /** 提交选择 */
   const handleSubmit = async () => {
     if (!canSubmit) return
-
-    // 校验昵称
-    if (!nickname.trim()) {
-      Taro.showToast({ title: '请输入昵称', icon: 'none' })
-      return
-    }
-    if (nickname.trim().length > 20) {
-      Taro.showToast({ title: '昵称不能超过20个字符', icon: 'none' })
-      return
-    }
-
-    // 教师额外校验
-    if (selectedRole === 'teacher') {
-      if (!school.trim()) {
-        Taro.showToast({ title: '请输入学校名称', icon: 'none' })
-        return
-      }
-      if (!description.trim()) {
-        Taro.showToast({ title: '请输入分身描述', icon: 'none' })
-        return
-      }
-    }
 
     setLoading(true)
 
     try {
-      const res = await createPersona(
-        selectedRole,
-        nickname.trim(),
-        selectedRole === 'teacher' ? school.trim() : undefined,
-        selectedRole === 'teacher' ? description.trim() : undefined,
-      )
-      const persona = res.data
+      const nickname = getWxNickname()
+      const res = await createPersona(selectedRole, nickname)
+
+      const rawData = res.data as any
+      const personaId = rawData.persona_id || rawData.id
+      const role = rawData.role || selectedRole
+      const personaNickname = rawData.nickname || nickname
+
+      // 使用返回的新 token 更新本地存储
+      if (rawData.token) {
+        setToken(rawData.token)
+      }
 
       // 更新用户信息
-      setUserInfo({ id: persona.id, nickname: persona.nickname, role: persona.role })
-      setCurrentPersona(persona)
+      setUserInfo({ id: personaId, nickname: personaNickname, role })
+
+      // 更新当前分身
+      setCurrentPersona({
+        id: personaId,
+        role,
+        nickname: personaNickname,
+        school: rawData.school || '',
+        description: rawData.description || '',
+        is_active: true,
+        created_at: new Date().toISOString(),
+      } as any)
 
       Taro.showToast({ title: '创建成功', icon: 'success' })
 
-      // 根据角色跳转对应首页
-      setTimeout(() => {
-        if (persona.role === 'student') {
-          Taro.switchTab({ url: '/pages/home/index' })
-        } else if (persona.role === 'teacher') {
-          Taro.redirectTo({ url: '/pages/knowledge/index' })
+      // 根据角色跳转
+      setTimeout(async () => {
+        if (role === 'student') {
+          // 学生 → 跳转基础信息填写页（可跳过）
+          Taro.redirectTo({ url: '/pages/student-profile/index' })
+        } else if (role === 'teacher') {
+          // 教师 → 检查是否有班级
+          try {
+            const classRes = await getClasses()
+            const classes = classRes.data as any
+            const classList = Array.isArray(classes) ? classes : (classes?.items || [])
+
+            if (classList.length > 0) {
+              // 已有班级 → 直接进首页
+              Taro.switchTab({ url: '/pages/home/index' })
+            } else {
+              // 无班级 → 跳转班级创建引导
+              Taro.redirectTo({ url: '/pages/class-create/index?from=register' })
+            }
+          } catch {
+            // 获取班级失败，跳转班级创建引导
+            Taro.redirectTo({ url: '/pages/class-create/index?from=register' })
+          }
         }
-      }, 1000)
+      }, 800)
     } catch (error: any) {
-      // 处理 40008 错误码（同名+同校教师已存在）
       const msg = error?.message || '提交失败，请重试'
       if (!msg.includes('同名')) {
         Taro.showToast({ title: msg, icon: 'none', duration: 2000 })
@@ -95,8 +100,8 @@ export default function RoleSelect() {
     <View className='role-select'>
       {/* 标题区域 */}
       <View className='role-select__header'>
-        <Text className='role-select__title'>创建新分身</Text>
-        <Text className='role-select__subtitle'>请选择分身角色并填写信息</Text>
+        <Text className='role-select__title'>选择你的身份</Text>
+        <Text className='role-select__subtitle'>请选择你的角色，开始使用</Text>
       </View>
 
       {/* 角色卡片区域 */}
@@ -108,9 +113,9 @@ export default function RoleSelect() {
         >
           <View className='role-select__card-icon'>👨‍🏫</View>
           <View className='role-select__card-info'>
-            <Text className='role-select__card-title'>教师分身</Text>
+            <Text className='role-select__card-title'>我是老师</Text>
             <Text className='role-select__card-desc'>
-              创建知识库，打造你的数字分身
+              创建班级，打造你的数字分身
             </Text>
           </View>
           {selectedRole === 'teacher' && (
@@ -125,9 +130,9 @@ export default function RoleSelect() {
         >
           <View className='role-select__card-icon'>👨‍🎓</View>
           <View className='role-select__card-info'>
-            <Text className='role-select__card-title'>学生分身</Text>
+            <Text className='role-select__card-title'>我是学生</Text>
             <Text className='role-select__card-desc'>
-              与教师的数字分身对话学习
+              与老师的数字分身对话学习
             </Text>
           </View>
           {selectedRole === 'student' && (
@@ -136,54 +141,13 @@ export default function RoleSelect() {
         </View>
       </View>
 
-      {/* 昵称输入 */}
-      <View className='role-select__input-wrap'>
-        <Text className='role-select__field-label'>昵称</Text>
-        <Input
-          className='role-select__input'
-          placeholder='请输入你的昵称'
-          placeholderClass='role-select__input-placeholder'
-          maxlength={20}
-          value={nickname}
-          onInput={(e) => setNickname(e.detail.value)}
-        />
-      </View>
-
-      {/* 教师额外字段 */}
-      {selectedRole === 'teacher' && (
-        <>
-          <View className='role-select__input-wrap'>
-            <Text className='role-select__field-label'>学校</Text>
-            <Input
-              className='role-select__input'
-              placeholder='请输入学校名称'
-              placeholderClass='role-select__input-placeholder'
-              maxlength={128}
-              value={school}
-              onInput={(e) => setSchool(e.detail.value)}
-            />
-          </View>
-          <View className='role-select__input-wrap'>
-            <Text className='role-select__field-label'>分身描述</Text>
-            <Textarea
-              className='role-select__textarea'
-              placeholder='请简要描述你的数字分身（如：物理学教授，专注力学教学）'
-              maxlength={500}
-              value={description}
-              onInput={(e) => setDescription(e.detail.value)}
-            />
-            <Text className='role-select__char-count'>{description.length}/500</Text>
-          </View>
-        </>
-      )}
-
       {/* 确认按钮 */}
       <Button
         className={`role-select__btn ${!canSubmit ? 'role-select__btn--disabled' : ''}`}
         onClick={handleSubmit}
         disabled={!canSubmit}
       >
-        {loading ? '创建中...' : '创建分身'}
+        {loading ? '处理中...' : '确认选择'}
       </Button>
     </View>
   )

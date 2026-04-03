@@ -42,11 +42,11 @@ func (r *UserRepository) Create(user *User) (int64, error) {
 func (r *UserRepository) GetByOpenID(openid string) (*User, error) {
 	user := &User{}
 	err := r.db.QueryRow(
-		`SELECT id, username, password, role, nickname, email, openid, school, description, default_persona_id, created_at, updated_at 
+		`SELECT id, username, password, role, nickname, email, openid, school, description, default_persona_id, COALESCE(profile_snapshot, '{}'), created_at, updated_at 
 		 FROM users WHERE openid = ?`,
 		openid,
 	).Scan(&user.ID, &user.Username, &user.Password, &user.Role,
-		&user.Nickname, &user.Email, &user.OpenID, &user.School, &user.Description, &user.DefaultPersonaID, &user.CreatedAt, &user.UpdatedAt)
+		&user.Nickname, &user.Email, &user.OpenID, &user.School, &user.Description, &user.DefaultPersonaID, &user.ProfileSnapshot, &user.CreatedAt, &user.UpdatedAt)
 
 	if err == sql.ErrNoRows {
 		return nil, nil
@@ -103,11 +103,11 @@ func (r *UserRepository) UpdateRoleAndNickname(userID int64, role, nickname stri
 func (r *UserRepository) GetByUsername(username string) (*User, error) {
 	user := &User{}
 	err := r.db.QueryRow(
-		`SELECT id, username, password, role, nickname, email, openid, school, description, default_persona_id, created_at, updated_at 
+		`SELECT id, username, password, role, nickname, email, openid, school, description, default_persona_id, COALESCE(profile_snapshot, '{}'), created_at, updated_at 
 		 FROM users WHERE username = ?`,
 		username,
 	).Scan(&user.ID, &user.Username, &user.Password, &user.Role,
-		&user.Nickname, &user.Email, &user.OpenID, &user.School, &user.Description, &user.DefaultPersonaID, &user.CreatedAt, &user.UpdatedAt)
+		&user.Nickname, &user.Email, &user.OpenID, &user.School, &user.Description, &user.DefaultPersonaID, &user.ProfileSnapshot, &user.CreatedAt, &user.UpdatedAt)
 
 	if err == sql.ErrNoRows {
 		return nil, nil
@@ -123,11 +123,11 @@ func (r *UserRepository) GetByUsername(username string) (*User, error) {
 func (r *UserRepository) GetByID(id int64) (*User, error) {
 	user := &User{}
 	err := r.db.QueryRow(
-		`SELECT id, username, password, role, nickname, email, openid, school, description, default_persona_id, created_at, updated_at 
+		`SELECT id, username, password, role, nickname, email, openid, school, description, default_persona_id, COALESCE(profile_snapshot, '{}'), created_at, updated_at 
 		 FROM users WHERE id = ?`,
 		id,
 	).Scan(&user.ID, &user.Username, &user.Password, &user.Role,
-		&user.Nickname, &user.Email, &user.OpenID, &user.School, &user.Description, &user.DefaultPersonaID, &user.CreatedAt, &user.UpdatedAt)
+		&user.Nickname, &user.Email, &user.OpenID, &user.School, &user.Description, &user.DefaultPersonaID, &user.ProfileSnapshot, &user.CreatedAt, &user.UpdatedAt)
 
 	if err == sql.ErrNoRows {
 		return nil, nil
@@ -139,9 +139,18 @@ func (r *UserRepository) GetByID(id int64) (*User, error) {
 	return user, nil
 }
 
+// UpdateProfileSnapshot 更新用户画像快照（V2.0 迭代7: R10）
+func (r *UserRepository) UpdateProfileSnapshot(userID int64, snapshot string) error {
+	_, err := r.db.Exec(`UPDATE users SET profile_snapshot = ? WHERE id = ?`, snapshot, userID)
+	if err != nil {
+		return fmt.Errorf("更新用户画像失败: %w", err)
+	}
+	return nil
+}
+
 // ==================== 教师列表查询 ====================
 
-// GetTeachers 查询教师列表，LEFT JOIN documents 统计文档数
+// GetTeachers 查询教师列表，LEFT JOIN knowledge_items 统计文档数
 func (r *UserRepository) GetTeachers(offset, limit int) ([]TeacherWithDocCount, int, error) {
 	// 查询总数
 	var total int
@@ -152,12 +161,12 @@ func (r *UserRepository) GetTeachers(offset, limit int) ([]TeacherWithDocCount, 
 		return nil, 0, fmt.Errorf("查询教师总数失败: %w", err)
 	}
 
-	// 查询列表，LEFT JOIN documents 统计 active 文档数
+	// 查询列表，LEFT JOIN knowledge_items 统计 active 文档数
 	rows, err := r.db.Query(
 		`SELECT u.id, u.username, u.nickname, u.role, u.school, u.description,
 		        COALESCE(COUNT(d.id), 0) AS document_count, u.created_at
 		 FROM users u
-		 LEFT JOIN documents d ON u.id = d.teacher_id AND d.status = 'active'
+		 LEFT JOIN knowledge_items d ON u.id = d.teacher_id AND d.status = 'active'
 		 WHERE u.role = 'teacher'
 		 GROUP BY u.id
 		 ORDER BY u.created_at DESC
@@ -215,7 +224,7 @@ func (r *UserRepository) GetUserStats(userID int64, role string) (map[string]int
 		// 教师：active 文档数
 		var docCount int
 		err := r.db.QueryRow(
-			`SELECT COUNT(*) FROM documents WHERE teacher_id = ? AND status = 'active'`, userID,
+			`SELECT COUNT(*) FROM knowledge_items WHERE teacher_id = ? AND status = 'active'`, userID,
 		).Scan(&docCount)
 		if err != nil {
 			return nil, fmt.Errorf("查询教师文档数失败: %w", err)
@@ -310,14 +319,14 @@ func (r *UserRepository) ListTeachersForStudent(studentPersonaID int64, offset, 
 
 	// 查询列表
 	rows, err := r.db.Query(
-		`SELECT u.id, u.username, u.nickname, u.role, u.school, u.description,
+		`SELECT u.id, r.teacher_persona_id, u.username, u.nickname, u.role, u.school, u.description,
 		        COALESCE(COUNT(d.id), 0) AS document_count, u.created_at
 		 FROM users u
 		 JOIN teacher_student_relations r ON u.id = r.teacher_id
 		 JOIN personas p ON r.teacher_persona_id = p.id
-		 LEFT JOIN documents d ON u.id = d.teacher_id AND d.status = 'active'
+		 LEFT JOIN knowledge_items d ON u.id = d.teacher_id AND d.status = 'active'
 		 WHERE r.student_persona_id = ? AND r.status = 'approved' AND COALESCE(r.is_active, 1) = 1 AND COALESCE(p.is_active, 1) = 1
-		 GROUP BY u.id
+		 GROUP BY u.id, r.teacher_persona_id
 		 ORDER BY r.updated_at DESC
 		 LIMIT ? OFFSET ?`,
 		studentPersonaID, limit, offset,
@@ -330,7 +339,7 @@ func (r *UserRepository) ListTeachersForStudent(studentPersonaID int64, offset, 
 	var teachers []TeacherWithDocCount
 	for rows.Next() {
 		t := TeacherWithDocCount{}
-		if err := rows.Scan(&t.ID, &t.Username, &t.Nickname, &t.Role, &t.School, &t.Description,
+		if err := rows.Scan(&t.ID, &t.PersonaID, &t.Username, &t.Nickname, &t.Role, &t.School, &t.Description,
 			&t.DocumentCount, &t.CreatedAt); err != nil {
 			return nil, 0, fmt.Errorf("扫描教师记录失败: %w", err)
 		}

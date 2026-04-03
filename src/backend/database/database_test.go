@@ -739,8 +739,8 @@ func TestCreateWithOpenID(t *testing.T) {
 	user := &User{
 		Username: "wx_用户_abc123",
 		Password: "hashed_random_password",
-		Role:     "",       // 新微信用户 role 为空
-		Nickname: "",       // 新微信用户 nickname 为空
+		Role:     "", // 新微信用户 role 为空
+		Nickname: "", // 新微信用户 nickname 为空
 		OpenID:   "openid_create_test_456",
 	}
 
@@ -832,7 +832,7 @@ func TestUpdateRoleAndNickname_UserNotFound(t *testing.T) {
 func TestGetTeachers_WithDocuments(t *testing.T) {
 	db := setupTestDB(t)
 	userRepo := NewUserRepository(db.DB)
-	docRepo := NewDocumentRepository(db.DB)
+	personaRepo := NewPersonaRepository(db.DB)
 
 	// 创建教师
 	teacherID, err := userRepo.Create(&User{
@@ -845,29 +845,29 @@ func TestGetTeachers_WithDocuments(t *testing.T) {
 		t.Fatalf("创建教师失败: %v", err)
 	}
 
-	// 为教师创建 3 个 active 文档 + 1 个 archived 文档
+	// 创建教师分身（满足 knowledge_items 外键约束）
+	personaID, err := personaRepo.Create(&Persona{UserID: teacherID, Role: "teacher", Nickname: "教师分身", School: "测试学校"})
+	if err != nil {
+		t.Fatalf("创建分身失败: %v", err)
+	}
+
+	// 为教师创建 3 个 active 知识条目 + 1 个 archived 知识条目（迭代8迁移到 knowledge_items 表）
 	for i := 0; i < 3; i++ {
-		_, err := docRepo.Create(&Document{
-			TeacherID: teacherID,
-			Title:     fmt.Sprintf("文档%d", i+1),
-			Content:   "内容",
-			DocType:   "text",
-			Status:    "active",
-		})
+		_, err := db.DB.Exec(
+			`INSERT INTO knowledge_items (teacher_id, persona_id, title, content, item_type, status) VALUES (?, ?, ?, ?, 'text', 'active')`,
+			teacherID, personaID, fmt.Sprintf("文档%d", i+1), "内容",
+		)
 		if err != nil {
-			t.Fatalf("创建文档失败: %v", err)
+			t.Fatalf("创建知识条目失败: %v", err)
 		}
 	}
-	// 创建一个 archived 文档，不应计入 document_count
-	_, err = docRepo.Create(&Document{
-		TeacherID: teacherID,
-		Title:     "已归档文档",
-		Content:   "内容",
-		DocType:   "text",
-		Status:    "archived",
-	})
+	// 创建一个 archived 知识条目，不应计入 document_count
+	_, err = db.DB.Exec(
+		`INSERT INTO knowledge_items (teacher_id, persona_id, title, content, item_type, status) VALUES (?, ?, ?, ?, 'text', 'archived')`,
+		teacherID, personaID, "已归档文档", "内容",
+	)
 	if err != nil {
-		t.Fatalf("创建归档文档失败: %v", err)
+		t.Fatalf("创建归档知识条目失败: %v", err)
 	}
 
 	// 查询教师列表
@@ -1106,8 +1106,8 @@ func TestGetUserStats_Student(t *testing.T) {
 func TestGetUserStats_Teacher(t *testing.T) {
 	db := setupTestDB(t)
 	userRepo := NewUserRepository(db.DB)
-	docRepo := NewDocumentRepository(db.DB)
 	convRepo := NewConversationRepository(db.DB)
+	personaRepo := NewPersonaRepository(db.DB)
 
 	// 创建教师和学生
 	teacherID, err := userRepo.Create(&User{
@@ -1127,28 +1127,28 @@ func TestGetUserStats_Teacher(t *testing.T) {
 		t.Fatalf("创建学生失败: %v", err)
 	}
 
-	// 创建 4 个 active 文档 + 1 个 archived 文档
+	// 创建教师分身（满足 knowledge_items 外键约束）
+	personaID, err := personaRepo.Create(&Persona{UserID: teacherID, Role: "teacher", Nickname: "统计教师分身", School: "统计学校"})
+	if err != nil {
+		t.Fatalf("创建分身失败: %v", err)
+	}
+
+	// 创建 4 个 active 知识条目 + 1 个 archived 知识条目（迭代8迁移到 knowledge_items 表）
 	for i := 0; i < 4; i++ {
-		_, err := docRepo.Create(&Document{
-			TeacherID: teacherID,
-			Title:     fmt.Sprintf("文档%d", i),
-			Content:   "内容",
-			DocType:   "text",
-			Status:    "active",
-		})
+		_, err := db.DB.Exec(
+			`INSERT INTO knowledge_items (teacher_id, persona_id, title, content, item_type, status) VALUES (?, ?, ?, ?, 'text', 'active')`,
+			teacherID, personaID, fmt.Sprintf("文档%d", i), "内容",
+		)
 		if err != nil {
-			t.Fatalf("创建文档失败: %v", err)
+			t.Fatalf("创建知识条目失败: %v", err)
 		}
 	}
-	_, err = docRepo.Create(&Document{
-		TeacherID: teacherID,
-		Title:     "归档文档",
-		Content:   "内容",
-		DocType:   "text",
-		Status:    "archived",
-	})
+	_, err = db.DB.Exec(
+		`INSERT INTO knowledge_items (teacher_id, persona_id, title, content, item_type, status) VALUES (?, ?, ?, ?, 'text', 'archived')`,
+		teacherID, personaID, "归档文档", "内容",
+	)
 	if err != nil {
-		t.Fatalf("创建归档文档失败: %v", err)
+		t.Fatalf("创建归档知识条目失败: %v", err)
 	}
 
 	// 创建 5 条对话（学生向该教师提问）

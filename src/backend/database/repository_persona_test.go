@@ -152,10 +152,10 @@ func TestGetPersonaDashboard_Stats(t *testing.T) {
 	// 创建班级
 	_, _ = classRepo.Create(&Class{PersonaID: teacherPersonaID, Name: "统计班级"})
 
-	// 插入文档（直接 SQL 插入，因为 DocumentRepository 不在测试范围内）
+	// 插入知识条目（迭代8迁移到 knowledge_items 表）
 	_, _ = db.DB.Exec(
-		`INSERT INTO documents (teacher_id, title, content, status, persona_id) VALUES (?, ?, ?, ?, ?)`,
-		teacherUserID, "测试文档", "内容", "active", teacherPersonaID,
+		`INSERT INTO knowledge_items (teacher_id, persona_id, title, content, item_type, status) VALUES (?, ?, ?, ?, 'text', 'active')`,
+		teacherUserID, teacherPersonaID, "测试文档", "内容",
 	)
 
 	dashboard, err := personaRepo.GetPersonaDashboard(teacherPersonaID)

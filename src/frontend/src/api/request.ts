@@ -51,6 +51,7 @@ export async function request<T = any>(options: RequestOptions): Promise<ApiResp
       method: options.method,
       data: options.data,
       header,
+      timeout: 30000, // 30秒超时
     })
 
     const result = response.data as ApiResponse<T>
@@ -72,8 +73,13 @@ export async function request<T = any>(options: RequestOptions): Promise<ApiResp
     return result
   } catch (error) {
     // 网络异常（Taro.request 本身抛出的错误）
-    if (error instanceof Error && error.message.includes('request:fail')) {
-      Taro.showToast({ title: '网络异常，请检查网络连接', icon: 'none' })
+    if (error instanceof Error) {
+      console.error('[Request] 请求失败:', options.url, error.message)
+      if (error.message.includes('timeout')) {
+        Taro.showToast({ title: '请求超时，请稍后重试', icon: 'none' })
+      } else if (error.message.includes('request:fail')) {
+        Taro.showToast({ title: '网络异常，请检查网络连接', icon: 'none' })
+      }
     }
     throw error
   }

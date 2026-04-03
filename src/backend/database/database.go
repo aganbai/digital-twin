@@ -79,8 +79,6 @@ func (d *Database) autoMigrate() error {
 		createTeacherStudentRelationsTable,
 		createTeacherCommentsTable,
 		createStudentDialogueStylesTable,
-		createAssignmentsTable,
-		createAssignmentReviewsTable,
 		// V2.0 迭代2 新增表
 		createPersonasTable,
 		createClassesTable,
@@ -88,6 +86,15 @@ func (d *Database) autoMigrate() error {
 		createPersonaSharesTable,
 		// V2.0 迭代4 新增表
 		createTeacherTakeoversTable,
+		// V2.0 迭代7 新增表
+		createTeacherCurriculumConfigsTable,
+		createFeedbacksTable,
+		createBatchTasksTable,
+		createTeacherMessagesTable,
+		// V2.0 迭代8 新增表
+		createKnowledgeItemsTable,
+		createChatPinsTable,
+		createClassJoinRequestsTable,
 	}
 
 	for _, ddl := range tables {
@@ -115,8 +122,6 @@ func (d *Database) autoMigrate() error {
 		alterCommentsAddStudentPersonaID,
 		alterStylesAddTeacherPersonaID,
 		alterStylesAddStudentPersonaID,
-		alterAssignmentsAddTeacherPersonaID,
-		alterAssignmentsAddStudentPersonaID,
 		// V2.0 迭代3 ALTER TABLE
 		alterClassesAddIsActive,
 		alterRelationsAddIsActive,
@@ -129,6 +134,24 @@ func (d *Database) autoMigrate() error {
 		// V2.0 迭代6 ALTER TABLE
 		alterMemoriesAddMemoryLayer,
 		alterDocumentsAddSourceSessionID,
+		// V2.0 迭代7 ALTER TABLE
+		alterRelationsAddComment,
+		alterRelationsAddClassID,
+		alterUsersAddProfileSnapshot,
+		// V2.0 迭代8 ALTER TABLE
+		alterClassesAddTeacherDisplayName,
+		alterClassesAddSubject,
+		alterClassesAddAgeGroup,
+		alterClassesAddShareLink,
+		alterClassesAddInviteCode,
+		alterClassesAddQRCodeURL,
+		alterClassMembersAddApprovalStatus,
+		alterClassMembersAddTeacherEvaluation,
+		alterClassMembersAddAge,
+		alterClassMembersAddGender,
+		alterClassMembersAddFamilyInfo,
+		alterClassMembersAddRequestTime,
+		alterClassMembersAddApprovalTime,
 	}
 	for _, stmt := range alterStatements {
 		if _, err := d.DB.Exec(stmt); err != nil {
@@ -236,14 +259,6 @@ func (d *Database) autoMigrate() error {
 		UPDATE student_dialogue_styles SET
 			teacher_persona_id = COALESCE((SELECT p.id FROM personas p WHERE p.user_id = student_dialogue_styles.teacher_id AND p.role = 'teacher' LIMIT 1), 0),
 			student_persona_id = COALESCE((SELECT p.id FROM personas p WHERE p.user_id = student_dialogue_styles.student_id AND p.role = 'student' LIMIT 1), 0)
-		WHERE teacher_persona_id = 0 OR student_persona_id = 0
-	`)
-
-	// 回填 assignments 的 persona_id
-	_, _ = d.DB.Exec(`
-		UPDATE assignments SET
-			teacher_persona_id = COALESCE((SELECT p.id FROM personas p WHERE p.user_id = assignments.teacher_id AND p.role = 'teacher' LIMIT 1), 0),
-			student_persona_id = COALESCE((SELECT p.id FROM personas p WHERE p.user_id = assignments.student_id AND p.role = 'student' LIMIT 1), 0)
 		WHERE teacher_persona_id = 0 OR student_persona_id = 0
 	`)
 
@@ -380,34 +395,6 @@ CREATE TABLE IF NOT EXISTS student_dialogue_styles (
     UNIQUE(teacher_id, student_id)
 );`
 
-const createAssignmentsTable = `
-CREATE TABLE IF NOT EXISTS assignments (
-    id              INTEGER PRIMARY KEY AUTOINCREMENT,
-    student_id      INTEGER NOT NULL,
-    teacher_id      INTEGER NOT NULL,
-    title           TEXT NOT NULL,
-    content         TEXT,
-    file_path       TEXT,
-    file_type       TEXT,
-    status          TEXT DEFAULT 'submitted',
-    created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (student_id) REFERENCES users(id),
-    FOREIGN KEY (teacher_id) REFERENCES users(id)
-);`
-
-const createAssignmentReviewsTable = `
-CREATE TABLE IF NOT EXISTS assignment_reviews (
-    id              INTEGER PRIMARY KEY AUTOINCREMENT,
-    assignment_id   INTEGER NOT NULL,
-    reviewer_type   TEXT NOT NULL,
-    reviewer_id     INTEGER,
-    content         TEXT NOT NULL,
-    score           REAL,
-    created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (assignment_id) REFERENCES assignments(id)
-);`
-
 // ======================== V2.0 迭代2 新增表 ========================
 
 const createPersonasTable = `
@@ -487,9 +474,6 @@ const alterCommentsAddStudentPersonaID = `ALTER TABLE teacher_comments ADD COLUM
 const alterStylesAddTeacherPersonaID = `ALTER TABLE student_dialogue_styles ADD COLUMN teacher_persona_id INTEGER DEFAULT 0;`
 const alterStylesAddStudentPersonaID = `ALTER TABLE student_dialogue_styles ADD COLUMN student_persona_id INTEGER DEFAULT 0;`
 
-const alterAssignmentsAddTeacherPersonaID = `ALTER TABLE assignments ADD COLUMN teacher_persona_id INTEGER DEFAULT 0;`
-const alterAssignmentsAddStudentPersonaID = `ALTER TABLE assignments ADD COLUMN student_persona_id INTEGER DEFAULT 0;`
-
 // ======================== V2.0 迭代3 ALTER TABLE 语句 ========================
 
 const alterClassesAddIsActive = `ALTER TABLE classes ADD COLUMN is_active INTEGER DEFAULT 1;`
@@ -502,6 +486,10 @@ const alterSharesAddTargetStudentPersonaID = `ALTER TABLE persona_shares ADD COL
 const alterConversationsAddSenderType = `ALTER TABLE conversations ADD COLUMN sender_type TEXT DEFAULT '';`
 const alterConversationsAddReplyToID = `ALTER TABLE conversations ADD COLUMN reply_to_id INTEGER DEFAULT 0;`
 const alterDocumentsAddSummary = `ALTER TABLE documents ADD COLUMN summary TEXT DEFAULT '';`
+
+// V2.0 迭代7 ALTER TABLE 语句
+const alterRelationsAddComment = `ALTER TABLE teacher_student_relations ADD COLUMN comment TEXT DEFAULT '';`
+const alterRelationsAddClassID = `ALTER TABLE teacher_student_relations ADD COLUMN class_id INTEGER DEFAULT NULL;`
 
 const createTeacherTakeoversTable = `
 CREATE TABLE IF NOT EXISTS teacher_takeovers (
@@ -524,3 +512,145 @@ const alterMemoriesAddMemoryLayer = `ALTER TABLE memories ADD COLUMN memory_laye
 const createMemoriesLayerIndex = `CREATE INDEX IF NOT EXISTS idx_memories_layer ON memories(teacher_persona_id, student_persona_id, memory_layer);`
 const createMemoriesTypeLayerIndex = `CREATE INDEX IF NOT EXISTS idx_memories_type_layer ON memories(teacher_persona_id, student_persona_id, memory_type, memory_layer);`
 const alterDocumentsAddSourceSessionID = `ALTER TABLE documents ADD COLUMN source_session_id TEXT DEFAULT '';`
+
+// ======================== V2.0 迭代7 DDL ========================
+
+const createTeacherCurriculumConfigsTable = `
+CREATE TABLE IF NOT EXISTS teacher_curriculum_configs (
+    id                INTEGER PRIMARY KEY AUTOINCREMENT,
+    teacher_id        INTEGER NOT NULL,
+    persona_id        INTEGER NOT NULL,
+    grade_level       TEXT NOT NULL DEFAULT '',
+    grade             TEXT NOT NULL DEFAULT '',
+    textbook_versions TEXT DEFAULT '[]',
+    region            TEXT DEFAULT '',
+    subjects          TEXT DEFAULT '[]',
+    current_progress  TEXT DEFAULT '{}',
+    is_active         INTEGER DEFAULT 1,
+    created_at        DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at        DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (teacher_id) REFERENCES users(id),
+    FOREIGN KEY (persona_id) REFERENCES personas(id)
+);`
+
+const createFeedbacksTable = `
+CREATE TABLE IF NOT EXISTS feedbacks (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id         INTEGER NOT NULL,
+    feedback_type   TEXT NOT NULL DEFAULT 'other',
+    content         TEXT NOT NULL,
+    status          TEXT NOT NULL DEFAULT 'pending',
+    context_info    TEXT DEFAULT '{}',
+    created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id)
+);`
+
+const createBatchTasksTable = `
+CREATE TABLE IF NOT EXISTS batch_tasks (
+    id                INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id           TEXT NOT NULL UNIQUE,
+    persona_id        INTEGER NOT NULL,
+    knowledge_base_id INTEGER DEFAULT 0,
+    status            TEXT NOT NULL DEFAULT 'pending',
+    total_files       INTEGER DEFAULT 0,
+    success_files     INTEGER DEFAULT 0,
+    failed_files      INTEGER DEFAULT 0,
+    result_json       TEXT DEFAULT '{}',
+    created_at        DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at        DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (persona_id) REFERENCES personas(id)
+);`
+
+const createTeacherMessagesTable = `
+CREATE TABLE IF NOT EXISTS teacher_messages (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    teacher_id      INTEGER NOT NULL,
+    target_type     TEXT NOT NULL DEFAULT 'class',
+    target_id       INTEGER NOT NULL,
+    content         TEXT NOT NULL,
+    status          TEXT NOT NULL DEFAULT 'pending',
+    created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (teacher_id) REFERENCES users(id)
+);`
+
+// V2.0 迭代7 ALTER TABLE
+const alterUsersAddProfileSnapshot = `ALTER TABLE users ADD COLUMN profile_snapshot TEXT DEFAULT '{}';`
+
+// ======================== V2.0 迭代8 DDL ========================
+
+const createKnowledgeItemsTable = `
+CREATE TABLE IF NOT EXISTS knowledge_items (
+    id                INTEGER PRIMARY KEY AUTOINCREMENT,
+    teacher_id        INTEGER NOT NULL,
+    persona_id        INTEGER NOT NULL DEFAULT 0,
+    title             TEXT NOT NULL,
+    content           TEXT NOT NULL,
+    item_type         TEXT NOT NULL DEFAULT 'text',
+    source_url        TEXT DEFAULT '',
+    file_url          TEXT DEFAULT '',
+    file_name         TEXT DEFAULT '',
+    file_size         INTEGER DEFAULT 0,
+    tags              TEXT DEFAULT '[]',
+    status            TEXT DEFAULT 'active',
+    summary           TEXT DEFAULT '',
+    scope             TEXT DEFAULT 'global',
+    scope_id          INTEGER DEFAULT 0,
+    source_session_id TEXT DEFAULT '',
+    created_at        DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at        DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (teacher_id) REFERENCES users(id),
+    FOREIGN KEY (persona_id) REFERENCES personas(id)
+);`
+
+const createChatPinsTable = `
+CREATE TABLE IF NOT EXISTS chat_pins (
+    id                INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id           INTEGER NOT NULL,
+    user_role         TEXT NOT NULL,
+    target_type       TEXT NOT NULL,
+    target_id         INTEGER NOT NULL,
+    persona_id        INTEGER NOT NULL DEFAULT 0,
+    pinned_at         DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id),
+    UNIQUE(user_id, user_role, target_type, target_id, persona_id)
+);`
+
+const createClassJoinRequestsTable = `
+CREATE TABLE IF NOT EXISTS class_join_requests (
+    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+    class_id            INTEGER NOT NULL,
+    student_persona_id  INTEGER NOT NULL,
+    student_id          INTEGER NOT NULL,
+    status              TEXT NOT NULL DEFAULT 'pending',
+    request_message     TEXT DEFAULT '',
+    teacher_evaluation  TEXT DEFAULT '',
+    student_age         INTEGER DEFAULT 0,
+    student_gender      TEXT DEFAULT '',
+    student_family_info TEXT DEFAULT '{}',
+    request_time        DATETIME DEFAULT CURRENT_TIMESTAMP,
+    approval_time       DATETIME,
+    created_at          DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at          DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (class_id) REFERENCES classes(id),
+    FOREIGN KEY (student_persona_id) REFERENCES personas(id),
+    FOREIGN KEY (student_id) REFERENCES users(id),
+    UNIQUE(class_id, student_persona_id)
+);`
+
+// V2.0 迭代8 ALTER TABLE - Classes表扩展
+const alterClassesAddTeacherDisplayName = `ALTER TABLE classes ADD COLUMN teacher_display_name TEXT DEFAULT '';`
+const alterClassesAddSubject = `ALTER TABLE classes ADD COLUMN subject TEXT DEFAULT '';`
+const alterClassesAddAgeGroup = `ALTER TABLE classes ADD COLUMN age_group TEXT DEFAULT '';`
+const alterClassesAddShareLink = `ALTER TABLE classes ADD COLUMN share_link TEXT DEFAULT '';`
+const alterClassesAddInviteCode = `ALTER TABLE classes ADD COLUMN invite_code TEXT DEFAULT '';`
+const alterClassesAddQRCodeURL = `ALTER TABLE classes ADD COLUMN qr_code_url TEXT DEFAULT '';`
+
+// V2.0 迭代8 ALTER TABLE - ClassMembers表扩展
+const alterClassMembersAddApprovalStatus = `ALTER TABLE class_members ADD COLUMN approval_status TEXT DEFAULT 'approved';`
+const alterClassMembersAddTeacherEvaluation = `ALTER TABLE class_members ADD COLUMN teacher_evaluation TEXT DEFAULT '';`
+const alterClassMembersAddAge = `ALTER TABLE class_members ADD COLUMN age INTEGER DEFAULT 0;`
+const alterClassMembersAddGender = `ALTER TABLE class_members ADD COLUMN gender TEXT DEFAULT '';`
+const alterClassMembersAddFamilyInfo = `ALTER TABLE class_members ADD COLUMN family_info TEXT DEFAULT '{}';`
+const alterClassMembersAddRequestTime = `ALTER TABLE class_members ADD COLUMN request_time DATETIME;`
+const alterClassMembersAddApprovalTime = `ALTER TABLE class_members ADD COLUMN approval_time DATETIME;`
