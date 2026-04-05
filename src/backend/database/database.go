@@ -95,6 +95,15 @@ func (d *Database) autoMigrate() error {
 		createKnowledgeItemsTable,
 		createChatPinsTable,
 		createClassJoinRequestsTable,
+		// V2.0 迭代9 新增表
+		createCourseNotificationsTable,
+		createCourseNotificationsClassIndex,
+		createCourseNotificationsPersonaIndex,
+		createWxSubscriptionsTable,
+		createSessionTitlesTable,
+		createSessionTitlesPersonasIndex,
+		// V2.0 迭代10 新增表（操作日志表在独立数据库，不在此创建）
+		// 性能优化索引 - 注意：这些索引依赖ALTER TABLE新增的列，在后面创建
 	}
 
 	for _, ddl := range tables {
@@ -152,6 +161,14 @@ func (d *Database) autoMigrate() error {
 		alterClassMembersAddFamilyInfo,
 		alterClassMembersAddRequestTime,
 		alterClassMembersAddApprovalTime,
+		// V2.0 迭代10 ALTER TABLE
+		alterUsersAddStatus,
+		alterUsersAddWxUnionID,
+		// V2.0 迭代11 ALTER TABLE
+		alterUsersAddIsTestStudent,
+		alterUsersAddTestTeacherID,
+		alterClassesAddIsPublic,
+		alterPersonasAddBoundClassID,
 	}
 	for _, stmt := range alterStatements {
 		if _, err := d.DB.Exec(stmt); err != nil {
@@ -192,11 +209,12 @@ func (d *Database) autoMigrate() error {
 		)
 	`)
 
-	// V2.0 迭代2 索引
-	if _, err := d.DB.Exec(createPersonaTeacherSchoolIndex); err != nil {
-		if !strings.Contains(err.Error(), "already exists") {
-			return fmt.Errorf("创建分身教师学校索引失败: %w", err)
-		}
+	// V2.0 迭代11：删除过时的唯一索引
+	// 原因：迭代11重构后，同一教师可为多个班级创建相同昵称和学校的分身
+	// 原约束：UNIQUE(nickname, school) WHERE role='teacher' 已不再适用
+	if _, err := d.DB.Exec(`DROP INDEX IF EXISTS idx_persona_teacher_school`); err != nil {
+		// 删除失败不影响后续流程
+		fmt.Printf("删除过时索引 idx_persona_teacher_school 失败: %v\n", err)
 	}
 
 	// V2.0 迭代2 数据迁移：为现有用户创建默认分身
@@ -282,6 +300,45 @@ func (d *Database) autoMigrate() error {
 	if _, err := d.DB.Exec(createMemoriesTypeLayerIndex); err != nil {
 		if !strings.Contains(err.Error(), "already exists") {
 			return fmt.Errorf("创建记忆类型分层索引失败: %w", err)
+		}
+	}
+
+	// 性能优化索引（依赖ALTER TABLE新增的列）
+	if _, err := d.DB.Exec(createRelationsTeacherPersonaIndex); err != nil {
+		if !strings.Contains(err.Error(), "already exists") {
+			return fmt.Errorf("创建关系教师分身索引失败: %w", err)
+		}
+	}
+	if _, err := d.DB.Exec(createRelationsStudentPersonaIndex); err != nil {
+		if !strings.Contains(err.Error(), "already exists") {
+			return fmt.Errorf("创建关系学生分身索引失败: %w", err)
+		}
+	}
+	if _, err := d.DB.Exec(createPersonasUserIDIndex); err != nil {
+		if !strings.Contains(err.Error(), "already exists") {
+			return fmt.Errorf("创建分身用户索引失败: %w", err)
+		}
+	}
+
+	// V2.0 迭代11 索引
+	if _, err := d.DB.Exec(createUsersIsTestStudentIndex); err != nil {
+		if !strings.Contains(err.Error(), "already exists") {
+			return fmt.Errorf("创建自测学生索引失败: %w", err)
+		}
+	}
+	if _, err := d.DB.Exec(createUsersTestTeacherIDIndex); err != nil {
+		if !strings.Contains(err.Error(), "already exists") {
+			return fmt.Errorf("创建测试教师索引失败: %w", err)
+		}
+	}
+	if _, err := d.DB.Exec(createClassesIsPublicIndex); err != nil {
+		if !strings.Contains(err.Error(), "already exists") {
+			return fmt.Errorf("创建班级公开索引失败: %w", err)
+		}
+	}
+	if _, err := d.DB.Exec(createPersonasBoundClassIDIndex); err != nil {
+		if !strings.Contains(err.Error(), "already exists") {
+			return fmt.Errorf("创建分身绑定班级索引失败: %w", err)
 		}
 	}
 
@@ -654,3 +711,98 @@ const alterClassMembersAddGender = `ALTER TABLE class_members ADD COLUMN gender 
 const alterClassMembersAddFamilyInfo = `ALTER TABLE class_members ADD COLUMN family_info TEXT DEFAULT '{}';`
 const alterClassMembersAddRequestTime = `ALTER TABLE class_members ADD COLUMN request_time DATETIME;`
 const alterClassMembersAddApprovalTime = `ALTER TABLE class_members ADD COLUMN approval_time DATETIME;`
+
+// ======================== V2.0 迭代9 DDL ========================
+
+const createCourseNotificationsTable = `
+CREATE TABLE IF NOT EXISTS course_notifications (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    course_item_id INTEGER NOT NULL,
+    class_id INTEGER NOT NULL,
+    teacher_id INTEGER NOT NULL,
+    persona_id INTEGER NOT NULL,
+    push_type TEXT NOT NULL,
+    status TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);`
+
+const createCourseNotificationsClassIndex = `CREATE INDEX IF NOT EXISTS idx_course_notifications_class ON course_notifications(class_id);`
+const createCourseNotificationsPersonaIndex = `CREATE INDEX IF NOT EXISTS idx_course_notifications_persona ON course_notifications(persona_id);`
+
+const createWxSubscriptionsTable = `
+CREATE TABLE IF NOT EXISTS wx_subscriptions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    template_id TEXT NOT NULL,
+    is_subscribed INTEGER DEFAULT 0,
+    last_subscribe_time DATETIME,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(user_id, template_id)
+);`
+
+const createSessionTitlesTable = `
+CREATE TABLE IF NOT EXISTS session_titles (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id TEXT NOT NULL UNIQUE,
+    student_persona_id INTEGER NOT NULL,
+    teacher_persona_id INTEGER NOT NULL,
+    title TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);`
+
+const createSessionTitlesPersonasIndex = `CREATE INDEX IF NOT EXISTS idx_session_titles_personas ON session_titles(student_persona_id, teacher_persona_id);`
+
+// ======================== V2.0 迭代10 新增表 ========================
+
+// 操作日志表（独立数据库）
+const createOperationLogsTable = `
+CREATE TABLE IF NOT EXISTS operation_logs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL DEFAULT 0,
+    user_role TEXT NOT NULL DEFAULT '',
+    persona_id INTEGER NOT NULL DEFAULT 0,
+    action TEXT NOT NULL DEFAULT '',
+    resource TEXT NOT NULL DEFAULT '',
+    resource_id TEXT NOT NULL DEFAULT '',
+    detail TEXT NOT NULL DEFAULT '',
+    ip TEXT NOT NULL DEFAULT '',
+    user_agent TEXT NOT NULL DEFAULT '',
+    platform TEXT NOT NULL DEFAULT '',
+    status_code INTEGER NOT NULL DEFAULT 0,
+    duration_ms INTEGER NOT NULL DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);`
+
+const createOperationLogsUserIndex = `CREATE INDEX IF NOT EXISTS idx_operation_logs_user_created ON operation_logs(user_id, created_at);`
+const createOperationLogsActionIndex = `CREATE INDEX IF NOT EXISTS idx_operation_logs_action_created ON operation_logs(action, created_at);`
+const createOperationLogsCreatedIndex = `CREATE INDEX IF NOT EXISTS idx_operation_logs_created ON operation_logs(created_at);`
+
+// ALTER TABLE 语句
+const alterUsersAddStatus = `ALTER TABLE users ADD COLUMN status TEXT NOT NULL DEFAULT 'active';`
+const alterUsersAddWxUnionID = `ALTER TABLE users ADD COLUMN wx_unionid TEXT DEFAULT '';`
+
+// ======================== V2.0 迭代11 DDL ========================
+
+// Users 表新增字段：自测学生相关
+const alterUsersAddIsTestStudent = `ALTER TABLE users ADD COLUMN is_test_student INTEGER NOT NULL DEFAULT 0;`
+const alterUsersAddTestTeacherID = `ALTER TABLE users ADD COLUMN test_teacher_id INTEGER DEFAULT 0;`
+
+// Classes 表新增字段：班级公开状态
+const alterClassesAddIsPublic = `ALTER TABLE classes ADD COLUMN is_public INTEGER NOT NULL DEFAULT 1;`
+
+// Personas 表新增字段：绑定班级
+const alterPersonasAddBoundClassID = `ALTER TABLE personas ADD COLUMN bound_class_id INTEGER DEFAULT NULL;`
+
+// V2.0 迭代11 索引
+const createUsersIsTestStudentIndex = `CREATE INDEX IF NOT EXISTS idx_users_is_test_student ON users(is_test_student);`
+const createUsersTestTeacherIDIndex = `CREATE INDEX IF NOT EXISTS idx_users_test_teacher_id ON users(test_teacher_id);`
+const createClassesIsPublicIndex = `CREATE INDEX IF NOT EXISTS idx_classes_is_public ON classes(is_public);`
+const createPersonasBoundClassIDIndex = `CREATE INDEX IF NOT EXISTS idx_personas_bound_class_id ON personas(bound_class_id);`
+
+// ======================== 性能优化索引 ========================
+// 修复 /api/shares/{code}/join 超时问题：为 teacher_student_relations 表添加分身字段索引
+
+const createRelationsTeacherPersonaIndex = `CREATE INDEX IF NOT EXISTS idx_relations_teacher_persona ON teacher_student_relations(teacher_persona_id, student_persona_id);`
+const createRelationsStudentPersonaIndex = `CREATE INDEX IF NOT EXISTS idx_relations_student_persona ON teacher_student_relations(student_persona_id);`
+const createPersonasUserIDIndex = `CREATE INDEX IF NOT EXISTS idx_personas_user_id ON personas(user_id);`

@@ -1,6 +1,7 @@
 package api
 
 import (
+	"digital-twin/src/backend/database"
 	"digital-twin/src/harness/manager"
 	"digital-twin/src/plugins/auth"
 
@@ -28,6 +29,29 @@ func SetupRouter(mgr *manager.HarnessManager) *gin.Engine {
 
 	handler := NewHandler(mgr)
 
+	// V2.0 迭代10: 初始化日志数据库
+	var logDB *database.LogDatabase
+	if sqlDB := mgr.GetDB(); sqlDB != nil {
+		logDB, _ = database.NewLogDatabase("data/operation_logs.db")
+		// 添加操作日志中间件
+		if logDB != nil {
+			r.Use(OperationLogMiddleware(logDB))
+		}
+	}
+
+	// V2.0 迭代10: 初始化管理员处理器和H5处理器
+	var adminHandler *AdminHandler
+	var h5Handler *H5Handler
+	if logDB != nil && mgr.GetDB() != nil {
+		db := &database.Database{DB: mgr.GetDB()}
+		adminHandler = NewAdminHandler(db, logDB)
+		// 获取auth插件用于H5登录
+		authPlugin := getAuthPlugin(mgr)
+		if authPlugin != nil {
+			h5Handler = NewH5Handler(authPlugin)
+		}
+	}
+
 	api := r.Group("/api")
 	{
 		// 认证接口（无需鉴权）
@@ -37,12 +61,26 @@ func SetupRouter(mgr *manager.HarnessManager) *gin.Engine {
 			authGroup.POST("/login", handler.HandleLogin)
 			authGroup.POST("/wx-login", handler.HandleWxLogin)
 			authGroup.POST("/refresh", handler.HandleRefresh) // refresh 自行处理 token 验证（支持过期宽限期）
+			// V2.0 迭代10: H5认证接口
+			if h5Handler != nil {
+				authGroup.GET("/wx-h5-login-url", h5Handler.HandleWxH5LoginURL)
+				authGroup.POST("/wx-h5-callback", h5Handler.HandleWxH5Callback)
+			}
 		}
+
+		// V2.0 迭代10: 平台配置（无需鉴权）
+		api.GET("/platform/config", HandleGetPlatformConfig)
 
 		// 需要鉴权的路由
 		authorized := api.Group("")
 		if jwtManager != nil {
 			authorized.Use(auth.JWTAuthMiddleware(jwtManager))
+		}
+
+		// V2.0 迭代10: 用户状态检查中间件（检查用户是否被禁用）
+		if jwtManager != nil && mgr.GetDB() != nil {
+			userRepo := database.NewUserRepository(mgr.GetDB())
+			authorized.Use(UserStatusChecker(userRepo))
 		}
 		{
 			authorized.POST("/auth/complete-profile", handler.HandleCompleteProfile)
@@ -105,9 +143,10 @@ func SetupRouter(mgr *manager.HarnessManager) *gin.Engine {
 				personas.POST("", handler.HandleCreatePersona)
 				personas.GET("", handler.HandleGetPersonas)
 				personas.PUT("/:id", handler.HandleEditPersona)
-				personas.PUT("/:id/activate", handler.HandleActivatePersona)
-				personas.PUT("/:id/deactivate", handler.HandleDeactivatePersona)
-				personas.PUT("/:id/switch", handler.HandleSwitchPersona)
+				// V2.0 迭代11 M3：以下接口已废弃，已从路由中移除
+				// personas.PUT("/:id/activate", handler.HandleActivatePersona)
+				// personas.PUT("/:id/deactivate", handler.HandleDeactivatePersona)
+				// personas.PUT("/:id/switch", handler.HandleSwitchPersona)
 			}
 
 			// 班级管理
@@ -212,6 +251,25 @@ func SetupRouter(mgr *manager.HarnessManager) *gin.Engine {
 			authorized.POST("/chat/new-session", handler.HandleNewSession)
 			authorized.GET("/chat/quick-actions", handler.HandleGetQuickActions)
 
+			// V2.0 迭代9 M5：会话标题生成
+			authorized.POST("/conversations/sessions/:session_id/title", handler.HandleGenerateSessionTitle)
+
+			// V2.0 迭代9 M7：课程信息发布
+			authorized.POST("/courses", auth.RoleRequired("teacher"), handler.HandleCreateCourse)
+			authorized.GET("/courses", auth.RoleRequired("teacher"), handler.HandleGetCourses)
+			authorized.PUT("/courses/:id", auth.RoleRequired("teacher"), handler.HandleUpdateCourse)
+			authorized.DELETE("/courses/:id", auth.RoleRequired("teacher"), handler.HandleDeleteCourse)
+			authorized.POST("/courses/:id/push", auth.RoleRequired("teacher"), handler.HandlePushCourseNotification)
+
+			// V2.0 迭代9 M6：头像点击API
+			// 注意：classes.GET("/:id") 需要在 classes 组内注册，但要放在其他带参数的路由之前
+			// 这里改为在 classes 组外单独注册，以避免路由冲突
+			authorized.GET("/classes/:id", handler.HandleGetClassForStudent)
+			// 教师查看学生详情（需教师角色和师生关系校验）
+			authorized.GET("/students/:id/profile", auth.RoleRequired("teacher"), handler.HandleGetStudentProfile)
+			// 教师更新学生评语（需教师角色和师生关系校验）
+			authorized.PUT("/students/:id/evaluation", auth.RoleRequired("teacher"), handler.HandleUpdateStudentEvaluation)
+
 			// V2.0 迭代7 新增路由
 
 			// 教师消息推送
@@ -239,6 +297,51 @@ func SetupRouter(mgr *manager.HarnessManager) *gin.Engine {
 			// 批量文档上传（R5 - M5）
 			authorized.POST("/documents/batch-upload", auth.RoleRequired("teacher", "admin"), handler.HandleBatchUpload)
 			authorized.GET("/batch-tasks/:task_id", auth.RoleRequired("teacher", "admin"), handler.HandleGetBatchTask)
+
+			// V2.0 迭代10 新增路由
+
+			// H5文件上传
+			if h5Handler != nil {
+				authorized.POST("/upload/h5", h5Handler.HandleH5Upload)
+			}
+
+			// V2.0 迭代11 M4：自测学生管理
+			testStudent := authorized.Group("/test-student")
+			{
+				testStudent.GET("", auth.RoleRequired("teacher"), handler.HandleGetTestStudent)
+				testStudent.POST("/reset", auth.RoleRequired("teacher"), handler.HandleResetTestStudent)
+				testStudent.POST("/login", auth.RoleRequired("teacher"), handler.HandleTestStudentLogin)
+			}
+
+			// 管理员路由组
+			if adminHandler != nil {
+				admin := api.Group("/admin")
+				if jwtManager != nil {
+					admin.Use(auth.JWTAuthMiddleware(jwtManager))
+					admin.Use(auth.RoleRequired("admin"))
+				}
+				{
+					// 仪表盘
+					admin.GET("/dashboard/overview", adminHandler.HandleAdminDashboardOverview)
+					admin.GET("/dashboard/user-stats", adminHandler.HandleAdminUserStats)
+					admin.GET("/dashboard/chat-stats", adminHandler.HandleAdminChatStats)
+					admin.GET("/dashboard/knowledge-stats", adminHandler.HandleAdminKnowledgeStats)
+					admin.GET("/dashboard/active-users", adminHandler.HandleAdminActiveUsers)
+
+					// 用户管理
+					admin.GET("/users", adminHandler.HandleAdminGetUsers)
+					admin.PUT("/users/:id/role", adminHandler.HandleAdminUpdateUserRole)
+					admin.PUT("/users/:id/status", adminHandler.HandleAdminUpdateUserStatus)
+
+					// 反馈管理
+					admin.GET("/feedbacks", adminHandler.HandleAdminGetFeedbacks)
+
+					// 操作日志
+					admin.GET("/logs", adminHandler.HandleAdminGetLogs)
+					admin.GET("/logs/stats", adminHandler.HandleAdminGetLogStats)
+					admin.GET("/logs/export", adminHandler.HandleAdminExportLogs)
+				}
+			}
 		}
 
 		// 分享码公开接口（可选鉴权）
@@ -260,4 +363,17 @@ func SetupRouter(mgr *manager.HarnessManager) *gin.Engine {
 	}
 
 	return r
+}
+
+// getAuthPlugin 获取认证插件
+func getAuthPlugin(mgr *manager.HarnessManager) *auth.AuthPlugin {
+	plugin, _ := mgr.GetPlugin("auth")
+	if plugin == nil {
+		return nil
+	}
+	authPlugin, ok := plugin.(*auth.AuthPlugin)
+	if !ok {
+		return nil
+	}
+	return authPlugin
 }

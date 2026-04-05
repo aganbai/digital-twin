@@ -82,7 +82,7 @@ func (p *AuthPlugin) Init(config map[string]interface{}) error {
 // isAuthAction 判断是否是认证插件自己的 action
 func (p *AuthPlugin) isAuthAction(action string) bool {
 	switch action {
-	case "register", "login", "verify", "refresh", "wx-login", "complete-profile":
+	case "register", "login", "verify", "refresh", "wx-login", "complete-profile", "wx-h5-login-url", "wx-h5-callback":
 		return true
 	default:
 		return false
@@ -133,6 +133,10 @@ func (p *AuthPlugin) Execute(ctx context.Context, input *core.PluginInput) (*cor
 		output, err = p.handleWxLogin(input)
 	case "complete-profile":
 		output, err = p.handleCompleteProfile(input)
+	case "wx-h5-login-url":
+		output, err = p.handleWxH5LoginURL(input)
+	case "wx-h5-callback":
+		output, err = p.handleWxH5Callback(input)
 	default:
 		output = &core.PluginOutput{
 			Success: false,
@@ -222,8 +226,8 @@ func (p *AuthPlugin) handleRegister(input *core.PluginInput) (*core.PluginOutput
 		return nil, fmt.Errorf("创建用户失败: %w", err)
 	}
 
-	// 生成 token
-	token, expiresAt, err := p.jwtManager.GenerateToken(userID, username, role)
+	// 生成 token（用户角色和分身角色相同）
+	token, expiresAt, err := p.jwtManager.GenerateTokenWithUserRole(userID, username, role, role)
 	if err != nil {
 		return nil, fmt.Errorf("生成 token 失败: %w", err)
 	}
@@ -280,8 +284,8 @@ func (p *AuthPlugin) handleLogin(input *core.PluginInput) (*core.PluginOutput, e
 		}, nil
 	}
 
-	// 生成 token
-	token, expiresAt, err := p.jwtManager.GenerateToken(user.ID, user.Username, user.Role)
+	// 生成 token（用户角色和分身角色相同）
+	token, expiresAt, err := p.jwtManager.GenerateTokenWithUserRole(user.ID, user.Username, user.Role, user.Role)
 	if err != nil {
 		return nil, fmt.Errorf("生成 token 失败: %w", err)
 	}
@@ -393,8 +397,13 @@ func (p *AuthPlugin) handleRefresh(input *core.PluginInput) (*core.PluginOutput,
 		claims = parsedClaims
 	}
 
-	// 生成新 token（含 persona_id）
-	newToken, expiresAt, err := p.jwtManager.GenerateToken(claims.UserID, claims.Username, claims.Role, claims.PersonaID)
+	// 生成新 token（含 persona_id 和 user_role）
+	// 兼容旧token：如果没有UserRole则使用Role
+	userRole := claims.UserRole
+	if userRole == "" {
+		userRole = claims.Role
+	}
+	newToken, expiresAt, err := p.jwtManager.GenerateTokenWithUserRole(claims.UserID, claims.Username, claims.Role, userRole, claims.PersonaID)
 	if err != nil {
 		return nil, fmt.Errorf("生成新 token 失败: %w", err)
 	}
@@ -513,8 +522,9 @@ func (p *AuthPlugin) handleWxLogin(input *core.PluginInput) (*core.PluginOutput,
 		}
 	}
 
-	// 生成 JWT token（含 persona_id）
-	token, expiresAt, err := p.jwtManager.GenerateToken(user.ID, user.Username, role, personaID)
+	// 生成 JWT token（含 persona_id 和 user_role）
+	// user.Role 是用户级别角色（可能为admin），role 是当前分身角色
+	token, expiresAt, err := p.jwtManager.GenerateTokenWithUserRole(user.ID, user.Username, role, user.Role, personaID)
 	if err != nil {
 		return nil, fmt.Errorf("生成 token 失败: %w", err)
 	}
@@ -539,6 +549,7 @@ func (p *AuthPlugin) handleWxLogin(input *core.PluginInput) (*core.PluginOutput,
 
 // handleCompleteProfile 处理新用户补全信息（角色+昵称）
 // V2.0 迭代2 改造：内部转为创建分身
+// V2.0 迭代11 M4：教师角色创建自测学生
 func (p *AuthPlugin) handleCompleteProfile(input *core.PluginInput) (*core.PluginOutput, error) {
 	// 从 input.Data 获取 user_id（由 JWT 中间件解析后传入）
 	userID := int64(0)
@@ -658,8 +669,9 @@ func (p *AuthPlugin) handleCompleteProfile(input *core.PluginInput) (*core.Plugi
 		p.userRepo.UpdateProfile(userID, role, nickname, school, description)
 	}
 
-	// 生成新的 JWT token（含 persona_id）
-	token, expiresAt, err := p.jwtManager.GenerateToken(userID, user.Username, role, personaID)
+	// 生成新的 JWT token（含 persona_id 和 user_role）
+	// user_role 使用分身角色，因为用户完成资料补全时选择了该角色
+	token, expiresAt, err := p.jwtManager.GenerateTokenWithUserRole(userID, user.Username, role, role, personaID)
 	if err != nil {
 		return nil, fmt.Errorf("生成新 token 失败: %w", err)
 	}
@@ -675,10 +687,276 @@ func (p *AuthPlugin) handleCompleteProfile(input *core.PluginInput) (*core.Plugi
 		"expires_at":  expiresAt.Format(time.RFC3339),
 	})
 
+	// V2.0 迭代11 M4：教师角色创建自测学生
+	if role == "teacher" {
+		testStudent, password, err := p.createTestStudent(userID, user.Username)
+		if err != nil {
+			// 创建自测学生失败不影响主流程，仅记录日志
+			fmt.Printf("创建自测学生失败: %v\n", err)
+		} else if testStudent != nil {
+			// 查询自测学生的分身
+			testPersona, _ := p.personaRepo.GetStudentPersonaByUserID(testStudent.ID)
+			testStudentInfo := map[string]interface{}{
+				"user_id":       testStudent.ID,
+				"username":      testStudent.Username,
+				"nickname":      testStudent.Nickname,
+				"password_hint": "初始密码为6位数字，请在首次登录后修改",
+			}
+			if testPersona != nil {
+				testStudentInfo["persona_id"] = testPersona.ID
+			}
+			// 只有创建时才返回密码
+			if password != "" {
+				testStudentInfo["initial_password"] = password
+			}
+			outputData["test_student"] = testStudentInfo
+		}
+	}
+
 	return &core.PluginOutput{
 		Success:  true,
 		Data:     outputData,
 		Metadata: map[string]interface{}{"plugin": "auth", "action": "complete-profile"},
+	}, nil
+}
+
+// createTestStudent 创建自测学生账号
+func (p *AuthPlugin) createTestStudent(teacherID int64, teacherUsername string) (*database.User, string, error) {
+	// 检查是否已存在自测学生
+	existing, err := p.userRepo.FindByTestTeacherID(teacherID)
+	if err != nil {
+		return nil, "", fmt.Errorf("检查自测学生失败: %w", err)
+	}
+	if existing != nil {
+		return existing, "", nil // 已存在，返回
+	}
+
+	// 生成6位随机数字密码
+	password := generateNumericPassword(6)
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		return nil, "", fmt.Errorf("密码加密失败: %w", err)
+	}
+
+	// 创建自测学生用户
+	testStudent := &database.User{
+		Username:      fmt.Sprintf("teacher_%d_test", teacherID),
+		Password:      string(hashedPassword),
+		Role:          "student",
+		Nickname:      "测试学生",
+		IsTestStudent: true,
+		TestTeacherID: teacherID,
+	}
+
+	userID, err := p.userRepo.CreateTestStudent(testStudent)
+	if err != nil {
+		return nil, "", fmt.Errorf("创建自测学生用户失败: %w", err)
+	}
+	testStudent.ID = userID
+
+	// 创建学生分身
+	persona := &database.Persona{
+		UserID:      userID,
+		Role:        "student",
+		Nickname:    "测试学生",
+		School:      "",
+		Description: "教师自测学生账号",
+	}
+
+	personaID, err := p.personaRepo.Create(persona)
+	if err != nil {
+		return nil, "", fmt.Errorf("创建自测学生分身失败: %w", err)
+	}
+
+	// 更新默认分身ID
+	p.userRepo.UpdateDefaultPersonaID(userID, personaID)
+
+	return testStudent, password, nil
+}
+
+// generateNumericPassword 生成指定长度的数字密码
+func generateNumericPassword(length int) string {
+	const digits = "0123456789"
+	bytes := make([]byte, length)
+	rand.Read(bytes)
+	for i := range bytes {
+		bytes[i] = digits[int(bytes[i])%len(digits)]
+	}
+	return string(bytes)
+}
+
+// handleWxH5LoginURL 生成微信H5网页授权URL
+func (p *AuthPlugin) handleWxH5LoginURL(input *core.PluginInput) (*core.PluginOutput, error) {
+	redirectURI, _ := input.Data["redirect_uri"].(string)
+	state, _ := input.Data["state"].(string)
+
+	if redirectURI == "" {
+		return &core.PluginOutput{
+			Success: false,
+			Data:    map[string]interface{}{"error_code": 40004},
+			Error:   "缺少 redirect_uri 参数",
+		}, nil
+	}
+
+	// 生成授权URL
+	authURL := p.wxClient.GetAuthURL(redirectURI, state)
+
+	outputData := mergeData(input.Data, map[string]interface{}{
+		"auth_url": authURL,
+	})
+
+	return &core.PluginOutput{
+		Success:  true,
+		Data:     outputData,
+		Metadata: map[string]interface{}{"plugin": "auth", "action": "wx-h5-login-url"},
+	}, nil
+}
+
+// handleWxH5Callback 处理微信H5授权回调
+func (p *AuthPlugin) handleWxH5Callback(input *core.PluginInput) (*core.PluginOutput, error) {
+	code, _ := input.Data["code"].(string)
+	if code == "" {
+		return &core.PluginOutput{
+			Success: false,
+			Data:    map[string]interface{}{"error_code": 40004},
+			Error:   "缺少 code 参数",
+		}, nil
+	}
+
+	// 调用微信 API 获取 access_token 和 openid
+	tokenResp, err := p.wxClient.GetAccessToken(code)
+	if err != nil {
+		return &core.PluginOutput{
+			Success: false,
+			Data:    map[string]interface{}{"error_code": 50001},
+			Error:   "微信授权失败",
+		}, nil
+	}
+
+	if tokenResp.OpenID == "" {
+		return &core.PluginOutput{
+			Success: false,
+			Data:    map[string]interface{}{"error_code": 40004},
+			Error:   "无效的授权凭证",
+		}, nil
+	}
+
+	// 获取用户信息（需 scope=snsapi_userinfo）
+	userInfo, err := p.wxClient.GetUserInfo(tokenResp.AccessToken, tokenResp.OpenID)
+	var nickname string
+	if err == nil && userInfo != nil {
+		nickname = userInfo.Nickname
+	}
+
+	// 根据 openid 查询用户
+	user, err := p.userRepo.GetByOpenID(tokenResp.OpenID)
+	if err != nil {
+		return nil, fmt.Errorf("查询用户失败: %w", err)
+	}
+
+	isNewUser := false
+	if user == nil {
+		// 新用户：自动创建
+		isNewUser = true
+		openidSuffix := tokenResp.OpenID
+		if len(openidSuffix) > 6 {
+			openidSuffix = openidSuffix[len(openidSuffix)-6:]
+		}
+
+		// 生成随机密码
+		randomBytes := make([]byte, 16)
+		rand.Read(randomBytes)
+		randomPassword := hex.EncodeToString(randomBytes)
+		hashedPassword, err := bcrypt.GenerateFromPassword([]byte(randomPassword), bcrypt.DefaultCost)
+		if err != nil {
+			return nil, fmt.Errorf("密码加密失败: %w", err)
+		}
+
+		// 使用微信昵称作为默认昵称
+		if nickname == "" {
+			nickname = "微信用户"
+		}
+
+		user = &database.User{
+			Username:  "wx_h5_" + openidSuffix,
+			Password:  string(hashedPassword),
+			Role:      "",
+			Nickname:  nickname,
+			OpenID:    tokenResp.OpenID,
+			WxUnionID: tokenResp.UnionID,
+		}
+
+		userID, err := p.userRepo.CreateWithOpenID(user)
+		if err != nil {
+			return nil, fmt.Errorf("创建微信H5用户失败: %w", err)
+		}
+		user.ID = userID
+	} else {
+		// 已有用户，检查是否需要更新 UnionID
+		if user.WxUnionID == "" && tokenResp.UnionID != "" {
+			p.userRepo.UpdateWxUnionID(user.ID, tokenResp.UnionID)
+		}
+	}
+
+	// 检查用户状态
+	if user.Status == "disabled" {
+		return &core.PluginOutput{
+			Success: false,
+			Data:    map[string]interface{}{"error_code": 40003},
+			Error:   "用户已被禁用",
+		}, nil
+	}
+
+	// 查询用户的分身列表
+	personas, err := p.personaRepo.ListByUserID(user.ID, "")
+	if err != nil {
+		return nil, fmt.Errorf("查询分身列表失败: %w", err)
+	}
+
+	// 确定当前分身和角色
+	var currentPersona interface{}
+	personaID := int64(0)
+	role := user.Role
+
+	if len(personas) > 0 {
+		if user.DefaultPersonaID > 0 {
+			for _, persona := range personas {
+				if persona.ID == user.DefaultPersonaID {
+					currentPersona = persona
+					personaID = persona.ID
+					role = persona.Role
+					break
+				}
+			}
+		}
+		if currentPersona == nil {
+			currentPersona = personas[0]
+			personaID = personas[0].ID
+			role = personas[0].Role
+		}
+	}
+
+	// 生成 JWT token（含 user_role）
+	token, expiresAt, err := p.jwtManager.GenerateTokenWithUserRole(user.ID, user.Username, role, user.Role, personaID)
+	if err != nil {
+		return nil, fmt.Errorf("生成 token 失败: %w", err)
+	}
+
+	outputData := mergeData(input.Data, map[string]interface{}{
+		"user_id":         user.ID,
+		"token":           token,
+		"role":            role,
+		"nickname":        user.Nickname,
+		"is_new_user":     isNewUser,
+		"expires_at":      expiresAt.Format(time.RFC3339),
+		"personas":        personas,
+		"current_persona": currentPersona,
+	})
+
+	return &core.PluginOutput{
+		Success:  true,
+		Data:     outputData,
+		Metadata: map[string]interface{}{"plugin": "auth", "action": "wx-h5-callback"},
 	}, nil
 }
 

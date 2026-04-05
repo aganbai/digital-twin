@@ -1,0 +1,6 @@
+{
+  "teacherId": 81,
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjo4MSwicGVyc29uYV9pZCI6MTIwLCJ1c2VybmFtZSI6Ind4X-eUqOaIt19yMDlmMGQiLCJyb2xlIjoidGVhY2hlciIsInVzZXJfcm9sZSI6InRlYWNoZXIiLCJpc3MiOiJkaWdpdGFsLXR3aW4iLCJleHAiOjE3NzU0MDg3MzUsImlhdCI6MTc3NTMyMjMzNX0.eInpV52y5TyhjMzqOQGPLhH51wxQ7O6HTTfeiti5pSA",
+  "testStudentUsername": "teacher_81_test",
+  "testStudentNickname": "测试学生"
+}

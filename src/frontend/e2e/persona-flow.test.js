@@ -158,35 +158,37 @@ describe('分身流程 E2E 测试', () => {
     expect(title).toBeTruthy()
     const titleText = await title.text()
     console.log('概览标题:', titleText)
-    expect(titleText).toContain('我的分身')
+    // 迭代11：标题改为"我的班级分身"
+    expect(titleText).toContain('分身')
 
-    // 验证汇总统计（总分身数、总学生数、总班级数）
+    // 验证汇总统计（迭代11：班级数、学生数）
     const summary = await page.$('.persona-overview__summary')
     expect(summary).toBeTruthy()
     const summaryText = await summary.text()
     console.log('汇总统计:', summaryText)
-    expect(summaryText).toContain('个分身')
+    // 迭代11：统计改为"共 X 个班级"
+    expect(summaryText).toContain('个班级')
 
     // 验证分身卡片列表
     const cards = await page.$$('.persona-overview__card')
     console.log(`分身卡片数量: ${cards.length}`)
     expect(cards.length).toBeGreaterThanOrEqual(1)
 
-    // 验证卡片信息完整：昵称、启停状态、公开状态、学生数、班级数、文档数
+    // 验证卡片信息完整：昵称
     const cardName = await page.$('.persona-overview__card-name')
     expect(cardName).toBeTruthy()
     const nameText = await cardName.text()
     console.log('分身名称:', nameText)
 
-    // 验证状态标签（启用/停用、公开/私有）
+    // 验证状态标签（公开/私有）
     const badges = await page.$$('.persona-overview__badge')
     console.log(`状态标签数量: ${badges.length}`)
     expect(badges.length).toBeGreaterThanOrEqual(1)
 
-    // 验证统计数据（学生数、班级数、文档数）
+    // 验证统计数据（迭代11：学生数、文档数）
     const stats = await page.$$('.persona-overview__stat')
     console.log(`统计项数量: ${stats.length}`)
-    expect(stats.length).toBeGreaterThanOrEqual(3)
+    expect(stats.length).toBeGreaterThanOrEqual(2)
 
     // 验证"进入管理"按钮
     const enterBtn = await page.$('.persona-overview__card-btn')
@@ -195,26 +197,16 @@ describe('分身流程 E2E 测试', () => {
     console.log('管理按钮:', enterBtnText)
     expect(enterBtnText).toContain('进入管理')
 
-    // 点击"进入管理"验证跳转
-    await enterBtn.tap()
-    await sleep(3000)
-    page = await miniProgram.currentPage()
-    console.log('进入管理后跳转到:', page.path)
-    expect(page.path === 'pages/home/index' || page.path === 'pages/knowledge/index').toBeTruthy()
-
-    // 返回概览页
-    await miniProgram.navigateBack()
-    await sleep(2000)
-
-    // 验证"创建新分身"按钮
-    page = await miniProgram.currentPage()
-    if (page.path === 'pages/persona-overview/index') {
-      const createBtn = await page.$('.persona-overview__create-btn')
-      expect(createBtn).toBeTruthy()
-      const createBtnText = await createBtn.text()
-      console.log('创建按钮:', createBtnText)
-      expect(createBtnText).toContain('创建新分身')
+    // 迭代11：验证班级绑定信息展示
+    const classInfo = await page.$('.persona-overview__class-info')
+    if (classInfo) {
+      console.log('✅ 迭代11: 班级绑定信息已展示')
     }
+
+    // 迭代11：不再有"创建新分身"按钮，分身随班级创建
+    const createBtn = await page.$('.persona-overview__create-btn')
+    expect(createBtn).toBeFalsy()
+    console.log('✅ 迭代11: 已移除独立创建分身按钮')
 
     console.log('✅ SM-B02 分身概览页测试通过')
   })

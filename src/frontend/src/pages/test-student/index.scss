@@ -1,0 +1,243 @@
+/* 引用全局变量 */
+@import '../../app.scss';
+
+.test-student-page {
+  min-height: 100vh;
+  background-color: $color-bg-secondary;
+  padding: $spacing-base;
+  padding-bottom: 120rpx;
+
+  /* ========== 加载状态 ========== */
+  &__loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 300px;
+  }
+
+  &__loading-text {
+    font-size: $font-size-base;
+    color: $color-text-secondary;
+  }
+
+  /* ========== 错误状态 ========== */
+  &__error {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 300px;
+  }
+
+  &__error-text {
+    font-size: $font-size-base;
+    color: $color-text-secondary;
+    margin-bottom: $spacing-base;
+  }
+
+  &__error-btn {
+    padding: $spacing-xs $spacing-md;
+    background-color: $color-primary;
+    border-radius: $border-radius-round;
+  }
+
+  &__error-btn-text {
+    font-size: $font-size-sm;
+    color: #ffffff;
+  }
+
+  /* ========== 卡片 ========== */
+  &__card {
+    background-color: $color-bg-primary;
+    border-radius: $border-radius-base;
+    margin-bottom: $spacing-base;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  }
+
+  &__card-header {
+    padding: $spacing-md $spacing-base;
+    border-bottom: 1px solid $color-divider;
+  }
+
+  &__card-title {
+    font-size: $font-size-base;
+    font-weight: bold;
+    color: $color-text-primary;
+  }
+
+  /* ========== 信息项 ========== */
+  &__info-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: $spacing-md $spacing-base;
+    border-bottom: 1px solid $color-divider;
+
+    &:last-child {
+      border-bottom: none;
+    }
+  }
+
+  &__info-label {
+    font-size: $font-size-sm;
+    color: $color-text-secondary;
+  }
+
+  &__info-value {
+    font-size: $font-size-base;
+    color: $color-text-primary;
+
+    &--hint {
+      color: $color-primary;
+      font-weight: 500;
+    }
+  }
+
+  /* ========== 状态标签 ========== */
+  &__status {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px 12px;
+    border-radius: $border-radius-round;
+
+    &--active {
+      background-color: rgba(82, 196, 26, 0.1);
+    }
+
+    &--inactive {
+      background-color: rgba(239, 68, 68, 0.1);
+    }
+  }
+
+  &__status-text {
+    font-size: $font-size-xs;
+
+    .test-student-page__status--active & {
+      color: #52C41A;
+    }
+
+    .test-student-page__status--inactive & {
+      color: #EF4444;
+    }
+  }
+
+  /* ========== 班级列表 ========== */
+  &__class-item {
+    display: flex;
+    align-items: center;
+    padding: $spacing-md $spacing-base;
+    border-bottom: 1px solid $color-divider;
+
+    &:last-child {
+      border-bottom: none;
+    }
+  }
+
+  &__class-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: $border-radius-base;
+    background-color: rgba(79, 70, 229, 0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: $spacing-sm;
+  }
+
+  &__class-icon-text {
+    font-size: 20px;
+  }
+
+  &__class-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+  }
+
+  &__class-name {
+    font-size: $font-size-base;
+    color: $color-text-primary;
+    margin-bottom: 4px;
+  }
+
+  &__class-id {
+    font-size: $font-size-xs;
+    color: $color-text-placeholder;
+  }
+
+  /* ========== 空状态 ========== */
+  &__empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: $spacing-xl 0;
+    background-color: $color-bg-primary;
+    border-radius: $border-radius-base;
+    margin-bottom: $spacing-base;
+  }
+
+  &__empty-text {
+    font-size: $font-size-base;
+    color: $color-text-placeholder;
+  }
+
+  /* ========== 操作按钮 ========== */
+  &__actions {
+    display: flex;
+    gap: $spacing-sm;
+    margin-bottom: $spacing-base;
+  }
+
+  &__btn {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: $spacing-md;
+    border-radius: $border-radius-base;
+    transition: opacity 0.2s;
+
+    &:active {
+      opacity: 0.8;
+    }
+
+    &--primary {
+      background-color: $color-primary;
+    }
+
+    &--danger {
+      background-color: $color-danger;
+    }
+  }
+
+  &__btn-text {
+    font-size: $font-size-base;
+    color: #ffffff;
+    font-weight: 500;
+  }
+
+  /* ========== 说明文字 ========== */
+  &__tips {
+    background-color: rgba(79, 70, 229, 0.05);
+    border-radius: $border-radius-base;
+    padding: $spacing-md $spacing-base;
+    border: 1px solid rgba(79, 70, 229, 0.1);
+  }
+
+  &__tips-title {
+    font-size: $font-size-base;
+    font-weight: bold;
+    color: $color-primary;
+    margin-bottom: $spacing-sm;
+    display: block;
+  }
+
+  &__tips-text {
+    font-size: $font-size-sm;
+    color: $color-text-secondary;
+    line-height: 1.8;
+    display: block;
+  }
+}

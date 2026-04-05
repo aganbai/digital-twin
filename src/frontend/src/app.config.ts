@@ -16,6 +16,7 @@ export default defineAppConfig({
     'pages/share-join/index',
     'pages/class-create/index',
     'pages/class-detail/index',
+    'pages/class-edit/index',
     'pages/knowledge/preview',
     'pages/persona-overview/index',
     'pages/student-chat-history/index',
@@ -32,6 +33,9 @@ export default defineAppConfig({
     'pages/approval-detail/index',
     'pages/chat-list/index',
     'pages/my-comments/index',
+    'pages/course-publish/index',
+    'pages/course-list/index',
+    'pages/test-student/index',
   ],
   tabBar: {
     custom: true,
@@ -40,21 +44,16 @@ export default defineAppConfig({
     backgroundColor: '#FFFFFF',
     borderStyle: 'white',
     list: [
+      // 教师端和学生端共用的 TabBar 页面
       {
-        pagePath: 'pages/home/index',
-        text: '首页',
+        pagePath: 'pages/chat-list/index',
+        text: '聊天列表',
         iconPath: 'assets/tabbar/home.png',
         selectedIconPath: 'assets/tabbar/home_selected.png',
       },
       {
-        pagePath: 'pages/history/index',
-        text: '历史',
-        iconPath: 'assets/tabbar/history.png',
-        selectedIconPath: 'assets/tabbar/history_selected.png',
-      },
-      {
-        pagePath: 'pages/knowledge/index',
-        text: '知识库',
+        pagePath: 'pages/home/index',
+        text: '对话',
         iconPath: 'assets/tabbar/home.png',
         selectedIconPath: 'assets/tabbar/home_selected.png',
       },
@@ -66,7 +65,13 @@ export default defineAppConfig({
       },
       {
         pagePath: 'pages/teacher-students/index',
-        text: '学生',
+        text: '学生管理',
+        iconPath: 'assets/tabbar/home.png',
+        selectedIconPath: 'assets/tabbar/home_selected.png',
+      },
+      {
+        pagePath: 'pages/knowledge/index',
+        text: '知识库',
         iconPath: 'assets/tabbar/home.png',
         selectedIconPath: 'assets/tabbar/home_selected.png',
       },

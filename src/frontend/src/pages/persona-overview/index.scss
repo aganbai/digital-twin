@@ -25,6 +25,27 @@
     color: #6b7280;
   }
 
+  // ========== 空状态 ==========
+  &__empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 120rpx 0;
+    text-align: center;
+  }
+
+  &__empty-text {
+    font-size: 32rpx;
+    color: #9ca3af;
+    margin-bottom: 16rpx;
+  }
+
+  &__empty-hint {
+    font-size: 26rpx;
+    color: #d1d5db;
+  }
+
   // ========== 分身卡片列表 ==========
   &__list {
     /* 列表容器 */
@@ -50,6 +71,7 @@
     display: flex;
     flex-direction: row;
     align-items: baseline;
+    flex: 1;
   }
 
   &__card-name {
@@ -71,6 +93,28 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  // ========== 班级绑定信息（迭代11） ==========
+  &__class-info {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    background-color: #f0fdf4;
+    padding: 16rpx 20rpx;
+    border-radius: 12rpx;
+    margin-bottom: 16rpx;
+  }
+
+  &__class-label {
+    font-size: 24rpx;
+    color: #6b7280;
+  }
+
+  &__class-name {
+    font-size: 26rpx;
+    font-weight: 500;
+    color: #166534;
   }
 
   // ========== 状态标签 ==========
@@ -168,24 +212,6 @@
   &__card-btn-text--share {
     font-size: 26rpx;
     color: #4f46e5;
-    font-weight: 500;
-  }
-
-  // ========== 创建按钮 ==========
-  &__create-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    height: 88rpx;
-    background-color: #ffffff;
-    border: 2rpx dashed #d1d5db;
-    border-radius: 24rpx;
-    margin-top: 8rpx;
-  }
-
-  &__create-btn-text {
-    font-size: 30rpx;
-    color: #6b7280;
     font-weight: 500;
   }
 

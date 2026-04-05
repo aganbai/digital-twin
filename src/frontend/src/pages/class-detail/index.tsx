@@ -212,7 +212,9 @@ export default function ClassDetail() {
 
   /** 编辑班级 */
   const handleEditClass = () => {
-    Taro.showToast({ title: '班级编辑功能开发中', icon: 'none' })
+    Taro.navigateTo({
+      url: `/pages/class-edit/index?class_id=${classId}`,
+    })
   }
 
   return (

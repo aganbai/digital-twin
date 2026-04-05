@@ -136,7 +136,18 @@ export interface StreamErrorEvent {
   message: string
 }
 
-export type StreamEvent = StreamStartEvent | StreamDeltaEvent | StreamDoneEvent | StreamErrorEvent
+/** 迭代9新增：思考步骤事件 */
+export interface ThinkingStepEvent {
+  type: 'thinking_step'
+  step: 'rag_search' | 'memory_recall' | 'tool_call' | 'llm_thinking'
+  status: 'start' | 'done'
+  message: string
+  detail?: string
+  duration_ms?: number
+  timestamp: number
+}
+
+export type StreamEvent = StreamStartEvent | StreamDeltaEvent | StreamDoneEvent | StreamErrorEvent | ThinkingStepEvent
 
 /** 流式对话回调 */
 export interface ChatStreamCallbacks {
@@ -144,6 +155,8 @@ export interface ChatStreamCallbacks {
   onDelta?: (content: string) => void
   onDone?: (conversationId: number) => void
   onError?: (code: number, message: string) => void
+  /** 迭代9新增：思考步骤回调 */
+  onThinkingStep?: (event: ThinkingStepEvent) => void
 }
 
 /**
@@ -270,7 +283,7 @@ export function chatStream(
           if (!jsonStr) continue
           try {
             const event: StreamEvent = JSON.parse(jsonStr)
-            switch (event.type) {
+          switch (event.type) {
               case 'start':
                 callbacks.onStart?.(event.session_id)
                 break
@@ -286,6 +299,9 @@ export function chatStream(
               case 'error':
                 callbacks.onError?.(event.code, event.message)
                 return
+              case 'thinking_step':
+                callbacks.onThinkingStep?.(event)
+                break
             }
           } catch {
             // 忽略解析失败的行
@@ -347,6 +363,9 @@ export function chatStream(
               break
             case 'error':
               callbacks.onError?.(event.code, event.message)
+              break
+            case 'thinking_step':
+              callbacks.onThinkingStep?.(event)
               break
           }
         } catch {

@@ -13,6 +13,40 @@ import (
 	"github.com/google/uuid"
 )
 
+// ======================== V2.0 迭代9: 思考过程展示 ========================
+
+// ThinkingStep 思考步骤事件
+type ThinkingStep struct {
+	Type       string `json:"type"`                  // "thinking_step"
+	Step       string `json:"step"`                  // "rag_search" / "memory_recall" / "tool_call" / "llm_thinking"
+	Status     string `json:"status"`                // "start" / "done"
+	Message    string `json:"message"`               // 展示给用户的提示文案
+	Detail     string `json:"detail,omitempty"`      // 完成时的详细信息
+	DurationMs int64  `json:"duration_ms,omitempty"` // 步骤耗时毫秒
+	Timestamp  int64  `json:"timestamp"`             // 时间戳（毫秒）
+}
+
+// 步骤标识常量
+const (
+	StepRAGSearch    = "rag_search"
+	StepMemoryRecall = "memory_recall"
+	StepToolCall     = "tool_call"
+	StepLLMThinking  = "llm_thinking"
+)
+
+// 步骤提示文案
+var stepMessages = map[string]struct {
+	Start string
+	Done  string
+}{
+	StepRAGSearch:    {"🔍 正在检索知识库...", "✅ 已检索知识库"},
+	StepMemoryRecall: {"🧠 正在检索相关记忆...", "✅ 已检索记忆"},
+	StepToolCall:     {"🔧 正在搜索增强...", "✅ 搜索完成"},
+	StepLLMThinking:  {"💭 AI 正在思考...", "✅ 生成完成"},
+}
+
+// ======================== 对话插件 ========================
+
 // DialoguePlugin 对话插件
 type DialoguePlugin struct {
 	*core.BasePlugin
@@ -315,9 +349,19 @@ func (p *DialoguePlugin) handleChat(input *core.PluginInput, pipelineStart time.
 	completionTokens := len([]rune(replyContent)) / 2
 
 	// 8. 保存用户消息和 AI 回复到 conversations 表
+	// 🔧 修复外键约束：通过 teacher_persona_id 查询对应的 user_id
+	actualTeacherID := teacherID
+	if teacherPersonaID > 0 {
+		personaRepo := database.NewPersonaRepository(p.db)
+		teacherPersona, err := personaRepo.GetByID(teacherPersonaID)
+		if err == nil && teacherPersona != nil {
+			actualTeacherID = teacherPersona.UserID
+		}
+	}
+
 	userConv := &database.Conversation{
 		StudentID:        studentID,
-		TeacherID:        teacherID,
+		TeacherID:        actualTeacherID, // 使用正确的 user_id
 		TeacherPersonaID: teacherPersonaID,
 		StudentPersonaID: studentPersonaID,
 		SessionID:        sessionID,
@@ -337,7 +381,7 @@ func (p *DialoguePlugin) handleChat(input *core.PluginInput, pipelineStart time.
 
 	aiConv := &database.Conversation{
 		StudentID:        studentID,
-		TeacherID:        teacherID,
+		TeacherID:        actualTeacherID, // 使用正确的 user_id
 		TeacherPersonaID: teacherPersonaID,
 		StudentPersonaID: studentPersonaID,
 		SessionID:        sessionID,
@@ -470,7 +514,16 @@ func (p *DialoguePlugin) handleChatStream(ctx context.Context, input *core.Plugi
 		sessionID = uuid.New().String()
 	}
 
+	// 6.1 获取 thinking_step_writer 回调（V2.0 迭代9）
+	var thinkingStepWriter func(eventType string, data map[string]interface{})
+	if v, ok := input.Data["thinking_step_writer"]; ok {
+		if fn, ok := v.(func(string, map[string]interface{})); ok {
+			thinkingStepWriter = fn
+		}
+	}
+
 	// 2. 从 Data 获取上游注入的 memories 和 chunks
+	// 注意：RAG 检索和记忆检索的思考步骤事件已在上游插件（knowledge、memory）中发送
 	var memories []map[string]interface{}
 	if v, ok := input.Data["memories"]; ok {
 		if mems, ok := v.([]map[string]interface{}); ok {
@@ -581,6 +634,10 @@ func (p *DialoguePlugin) handleChatStream(ctx context.Context, input *core.Plugi
 	// 7. 先执行 Adaptive RAG 工具调用阶段（搜索增强），再流式生成最终回复
 	var toolsUsed []string
 	if p.adaptiveRAG != nil && p.adaptiveRAG.enabled {
+		// 发送工具调用开始事件（V2.0 迭代9）
+		toolStartTime := time.Now()
+		p.sendThinkingStep(thinkingStepWriter, StepToolCall, "start", "", 0)
+
 		// 执行工具调用阶段（非流式），获取搜索结果注入上下文
 		augmentedMessages, used, err := p.adaptiveRAG.ProcessToolCalls(chatMessages)
 		if err != nil {
@@ -589,7 +646,21 @@ func (p *DialoguePlugin) handleChatStream(ctx context.Context, input *core.Plugi
 			chatMessages = augmentedMessages
 			toolsUsed = used
 		}
+
+		// 发送工具调用完成事件（V2.0 迭代9）
+		toolDuration := time.Since(toolStartTime).Milliseconds()
+		toolDetail := ""
+		if len(toolsUsed) > 0 {
+			toolDetail = fmt.Sprintf("使用了 %d 个工具", len(toolsUsed))
+		} else {
+			toolDetail = "未使用工具"
+		}
+		p.sendThinkingStep(thinkingStepWriter, StepToolCall, "done", toolDetail, toolDuration)
 	}
+
+	// 发送 LLM 思考开始事件（V2.0 迭代9）
+	llmStartTime := time.Now()
+	p.sendThinkingStep(thinkingStepWriter, StepLLMThinking, "start", "", 0)
 
 	// 流式调用 LLMClient
 	onDelta := func(content string) {
@@ -598,13 +669,30 @@ func (p *DialoguePlugin) handleChatStream(ctx context.Context, input *core.Plugi
 
 	chatResp, err := p.llmClient.ChatStream(chatMessages, onDelta)
 	if err != nil {
+		// 发送 LLM 思考完成事件（失败时也发送）
+		llmDuration := time.Since(llmStartTime).Milliseconds()
+		p.sendThinkingStep(thinkingStepWriter, StepLLMThinking, "done", "", llmDuration)
 		return nil, fmt.Errorf("调用 LLM 流式接口失败: %w", err)
 	}
 
+	// 发送 LLM 思考完成事件（V2.0 迭代9）
+	llmDuration := time.Since(llmStartTime).Milliseconds()
+	p.sendThinkingStep(thinkingStepWriter, StepLLMThinking, "done", "", llmDuration)
+
 	// 8. 保存用户消息和 AI 回复到 conversations 表
+	// 🔧 修复外键约束：通过 teacher_persona_id 查询对应的 user_id
+	actualTeacherID := teacherID
+	if teacherPersonaID > 0 {
+		personaRepo := database.NewPersonaRepository(p.db)
+		teacherPersona, err := personaRepo.GetByID(teacherPersonaID)
+		if err == nil && teacherPersona != nil {
+			actualTeacherID = teacherPersona.UserID
+		}
+	}
+
 	userConv := &database.Conversation{
 		StudentID:        studentID,
-		TeacherID:        teacherID,
+		TeacherID:        actualTeacherID, // 使用正确的 user_id
 		TeacherPersonaID: teacherPersonaID,
 		StudentPersonaID: studentPersonaID,
 		SessionID:        sessionID,
@@ -624,7 +712,7 @@ func (p *DialoguePlugin) handleChatStream(ctx context.Context, input *core.Plugi
 
 	aiConv := &database.Conversation{
 		StudentID:        studentID,
-		TeacherID:        teacherID,
+		TeacherID:        actualTeacherID, // 使用正确的 user_id
 		TeacherPersonaID: teacherPersonaID,
 		StudentPersonaID: studentPersonaID,
 		SessionID:        sessionID,
@@ -799,4 +887,53 @@ func toFloat64(v interface{}, defaultVal float64) float64 {
 	default:
 		return defaultVal
 	}
+}
+
+// ======================== V2.0 迭代9: 思考过程展示辅助方法 ========================
+
+// sendThinkingStep 发送思考步骤事件
+// thinkingStepWriter 是一个回调函数，用于发送 SSE 事件
+func (p *DialoguePlugin) sendThinkingStep(thinkingStepWriter func(eventType string, data map[string]interface{}), step, status, detail string, durationMs int64) {
+	if thinkingStepWriter == nil {
+		return
+	}
+
+	msg, ok := stepMessages[step]
+	if !ok {
+		return
+	}
+
+	var message string
+	if status == "start" {
+		message = msg.Start
+	} else {
+		message = msg.Done
+	}
+
+	event := ThinkingStep{
+		Type:       "thinking_step",
+		Step:       step,
+		Status:     status,
+		Message:    message,
+		Detail:     detail,
+		DurationMs: durationMs,
+		Timestamp:  time.Now().UnixMilli(),
+	}
+
+	// 转换为 map 供 SSE 发送
+	data := map[string]interface{}{
+		"type":      event.Type,
+		"step":      event.Step,
+		"status":    event.Status,
+		"message":   event.Message,
+		"timestamp": event.Timestamp,
+	}
+	if event.Detail != "" {
+		data["detail"] = event.Detail
+	}
+	if event.DurationMs > 0 {
+		data["duration_ms"] = event.DurationMs
+	}
+
+	thinkingStepWriter("thinking_step", data)
 }

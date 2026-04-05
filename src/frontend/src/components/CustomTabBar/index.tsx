@@ -23,14 +23,14 @@ interface TabItem {
 /** 教师端 Tab 列表 */
 const TEACHER_TABS: TabItem[] = [
   {
-    pagePath: 'pages/home/index',
-    text: '工作台',
-    icon: '🏠',
-    selectedIcon: '🏠',
+    pagePath: 'pages/chat-list/index',
+    text: '聊天',
+    icon: '💬',
+    selectedIcon: '💬',
   },
   {
     pagePath: 'pages/teacher-students/index',
-    text: '学生',
+    text: '学生管理',
     icon: '👥',
     selectedIcon: '👥',
   },
@@ -79,8 +79,8 @@ interface CustomTabBarProps {
 /**
  * 自定义 TabBar 组件
  * 根据用户角色（teacher/student）展示不同 Tab 列表
- * 教师端：工作台 / 学生 / 知识库 / 我的
- * 学生端：对话 / 历史 / 发现 / 我的
+ * 教师端：聊天列表 / 学生管理 / 知识库 / 我的
+ * 学生端：对话 / 发现 / 我的
  */
 export default function CustomTabBar(props: CustomTabBarProps) {
   const { pendingCount = 0 } = props

@@ -1,0 +1,13 @@
+-- V2.0 迭代10: 管理员初始化脚本
+-- 使用方法：
+-- 1. 通过用户ID设置管理员：
+--    UPDATE users SET role = 'admin' WHERE id = <USER_ID>;
+--
+-- 2. 通过用户名设置管理员：
+--    UPDATE users SET role = 'admin' WHERE username = '<USERNAME>';
+--
+-- 3. 通过微信openid设置管理员：
+--    UPDATE users SET role = 'admin' WHERE openid = '<OPENID>';
+
+-- 示例：将用户ID为1的用户设为管理员
+-- UPDATE users SET role = 'admin' WHERE id = 1;

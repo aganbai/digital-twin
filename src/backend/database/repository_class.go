@@ -20,9 +20,29 @@ func NewClassRepository(db *sql.DB) *ClassRepository {
 func (r *ClassRepository) Create(class *Class) (int64, error) {
 	now := time.Now()
 	result, err := r.db.Exec(
-		`INSERT INTO classes (persona_id, name, description, created_at, updated_at)
-		 VALUES (?, ?, ?, ?, ?)`,
-		class.PersonaID, class.Name, class.Description, now, now,
+		`INSERT INTO classes (persona_id, name, description, is_public, created_at, updated_at)
+		 VALUES (?, ?, ?, ?, ?, ?)`,
+		class.PersonaID, class.Name, class.Description, class.IsPublic, now, now,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("创建班级失败: %w", err)
+	}
+
+	id, err := result.LastInsertId()
+	if err != nil {
+		return 0, fmt.Errorf("获取班级ID失败: %w", err)
+	}
+
+	return id, nil
+}
+
+// CreateWithTx 在事务中创建班级
+func (r *ClassRepository) CreateWithTx(tx *sql.Tx, class *Class) (int64, error) {
+	now := time.Now()
+	result, err := tx.Exec(
+		`INSERT INTO classes (persona_id, name, description, is_public, created_at, updated_at)
+		 VALUES (?, ?, ?, ?, ?, ?)`,
+		class.PersonaID, class.Name, class.Description, class.IsPublic, now, now,
 	)
 	if err != nil {
 		return 0, fmt.Errorf("创建班级失败: %w", err)
@@ -40,10 +60,10 @@ func (r *ClassRepository) Create(class *Class) (int64, error) {
 func (r *ClassRepository) GetByID(id int64) (*Class, error) {
 	class := &Class{}
 	err := r.db.QueryRow(
-		`SELECT id, persona_id, name, description, COALESCE(is_active, 1), created_at, updated_at
+		`SELECT id, persona_id, name, description, COALESCE(is_active, 1), COALESCE(is_public, 1), created_at, updated_at
 		 FROM classes WHERE id = ?`,
 		id,
-	).Scan(&class.ID, &class.PersonaID, &class.Name, &class.Description, &class.IsActive, &class.CreatedAt, &class.UpdatedAt)
+	).Scan(&class.ID, &class.PersonaID, &class.Name, &class.Description, &class.IsActive, &class.IsPublic, &class.CreatedAt, &class.UpdatedAt)
 
 	if err == sql.ErrNoRows {
 		return nil, nil
@@ -140,6 +160,22 @@ func (r *ClassRepository) CheckNameExists(personaID int64, name string, excludeI
 	err := r.db.QueryRow(
 		`SELECT COUNT(*) FROM classes WHERE persona_id = ? AND name = ? AND id != ?`,
 		personaID, name, excludeID,
+	).Scan(&count)
+	if err != nil {
+		return false, fmt.Errorf("检查班级名是否存在失败: %w", err)
+	}
+	return count > 0, nil
+}
+
+// CheckNameExistsByUserID 检查用户维度下班级名是否已存在（V2.0 迭代11新增）
+// 在新模式下，每个班级对应一个分身，班级名称在用户维度下唯一
+func (r *ClassRepository) CheckNameExistsByUserID(userID int64, name string, excludeID int64) (bool, error) {
+	var count int
+	err := r.db.QueryRow(
+		`SELECT COUNT(*) FROM classes c
+		 JOIN personas p ON c.persona_id = p.id
+		 WHERE p.user_id = ? AND c.name = ? AND c.id != ?`,
+		userID, name, excludeID,
 	).Scan(&count)
 	if err != nil {
 		return false, fmt.Errorf("检查班级名是否存在失败: %w", err)
@@ -288,6 +324,45 @@ type ToggleClassResult struct {
 	UpdatedAt        time.Time `json:"updated_at"`
 }
 
+// GetClassDetailForStudent 获取班级详情（学生视角，含教师信息）
+func (r *ClassRepository) GetClassDetailForStudent(classID int64) (*ClassDetailForStudent, error) {
+	query := `SELECT c.id, c.name, c.description, COALESCE(c.is_active, 1), c.created_at,
+		COALESCE(p.nickname, '') AS teacher_name,
+		COALESCE((SELECT COUNT(*) FROM class_members WHERE class_id = c.id), 0) AS member_count
+		FROM classes c
+		LEFT JOIN personas p ON c.persona_id = p.id
+		WHERE c.id = ?`
+
+	detail := &ClassDetailForStudent{}
+	var isActiveInt int
+	err := r.db.QueryRow(query, classID).Scan(
+		&detail.ID, &detail.Name, &detail.Description, &isActiveInt, &detail.CreatedAt,
+		&detail.TeacherName, &detail.MemberCount,
+	)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("查询班级详情失败: %w", err)
+	}
+	detail.IsActive = isActiveInt == 1
+
+	return detail, nil
+}
+
+// IsStudentInClass 检查学生分身是否在指定班级中
+func (r *ClassRepository) IsStudentInClass(classID, studentPersonaID int64) (bool, error) {
+	var count int
+	err := r.db.QueryRow(
+		`SELECT COUNT(*) FROM class_members WHERE class_id = ? AND student_persona_id = ?`,
+		classID, studentPersonaID,
+	).Scan(&count)
+	if err != nil {
+		return false, fmt.Errorf("检查班级成员失败: %w", err)
+	}
+	return count > 0, nil
+}
+
 // ToggleClass 启用/停用班级
 func (r *ClassRepository) ToggleClass(classID int64, isActive int) (*ToggleClassResult, error) {
 	now := time.Now()
@@ -323,4 +398,38 @@ func (r *ClassRepository) ToggleClass(classID int64, isActive int) (*ToggleClass
 		AffectedStudents: studentCount,
 		UpdatedAt:        now,
 	}, nil
+}
+
+// ======================== V2.0 迭代11 M4 自测学生方法 ========================
+
+// ListClassesByStudentPersonaID 获取学生分身所在的所有班级列表
+func (r *ClassRepository) ListClassesByStudentPersonaID(studentPersonaID int64) ([]ClassWithMemberCount, error) {
+	rows, err := r.db.Query(
+		`SELECT c.id, c.name, c.description,
+		        COALESCE((SELECT COUNT(*) FROM class_members WHERE class_id = c.id), 0) AS member_count,
+		        COALESCE(c.is_active, 1),
+		        c.created_at
+		 FROM classes c
+		 JOIN class_members cm ON c.id = cm.class_id
+		 WHERE cm.student_persona_id = ?
+		 ORDER BY c.created_at ASC`,
+		studentPersonaID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("查询学生班级列表失败: %w", err)
+	}
+	defer rows.Close()
+
+	var items []ClassWithMemberCount
+	for rows.Next() {
+		var item ClassWithMemberCount
+		var isActiveInt int
+		if err := rows.Scan(&item.ID, &item.Name, &item.Description, &item.MemberCount, &isActiveInt, &item.CreatedAt); err != nil {
+			return nil, fmt.Errorf("扫描班级记录失败: %w", err)
+		}
+		item.IsActive = isActiveInt == 1
+		items = append(items, item)
+	}
+
+	return items, nil
 }

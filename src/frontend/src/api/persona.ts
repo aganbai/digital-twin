@@ -9,6 +9,10 @@ export interface Persona {
   description?: string
   is_active: boolean
   is_public?: boolean
+  /** 绑定的班级ID（迭代11：班级专属分身） */
+  bound_class_id?: number
+  /** 绑定的班级名称（迭代11：班级专属分身） */
+  bound_class_name?: string
   created_at: string
 }
 

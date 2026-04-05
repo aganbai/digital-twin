@@ -16,6 +16,7 @@ import type {
   TeacherChatStudent,
   QuickActionItem,
 } from '@/api/chat-list'
+import { getSessionsV9, SessionInfo } from '@/api/session'
 import { formatTime, truncateText } from '@/utils/format'
 import { ROLES } from '@/utils/constants'
 import Empty from '@/components/Empty'
@@ -35,6 +36,10 @@ export default function ChatList() {
 
   // ========== 学生端状态 ==========
   const [teachers, setTeachers] = useState<StudentTeacherChatItem[]>([])
+  /** 每个老师的历史会话列表（迭代9新增） */
+  const [teacherSessions, setTeacherSessions] = useState<Record<number, SessionInfo[]>>({})
+  /** 每个老师的历史会话展开状态 */
+  const [expandedTeachers, setExpandedTeachers] = useState<Record<number, boolean>>({})
   /** 新会话弹层 */
   const [showNewSession, setShowNewSession] = useState(false)
   /** 新会话选中的老师 */
@@ -122,6 +127,41 @@ export default function ChatList() {
   const handleTeacherClick = (teacher: StudentTeacherChatItem) => {
     Taro.navigateTo({
       url: `/pages/chat/index?teacher_id=${teacher.teacher_persona_id}&teacher_name=${encodeURIComponent(teacher.teacher_nickname)}`,
+    })
+  }
+
+  /** 获取老师的历史会话列表（迭代9新增） */
+  const fetchTeacherHistorySessions = useCallback(async (teacherPersonaId: number) => {
+    try {
+      const res = await getSessionsV9(teacherPersonaId, 1, 20)
+      setTeacherSessions((prev) => ({
+        ...prev,
+        [teacherPersonaId]: res.data.items || [],
+      }))
+    } catch (error) {
+      console.error('获取历史会话失败:', error)
+    }
+  }, [])
+
+  /** 切换老师历史会话展开/收起（迭代9新增） */
+  const toggleTeacherExpand = useCallback((teacherPersonaId: number) => {
+    setExpandedTeachers((prev) => {
+      const newExpanded = !prev[teacherPersonaId]
+      // 如果是展开，同时加载历史会话
+      if (newExpanded && !teacherSessions[teacherPersonaId]) {
+        fetchTeacherHistorySessions(teacherPersonaId)
+      }
+      return {
+        ...prev,
+        [teacherPersonaId]: newExpanded,
+      }
+    })
+  }, [teacherSessions, fetchTeacherHistorySessions])
+
+  /** 点击历史会话进入聊天详情（迭代9新增） */
+  const handleSessionClick = (session: SessionInfo, teacher: StudentTeacherChatItem) => {
+    Taro.navigateTo({
+      url: `/pages/chat/index?teacher_id=${teacher.teacher_persona_id}&teacher_name=${encodeURIComponent(teacher.teacher_nickname)}&session_id=${session.session_id}`,
     })
   }
 
@@ -287,55 +327,104 @@ export default function ChatList() {
         </View>
       ) : teachers.length > 0 ? (
         <ScrollView className='chat-list__scroll' scrollY enhanced showScrollbar={false}>
-          {teachers.map((teacher) => (
-            <View
-              key={teacher.teacher_persona_id}
-              className={`chat-list__item ${teacher.is_pinned ? 'chat-list__item--pinned' : ''}`}
-              onClick={() => handleTeacherClick(teacher)}
-              onLongPress={() => handleTeacherLongPress(teacher)}
-            >
-              {/* 头像 */}
-              <View className='chat-list__avatar'>
-                <Text className='chat-list__avatar-text'>
-                  {teacher.teacher_nickname.charAt(0).toUpperCase()}
-                </Text>
-              </View>
-
-              {/* 信息区 */}
-              <View className='chat-list__info'>
-                <View className='chat-list__info-top'>
-                  <View className='chat-list__name-row'>
-                    {teacher.is_pinned && (
-                      <Text className='chat-list__pin-icon'>📌</Text>
-                    )}
-                    <Text className='chat-list__name'>{teacher.teacher_nickname}</Text>
-                    {teacher.subject && (
-                      <Text className='chat-list__subject'>{teacher.subject}</Text>
-                    )}
-                  </View>
-                  {teacher.last_message_time && (
-                    <Text className='chat-list__time'>
-                      {formatTime(teacher.last_message_time)}
+          {teachers.map((teacher) => {
+            const isExpanded = expandedTeachers[teacher.teacher_persona_id]
+            const sessions = teacherSessions[teacher.teacher_persona_id] || []
+            
+            return (
+              <View key={teacher.teacher_persona_id} className='chat-list__teacher-group'>
+                {/* 老师卡片（最新会话） */}
+                <View
+                  className={`chat-list__item ${teacher.is_pinned ? 'chat-list__item--pinned' : ''}`}
+                  onClick={() => handleTeacherClick(teacher)}
+                  onLongPress={() => handleTeacherLongPress(teacher)}
+                >
+                  {/* 头像 */}
+                  <View className='chat-list__avatar'>
+                    <Text className='chat-list__avatar-text'>
+                      {teacher.teacher_nickname.charAt(0).toUpperCase()}
                     </Text>
-                  )}
-                </View>
-                <View className='chat-list__info-bottom'>
-                  <Text className='chat-list__message'>
-                    {teacher.last_message
-                      ? truncateText(teacher.last_message, 30)
-                      : '暂无消息'}
-                  </Text>
-                  {teacher.unread_count > 0 && (
-                    <View className='chat-list__badge'>
-                      <Text className='chat-list__badge-text'>
-                        {teacher.unread_count > 99 ? '99+' : teacher.unread_count}
-                      </Text>
+                  </View>
+
+                  {/* 信息区 */}
+                  <View className='chat-list__info'>
+                    <View className='chat-list__info-top'>
+                      <View className='chat-list__name-row'>
+                        {teacher.is_pinned && (
+                          <Text className='chat-list__pin-icon'>📌</Text>
+                        )}
+                        <Text className='chat-list__name'>{teacher.teacher_nickname}</Text>
+                        {teacher.subject && (
+                          <Text className='chat-list__subject'>{teacher.subject}</Text>
+                        )}
+                      </View>
+                      {teacher.last_message_time && (
+                        <Text className='chat-list__time'>
+                          {formatTime(teacher.last_message_time)}
+                        </Text>
+                      )}
                     </View>
-                  )}
+                    <View className='chat-list__info-bottom'>
+                      <Text className='chat-list__message'>
+                        {teacher.last_message
+                          ? truncateText(teacher.last_message, 30)
+                          : '暂无消息'}
+                      </Text>
+                      {teacher.unread_count > 0 && (
+                        <View className='chat-list__badge'>
+                          <Text className='chat-list__badge-text'>
+                            {teacher.unread_count > 99 ? '99+' : teacher.unread_count}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                  </View>
                 </View>
+
+                {/* 历史会话展开按钮 */}
+                <View
+                  className='chat-list__expand-sessions'
+                  onClick={() => toggleTeacherExpand(teacher.teacher_persona_id)}
+                >
+                  <Text className='chat-list__expand-text'>
+                    {isExpanded ? '收起历史会话' : '展开历史会话'}
+                  </Text>
+                  <Text className={`chat-list__expand-arrow ${isExpanded ? 'chat-list__expand-arrow--up' : ''}`}>
+                    ▼
+                  </Text>
+                </View>
+
+                {/* 历史会话列表 */}
+                {isExpanded && sessions.length > 0 && (
+                  <View className='chat-list__sessions'>
+                    {sessions.map((session) => (
+                      <View
+                        key={session.session_id}
+                        className='chat-list__session-item'
+                        onClick={() => handleSessionClick(session, teacher)}
+                      >
+                        <View className='chat-list__session-icon'>💬</View>
+                        <View className='chat-list__session-info'>
+                          <Text className='chat-list__session-title'>
+                            {session.title || truncateText(session.last_message, 25)}
+                          </Text>
+                          <Text className='chat-list__session-meta'>
+                            {session.message_count} 条消息 · {formatTime(session.updated_at)}
+                          </Text>
+                        </View>
+                      </View>
+                    ))}
+                  </View>
+                )}
+
+                {isExpanded && sessions.length === 0 && (
+                  <View className='chat-list__sessions-empty'>
+                    <Text>暂无历史会话</Text>
+                  </View>
+                )}
               </View>
-            </View>
-          ))}
+            )
+          })}
         </ScrollView>
       ) : (
         <View className='chat-list__empty'>

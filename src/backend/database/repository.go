@@ -42,11 +42,11 @@ func (r *UserRepository) Create(user *User) (int64, error) {
 func (r *UserRepository) GetByOpenID(openid string) (*User, error) {
 	user := &User{}
 	err := r.db.QueryRow(
-		`SELECT id, username, password, role, nickname, email, openid, school, description, default_persona_id, COALESCE(profile_snapshot, '{}'), created_at, updated_at 
+		`SELECT id, username, password, role, nickname, email, openid, COALESCE(status, 'active'), COALESCE(wx_unionid, ''), school, description, default_persona_id, COALESCE(profile_snapshot, '{}'), created_at, updated_at 
 		 FROM users WHERE openid = ?`,
 		openid,
 	).Scan(&user.ID, &user.Username, &user.Password, &user.Role,
-		&user.Nickname, &user.Email, &user.OpenID, &user.School, &user.Description, &user.DefaultPersonaID, &user.ProfileSnapshot, &user.CreatedAt, &user.UpdatedAt)
+		&user.Nickname, &user.Email, &user.OpenID, &user.Status, &user.WxUnionID, &user.School, &user.Description, &user.DefaultPersonaID, &user.ProfileSnapshot, &user.CreatedAt, &user.UpdatedAt)
 
 	if err == sql.ErrNoRows {
 		return nil, nil
@@ -54,6 +54,9 @@ func (r *UserRepository) GetByOpenID(openid string) (*User, error) {
 	if err != nil {
 		return nil, fmt.Errorf("根据 openid 查询用户失败: %w", err)
 	}
+
+	// V2.0 迭代9: 画像隐私保护，清空用户画像
+	user.ProfileSnapshot = ""
 
 	return user, nil
 }
@@ -103,11 +106,11 @@ func (r *UserRepository) UpdateRoleAndNickname(userID int64, role, nickname stri
 func (r *UserRepository) GetByUsername(username string) (*User, error) {
 	user := &User{}
 	err := r.db.QueryRow(
-		`SELECT id, username, password, role, nickname, email, openid, school, description, default_persona_id, COALESCE(profile_snapshot, '{}'), created_at, updated_at 
+		`SELECT id, username, password, role, nickname, email, openid, COALESCE(status, 'active'), COALESCE(wx_unionid, ''), school, description, default_persona_id, COALESCE(profile_snapshot, '{}'), created_at, updated_at 
 		 FROM users WHERE username = ?`,
 		username,
 	).Scan(&user.ID, &user.Username, &user.Password, &user.Role,
-		&user.Nickname, &user.Email, &user.OpenID, &user.School, &user.Description, &user.DefaultPersonaID, &user.ProfileSnapshot, &user.CreatedAt, &user.UpdatedAt)
+		&user.Nickname, &user.Email, &user.OpenID, &user.Status, &user.WxUnionID, &user.School, &user.Description, &user.DefaultPersonaID, &user.ProfileSnapshot, &user.CreatedAt, &user.UpdatedAt)
 
 	if err == sql.ErrNoRows {
 		return nil, nil
@@ -115,6 +118,9 @@ func (r *UserRepository) GetByUsername(username string) (*User, error) {
 	if err != nil {
 		return nil, fmt.Errorf("查询用户失败: %w", err)
 	}
+
+	// V2.0 迭代9: 画像隐私保护，清空用户画像
+	user.ProfileSnapshot = ""
 
 	return user, nil
 }
@@ -123,11 +129,11 @@ func (r *UserRepository) GetByUsername(username string) (*User, error) {
 func (r *UserRepository) GetByID(id int64) (*User, error) {
 	user := &User{}
 	err := r.db.QueryRow(
-		`SELECT id, username, password, role, nickname, email, openid, school, description, default_persona_id, COALESCE(profile_snapshot, '{}'), created_at, updated_at 
+		`SELECT id, username, password, role, nickname, email, openid, COALESCE(status, 'active'), COALESCE(wx_unionid, ''), school, description, default_persona_id, COALESCE(profile_snapshot, '{}'), created_at, updated_at 
 		 FROM users WHERE id = ?`,
 		id,
 	).Scan(&user.ID, &user.Username, &user.Password, &user.Role,
-		&user.Nickname, &user.Email, &user.OpenID, &user.School, &user.Description, &user.DefaultPersonaID, &user.ProfileSnapshot, &user.CreatedAt, &user.UpdatedAt)
+		&user.Nickname, &user.Email, &user.OpenID, &user.Status, &user.WxUnionID, &user.School, &user.Description, &user.DefaultPersonaID, &user.ProfileSnapshot, &user.CreatedAt, &user.UpdatedAt)
 
 	if err == sql.ErrNoRows {
 		return nil, nil
@@ -135,6 +141,9 @@ func (r *UserRepository) GetByID(id int64) (*User, error) {
 	if err != nil {
 		return nil, fmt.Errorf("查询用户失败: %w", err)
 	}
+
+	// V2.0 迭代9: 画像隐私保护，清空用户画像
+	user.ProfileSnapshot = ""
 
 	return user, nil
 }
@@ -327,7 +336,7 @@ func (r *UserRepository) ListTeachersForStudent(studentPersonaID int64, offset, 
 		 LEFT JOIN knowledge_items d ON u.id = d.teacher_id AND d.status = 'active'
 		 WHERE r.student_persona_id = ? AND r.status = 'approved' AND COALESCE(r.is_active, 1) = 1 AND COALESCE(p.is_active, 1) = 1
 		 GROUP BY u.id, r.teacher_persona_id
-		 ORDER BY r.updated_at DESC
+		 ORDER BY u.created_at DESC
 		 LIMIT ? OFFSET ?`,
 		studentPersonaID, limit, offset,
 	)
@@ -347,4 +356,225 @@ func (r *UserRepository) ListTeachersForStudent(studentPersonaID int64, offset, 
 	}
 
 	return teachers, total, nil
+}
+
+// ======================== V2.0 迭代10 新增方法 ========================
+
+// UpdateWxUnionID 更新用户的微信 UnionID
+func (r *UserRepository) UpdateWxUnionID(userID int64, unionID string) error {
+	_, err := r.db.Exec(
+		`UPDATE users SET wx_unionid = ?, updated_at = ? WHERE id = ?`,
+		unionID, time.Now(), userID,
+	)
+	if err != nil {
+		return fmt.Errorf("更新用户 UnionID 失败: %w", err)
+	}
+	return nil
+}
+
+// UpdateUserRole 更新用户角色
+func (r *UserRepository) UpdateUserRole(userID int64, role string) error {
+	result, err := r.db.Exec(
+		`UPDATE users SET role = ?, updated_at = ? WHERE id = ?`,
+		role, time.Now(), userID,
+	)
+	if err != nil {
+		return fmt.Errorf("更新用户角色失败: %w", err)
+	}
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("获取影响行数失败: %w", err)
+	}
+	if affected == 0 {
+		return fmt.Errorf("用户不存在: id=%d", userID)
+	}
+	return nil
+}
+
+// UpdateUserStatus 更新用户状态（启用/禁用）
+func (r *UserRepository) UpdateUserStatus(userID int64, status string) error {
+	result, err := r.db.Exec(
+		`UPDATE users SET status = ?, updated_at = ? WHERE id = ?`,
+		status, time.Now(), userID,
+	)
+	if err != nil {
+		return fmt.Errorf("更新用户状态失败: %w", err)
+	}
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("获取影响行数失败: %w", err)
+	}
+	if affected == 0 {
+		return fmt.Errorf("用户不存在: id=%d", userID)
+	}
+	return nil
+}
+
+// ListUsers 分页查询用户列表（管理员用）
+func (r *UserRepository) ListUsers(role, status string, offset, limit int) ([]User, int, error) {
+	// 构建查询条件
+	whereClauses := []string{"1=1"}
+	args := []interface{}{}
+
+	if role != "" {
+		whereClauses = append(whereClauses, "role = ?")
+		args = append(args, role)
+	}
+	if status != "" {
+		whereClauses = append(whereClauses, "status = ?")
+		args = append(args, status)
+	}
+
+	whereClause := ""
+	for i, clause := range whereClauses {
+		if i == 0 {
+			whereClause = clause
+		} else {
+			whereClause += " AND " + clause
+		}
+	}
+
+	// 查询总数
+	var total int
+	err := r.db.QueryRow(fmt.Sprintf("SELECT COUNT(*) FROM users WHERE %s", whereClause), args...).Scan(&total)
+	if err != nil {
+		return nil, 0, fmt.Errorf("查询用户总数失败: %w", err)
+	}
+
+	// 查询列表
+	query := fmt.Sprintf(`
+		SELECT id, username, password, role, nickname, email, openid, COALESCE(status, 'active'), COALESCE(wx_unionid, ''),
+		       school, description, default_persona_id, created_at, updated_at
+		FROM users WHERE %s
+		ORDER BY created_at DESC
+		LIMIT ? OFFSET ?
+	`, whereClause)
+
+	args = append(args, limit, offset)
+	rows, err := r.db.Query(query, args...)
+	if err != nil {
+		return nil, 0, fmt.Errorf("查询用户列表失败: %w", err)
+	}
+	defer rows.Close()
+
+	var users []User
+	for rows.Next() {
+		var u User
+		if err := rows.Scan(
+			&u.ID, &u.Username, &u.Password, &u.Role, &u.Nickname, &u.Email, &u.OpenID,
+			&u.Status, &u.WxUnionID, &u.School, &u.Description, &u.DefaultPersonaID,
+			&u.CreatedAt, &u.UpdatedAt,
+		); err != nil {
+			return nil, 0, fmt.Errorf("扫描用户记录失败: %w", err)
+		}
+		users = append(users, u)
+	}
+
+	return users, total, nil
+}
+
+// CountUsers 统计用户总数
+func (r *UserRepository) CountUsers(role string) (int, error) {
+	var count int
+	var err error
+	if role != "" {
+		err = r.db.QueryRow(`SELECT COUNT(*) FROM users WHERE role = ?`, role).Scan(&count)
+	} else {
+		err = r.db.QueryRow(`SELECT COUNT(*) FROM users`).Scan(&count)
+	}
+	if err != nil {
+		return 0, fmt.Errorf("统计用户数失败: %w", err)
+	}
+	return count, nil
+}
+
+// CountUsersByStatus 按状态统计用户数
+func (r *UserRepository) CountUsersByStatus(status string) (int, error) {
+	var count int
+	err := r.db.QueryRow(`SELECT COUNT(*) FROM users WHERE COALESCE(status, 'active') = ?`, status).Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("统计用户数失败: %w", err)
+	}
+	return count, nil
+}
+
+// GetActiveUsers 获取活跃用户排行（按最近登录/活动时间）
+func (r *UserRepository) GetActiveUsers(limit int) ([]User, error) {
+	rows, err := r.db.Query(`
+		SELECT u.id, u.username, u.role, u.nickname, u.school, u.created_at
+		FROM users u
+		WHERE u.status = 'active' OR u.status IS NULL
+		ORDER BY u.updated_at DESC
+		LIMIT ?
+	`, limit)
+	if err != nil {
+		return nil, fmt.Errorf("查询活跃用户失败: %w", err)
+	}
+	defer rows.Close()
+
+	var users []User
+	for rows.Next() {
+		var u User
+		if err := rows.Scan(&u.ID, &u.Username, &u.Role, &u.Nickname, &u.School, &u.CreatedAt); err != nil {
+			return nil, fmt.Errorf("扫描用户记录失败: %w", err)
+		}
+		users = append(users, u)
+	}
+
+	return users, nil
+}
+
+// ======================== V2.0 迭代11 M4 自测学生方法 ========================
+
+// FindByTestTeacherID 根据教师ID查询自测学生
+func (r *UserRepository) FindByTestTeacherID(teacherID int64) (*User, error) {
+	user := &User{}
+	var email, openid, status, wxUnionID, school, description sql.NullString
+	var defaultPersonaID sql.NullInt64
+	err := r.db.QueryRow(
+		`SELECT id, username, password, role, nickname, email, openid, COALESCE(status, 'active'), wx_unionid, school, description, default_persona_id, COALESCE(is_test_student, 0), COALESCE(test_teacher_id, 0), created_at, updated_at 
+		 FROM users WHERE test_teacher_id = ? AND is_test_student = 1`,
+		teacherID,
+	).Scan(&user.ID, &user.Username, &user.Password, &user.Role,
+		&user.Nickname, &email, &openid, &status, &wxUnionID, &school, &description, &defaultPersonaID, &user.IsTestStudent, &user.TestTeacherID, &user.CreatedAt, &user.UpdatedAt)
+
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("查询自测学生失败: %w", err)
+	}
+
+	// 处理可能为 NULL 的字段
+	user.Email = email.String
+	user.OpenID = openid.String
+	user.Status = status.String
+	user.WxUnionID = wxUnionID.String
+	user.School = school.String
+	user.Description = description.String
+	if defaultPersonaID.Valid {
+		user.DefaultPersonaID = defaultPersonaID.Int64
+	}
+
+	return user, nil
+}
+
+// CreateTestStudent 创建自测学生用户
+func (r *UserRepository) CreateTestStudent(user *User) (int64, error) {
+	now := time.Now()
+	result, err := r.db.Exec(
+		`INSERT INTO users (username, password, role, nickname, is_test_student, test_teacher_id, created_at, updated_at) 
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+		user.Username, user.Password, user.Role, user.Nickname, 1, user.TestTeacherID, now, now,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("创建自测学生失败: %w", err)
+	}
+
+	id, err := result.LastInsertId()
+	if err != nil {
+		return 0, fmt.Errorf("获取用户ID失败: %w", err)
+	}
+
+	return id, nil
 }

@@ -419,3 +419,23 @@ func scanMemoriesWithPersonas(rows *sql.Rows) ([]*Memory, error) {
 	}
 	return memories, nil
 }
+
+// ======================== V2.0 迭代11 M4 自测学生方法 ========================
+
+// DeleteByStudentPersonaID 删除学生分身的所有记忆
+func (r *MemoryRepository) DeleteByStudentPersonaID(studentPersonaID int64) (int, error) {
+	result, err := r.db.Exec(
+		`DELETE FROM memories WHERE student_persona_id = ?`,
+		studentPersonaID,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("删除学生记忆失败: %w", err)
+	}
+
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return 0, fmt.Errorf("获取影响行数失败: %w", err)
+	}
+
+	return int(affected), nil
+}

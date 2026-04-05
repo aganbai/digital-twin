@@ -1,0 +1,10 @@
+检查后端服务...
+测试废弃接口...
+注册测试教师...
+
+测试结果已保存到: /Users/aganbai/Desktop/WorkSpace/digital-twin/test_results/smoke-v11-quick-check.json
+
+测试摘要:
+  通过: 2
+  失败: 2
+  跳过: 0

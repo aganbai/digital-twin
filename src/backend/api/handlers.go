@@ -143,6 +143,17 @@ func (h *Handler) HandleLogin(c *gin.Context) {
 		return
 	}
 
+	// 检查用户状态
+	userID := toInt(output.Data["user_id"], 0)
+	if userID > 0 && h.db != nil {
+		userRepo := database.NewUserRepository(h.db.DB)
+		user, err := userRepo.GetByID(int64(userID))
+		if err == nil && user != nil && user.Status == "disabled" {
+			Error(c, http.StatusForbidden, 40003, "账号已被禁用，请联系管理员")
+			return
+		}
+	}
+
 	Success(c, gin.H{
 		"user_id":    output.Data["user_id"],
 		"token":      output.Data["token"],
@@ -274,14 +285,15 @@ func (h *Handler) HandleCompleteProfile(c *gin.Context) {
 	}
 
 	Success(c, gin.H{
-		"user_id":     output.Data["user_id"],
-		"role":        output.Data["role"],
-		"nickname":    output.Data["nickname"],
-		"school":      output.Data["school"],
-		"description": output.Data["description"],
-		"persona_id":  output.Data["persona_id"], // V2.0 迭代2
-		"token":       output.Data["token"],
-		"expires_at":  output.Data["expires_at"],
+		"user_id":      output.Data["user_id"],
+		"role":         output.Data["role"],
+		"nickname":     output.Data["nickname"],
+		"school":       output.Data["school"],
+		"description":  output.Data["description"],
+		"persona_id":   output.Data["persona_id"], // V2.0 迭代2
+		"token":        output.Data["token"],
+		"expires_at":   output.Data["expires_at"],
+		"test_student": output.Data["test_student"], // V2.0 迭代11 M4：自测学生信息
 	})
 }
 
