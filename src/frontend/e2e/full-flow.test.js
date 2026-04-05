@@ -352,7 +352,7 @@ describe('第2阶段：教师功能', () => {
   })
 
   // SM-B02: 分身概览页（V5: 分享码管理入口移入）
-  test('SM-B02: 分身概览页 - 查看所有分身统计 + 分享码管理入口', async () => {
+  test('SM-B02: 分身概览页 - 查看所有分身统计 + 班级绑定信息', async () => {
     page = await safeReLaunch('/pages/persona-overview/index')
     expect(page.path).toBe('pages/persona-overview/index')
 
@@ -360,13 +360,15 @@ describe('第2阶段：教师功能', () => {
     expect(title).toBeTruthy()
     const titleText = await title.text()
     console.log('概览标题:', titleText)
-    expect(titleText).toContain('我的分身')
+    // 迭代11：标题改为"我的班级分身"
+    expect(titleText).toContain('分身')
 
     const summary = await page.$('.persona-overview__summary')
     expect(summary).toBeTruthy()
     const summaryText = await summary.text()
     console.log('汇总统计:', summaryText)
-    expect(summaryText).toContain('个分身')
+    // 迭代11：统计改为"共 X 个班级"
+    expect(summaryText).toContain('个班级')
 
     const cards = await page.$$('.persona-overview__card')
     console.log(`分身卡片数量: ${cards.length}`)
@@ -376,15 +378,15 @@ describe('第2阶段：教师功能', () => {
     const cardName = await page.$('.persona-overview__card-name')
     expect(cardName).toBeTruthy()
 
-    // 验证状态标签（启用/停用、公开/私有）
+    // 验证状态标签（公开/私有）
     const badges = await page.$$('.persona-overview__badge')
     console.log(`状态标签数量: ${badges.length}`)
     expect(badges.length).toBeGreaterThanOrEqual(1)
 
-    // 验证统计数据（学生数、班级数、文档数）
+    // 验证统计数据（学生数、文档数）
     const stats = await page.$$('.persona-overview__stat')
     console.log(`统计项数量: ${stats.length}`)
-    expect(stats.length).toBeGreaterThanOrEqual(3)
+    expect(stats.length).toBeGreaterThanOrEqual(2)
 
     // "进入管理"按钮
     const enterBtn = await page.$('.persona-overview__card-btn')
@@ -393,23 +395,16 @@ describe('第2阶段：教师功能', () => {
     console.log('管理按钮:', enterBtnText)
     expect(enterBtnText).toContain('进入管理')
 
-    // V5: 分享码管理入口（从首页移入分身概览页）
-    const shareBtn = await page.$('.persona-overview__card-btn--share')
-    if (shareBtn) {
-      const shareBtnText = await shareBtn.text()
-      console.log('分享码管理入口:', shareBtnText)
-      expect(shareBtnText).toContain('分享码')
-      console.log('✅ V5: 分享码管理入口已从首页移入分身概览页')
-    } else {
-      console.log('⚠️ 未找到分享码管理入口')
+    // 迭代11：验证班级绑定信息展示
+    const classInfo = await page.$('.persona-overview__class-info')
+    if (classInfo) {
+      console.log('✅ 迭代11: 班级绑定信息已展示')
     }
 
-    // "创建新分身"按钮
+    // 迭代11：不再有"创建新分身"按钮，分身随班级创建
     const createBtn = await page.$('.persona-overview__create-btn')
-    expect(createBtn).toBeTruthy()
-    const createBtnText = await createBtn.text()
-    console.log('创建按钮:', createBtnText)
-    expect(createBtnText).toContain('创建新分身')
+    expect(createBtn).toBeFalsy()
+    console.log('✅ 迭代11: 已移除独立创建分身按钮')
 
     console.log('✅ SM-B02 分身概览页测试通过')
   })

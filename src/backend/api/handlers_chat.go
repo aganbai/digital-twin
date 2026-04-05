@@ -10,6 +10,7 @@ import (
 
 	"digital-twin/src/backend/database"
 	"digital-twin/src/harness/core"
+	"digital-twin/src/plugins/dialogue"
 	"digital-twin/src/plugins/knowledge"
 
 	"github.com/gin-gonic/gin"
@@ -63,6 +64,13 @@ func (h *Handler) HandleChat(c *gin.Context) {
 	personaID, _ := c.Get("persona_id")
 	personaIDInt64, _ := personaID.(int64)
 
+	// 🆕 V2.0 迭代9 M3：新会话指令检测
+	isNewSessionCmd := isNewSessionCommand(req.Message)
+	var newSessionID string
+	if isNewSessionCmd {
+		newSessionID = generateSessionID()
+	}
+
 	// 🆕 师生授权检查（支持分身维度 + 启停状态检查 + user_id 回退）
 	if fmt.Sprintf("%v", role) == "student" {
 		db := h.manager.GetDB()
@@ -109,11 +117,21 @@ func (h *Handler) HandleChat(c *gin.Context) {
 			takeoverRepo := database.NewTakeoverRepository(db)
 			isTakenOver, err := takeoverRepo.IsSessionTakenOver(req.SessionID)
 			if err == nil && isTakenOver {
+				// 🔧 修复外键约束：通过 teacher_persona_id 查询对应的 user_id
+				actualTeacherID := req.TeacherID
+				if req.TeacherPersonaID > 0 {
+					personaRepo := database.NewPersonaRepository(db)
+					teacherPersona, err := personaRepo.GetByID(req.TeacherPersonaID)
+					if err == nil && teacherPersona != nil {
+						actualTeacherID = teacherPersona.UserID
+					}
+				}
+
 				// 接管中：保存学生消息但不调用 AI
 				convRepo := database.NewConversationRepository(db)
 				conv := &database.Conversation{
 					StudentID:        userIDInt64,
-					TeacherID:        req.TeacherID,
+					TeacherID:        actualTeacherID, // 使用正确的 user_id
 					TeacherPersonaID: req.TeacherPersonaID,
 					StudentPersonaID: personaIDInt64,
 					SessionID:        req.SessionID,
@@ -151,6 +169,43 @@ func (h *Handler) HandleChat(c *gin.Context) {
 				return
 			}
 		}
+	}
+
+	// 🆕 V2.0 迭代9 M3：新会话指令触发处理
+	if isNewSessionCmd {
+		// 保存用户的指令消息到 conversations 表
+		db := h.manager.GetDB()
+		if db != nil {
+			// 🔧 修复外键约束：通过 teacher_persona_id 查询对应的 user_id
+			actualTeacherID := req.TeacherID
+			if req.TeacherPersonaID > 0 {
+				personaRepo := database.NewPersonaRepository(db)
+				teacherPersona, err := personaRepo.GetByID(req.TeacherPersonaID)
+				if err == nil && teacherPersona != nil {
+					actualTeacherID = teacherPersona.UserID
+				}
+			}
+
+			convRepo := database.NewConversationRepository(db)
+			conv := &database.Conversation{
+				StudentID:        userIDInt64,
+				TeacherID:        actualTeacherID, // 使用正确的 user_id
+				TeacherPersonaID: req.TeacherPersonaID,
+				StudentPersonaID: personaIDInt64,
+				SessionID:        newSessionID,
+				Role:             "user",
+				Content:          req.Message,
+				SenderType:       "student",
+			}
+			convRepo.CreateWithPersonas(conv)
+		}
+
+		Success(c, gin.H{
+			"type":       "new_session",
+			"session_id": newSessionID,
+			"message":    "已为您开启新会话，让我们开始新的话题吧！",
+		})
+		return
 	}
 
 	userContext := &core.UserContext{
@@ -227,8 +282,8 @@ func (h *Handler) HandleChat(c *gin.Context) {
 	})
 }
 
-// HandleGetSessions 获取会话列表
-// GET /api/conversations/sessions
+// HandleGetSessions 获取会话列表（V2.0 迭代9 增强：支持 teacher_persona_id 过滤）
+// GET /api/conversations/sessions?teacher_persona_id=123&page=1&page_size=20
 func (h *Handler) HandleGetSessions(c *gin.Context) {
 	userID, _ := c.Get("user_id")
 	userIDInt64, ok := userID.(int64)
@@ -241,6 +296,7 @@ func (h *Handler) HandleGetSessions(c *gin.Context) {
 	personaID, _ := c.Get("persona_id")
 	personaIDInt64, _ := personaID.(int64)
 
+	// 解析分页参数
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
 	if page < 1 {
@@ -248,6 +304,18 @@ func (h *Handler) HandleGetSessions(c *gin.Context) {
 	}
 	if pageSize < 1 || pageSize > 100 {
 		pageSize = 20
+	}
+
+	// 解析 teacher_persona_id 过滤参数
+	teacherPersonaIDStr := c.Query("teacher_persona_id")
+	var teacherPersonaID int64
+	if teacherPersonaIDStr != "" {
+		var parseErr error
+		teacherPersonaID, parseErr = strconv.ParseInt(teacherPersonaIDStr, 10, 64)
+		if parseErr != nil || teacherPersonaID <= 0 {
+			Error(c, http.StatusBadRequest, 40004, "无效的 teacher_persona_id 参数")
+			return
+		}
 	}
 
 	offset := (page - 1) * pageSize
@@ -259,9 +327,9 @@ func (h *Handler) HandleGetSessions(c *gin.Context) {
 	}
 	convRepo := database.NewConversationRepository(db)
 
-	// 分身维度查询
+	// 分身维度查询（支持 teacher_persona_id 过滤）
 	if personaIDInt64 > 0 {
-		sessions, total, err := convRepo.GetSessionsByPersona(personaIDInt64, offset, pageSize)
+		sessions, total, err := convRepo.GetSessionsByTeacherPersona(personaIDInt64, teacherPersonaID, offset, pageSize)
 		if err != nil {
 			Error(c, http.StatusInternalServerError, 50001, "查询会话列表失败: "+err.Error())
 			return
@@ -270,7 +338,7 @@ func (h *Handler) HandleGetSessions(c *gin.Context) {
 		return
 	}
 
-	// 向后兼容：user_id 维度
+	// 向后兼容：user_id 维度（不支持 teacher_persona_id 过滤）
 	sessions, total, err := convRepo.GetSessionsByStudent(userIDInt64, offset, pageSize)
 	if err != nil {
 		Error(c, http.StatusInternalServerError, 50001, "查询会话列表失败: "+err.Error())
@@ -362,6 +430,31 @@ func (h *Handler) HandleGetConversations(c *gin.Context) {
 	SuccessPage(c, items, total, page, pageSize)
 }
 
+// ======================== 新会话关键词列表（V2.0 迭代9 M3） ========================
+
+var newSessionKeywords = []string{
+	"新话题",
+	"开始新对话",
+	"新会话",
+	"换个话题",
+	"重新开始",
+}
+
+// isNewSessionCommand 检测消息是否包含新会话关键词
+func isNewSessionCommand(message string) bool {
+	for _, keyword := range newSessionKeywords {
+		if strings.Contains(message, keyword) {
+			return true
+		}
+	}
+	return false
+}
+
+// generateSessionID 生成新的 session_id（格式：sess_{uuid}）
+func generateSessionID() string {
+	return "sess_" + uuid.New().String()
+}
+
 // HandleChatStream SSE 流式对话
 // POST /api/chat/stream
 func (h *Handler) HandleChatStream(c *gin.Context) {
@@ -407,6 +500,13 @@ func (h *Handler) HandleChatStream(c *gin.Context) {
 	personaID, _ := c.Get("persona_id")
 	personaIDInt64, _ := personaID.(int64)
 
+	// 🆕 V2.0 迭代9 M3：新会话指令检测
+	isNewSessionCmd := isNewSessionCommand(req.Message)
+	var newSessionID string
+	if isNewSessionCmd {
+		newSessionID = generateSessionID()
+	}
+
 	// 师生授权检查（支持分身维度 + 启停状态检查 + user_id 回退）
 	if fmt.Sprintf("%v", role) == "student" {
 		db := h.manager.GetDB()
@@ -446,6 +546,55 @@ func (h *Handler) HandleChatStream(c *gin.Context) {
 		}
 	}
 
+	// 🆕 V2.0 迭代9 M3：新会话指令触发处理
+	if isNewSessionCmd {
+		// 保存用户的指令消息到 conversations 表
+		db := h.manager.GetDB()
+		if db != nil {
+			// 🔧 修复外键约束：通过 teacher_persona_id 查询对应的 user_id
+			actualTeacherID := req.TeacherID
+			if req.TeacherPersonaID > 0 {
+				personaRepo := database.NewPersonaRepository(db)
+				teacherPersona, err := personaRepo.GetByID(req.TeacherPersonaID)
+				if err == nil && teacherPersona != nil {
+					actualTeacherID = teacherPersona.UserID
+				}
+			}
+
+			convRepo := database.NewConversationRepository(db)
+			conv := &database.Conversation{
+				StudentID:        userIDInt64,
+				TeacherID:        actualTeacherID, // 使用正确的 user_id
+				TeacherPersonaID: req.TeacherPersonaID,
+				StudentPersonaID: personaIDInt64,
+				SessionID:        newSessionID,
+				Role:             "user",
+				Content:          req.Message,
+				SenderType:       "student",
+			}
+			convRepo.CreateWithPersonas(conv)
+		}
+
+		// 设置 SSE 响应头
+		c.Header("Content-Type", "text/event-stream")
+		c.Header("Cache-Control", "no-cache")
+		c.Header("Connection", "keep-alive")
+		c.Header("X-Accel-Buffering", "no")
+
+		// 发送 new_session 事件
+		c.SSEvent("", gin.H{
+			"type":       "new_session",
+			"session_id": newSessionID,
+			"message":    "已为您开启新会话，让我们开始新的话题吧！",
+		})
+		c.Writer.Flush()
+
+		// 发送 done 事件结束 SSE 流
+		c.SSEvent("", gin.H{"type": "done"})
+		c.Writer.Flush()
+		return
+	}
+
 	// 🆕 V2.0 迭代4：接管状态检查
 	if fmt.Sprintf("%v", role) == "student" && req.SessionID != "" {
 		db := h.manager.GetDB()
@@ -453,11 +602,21 @@ func (h *Handler) HandleChatStream(c *gin.Context) {
 			takeoverRepo := database.NewTakeoverRepository(db)
 			isTakenOver, err := takeoverRepo.IsSessionTakenOver(req.SessionID)
 			if err == nil && isTakenOver {
+				// 🔧 修复外键约束：通过 teacher_persona_id 查询对应的 user_id
+				actualTeacherID := req.TeacherID
+				if req.TeacherPersonaID > 0 {
+					personaRepo := database.NewPersonaRepository(db)
+					teacherPersona, err := personaRepo.GetByID(req.TeacherPersonaID)
+					if err == nil && teacherPersona != nil {
+						actualTeacherID = teacherPersona.UserID
+					}
+				}
+
 				// 接管中：保存学生消息但不调用 AI，返回 JSON 而非 SSE
 				convRepo := database.NewConversationRepository(db)
 				conv := &database.Conversation{
 					StudentID:        userIDInt64,
-					TeacherID:        req.TeacherID,
+					TeacherID:        actualTeacherID, // 使用正确的 user_id
 					TeacherPersonaID: req.TeacherPersonaID,
 					StudentPersonaID: personaIDInt64,
 					SessionID:        req.SessionID,
@@ -520,9 +679,15 @@ func (h *Handler) HandleChatStream(c *gin.Context) {
 	c.SSEvent("", gin.H{"type": "start", "session_id": sessionID})
 	c.Writer.Flush()
 
-	// 构建 sse_writer 回调
+	// 构建 sse_writer 回调（用于发送 delta 事件）
 	sseWriter := func(content string) {
 		c.SSEvent("", gin.H{"type": "delta", "content": content})
+		c.Writer.Flush()
+	}
+
+	// 构建 thinking_step_writer 回调（用于发送 thinking_step 事件，V2.0 迭代9）
+	thinkingStepWriter := func(eventType string, data map[string]interface{}) {
+		c.SSEvent("", data)
 		c.Writer.Flush()
 	}
 
@@ -548,11 +713,12 @@ func (h *Handler) HandleChatStream(c *gin.Context) {
 		RequestID:   uuid.New().String(),
 		UserContext: userContext,
 		Data: map[string]interface{}{
-			"action":     "chat_stream",
-			"message":    streamMessage,
-			"teacher_id": req.TeacherID,
-			"session_id": sessionID,
-			"sse_writer": sseWriter,
+			"action":               "chat_stream",
+			"message":              streamMessage,
+			"teacher_id":           req.TeacherID,
+			"session_id":           sessionID,
+			"sse_writer":           sseWriter,
+			"thinking_step_writer": thinkingStepWriter, // V2.0 迭代9
 		},
 		Context: c.Request.Context(),
 	}
@@ -621,4 +787,267 @@ func (h *Handler) parseAttachment(attachmentURL, attachmentType, attachmentName 
 	}
 
 	return fmt.Sprintf("[附件: %s]\n%s\n[/附件]", attachmentName, content)
+}
+
+// ======================== V2.0 迭代9 M5：会话标题生成 ========================
+
+// HandleGenerateSessionTitle 手动触发生成会话标题
+// POST /api/conversations/sessions/:session_id/title
+func (h *Handler) HandleGenerateSessionTitle(c *gin.Context) {
+	sessionID := c.Param("session_id")
+	if sessionID == "" {
+		Error(c, http.StatusBadRequest, 40004, "缺少 session_id 参数")
+		return
+	}
+
+	// 从 JWT 中间件获取用户信息
+	userID, _ := c.Get("user_id")
+	userIDInt64, ok := userID.(int64)
+	if !ok {
+		Error(c, http.StatusUnauthorized, 40001, "用户信息无效")
+		return
+	}
+
+	// 从 JWT 获取 persona_id
+	personaID, _ := c.Get("persona_id")
+	personaIDInt64, _ := personaID.(int64)
+
+	db := h.manager.GetDB()
+	if db == nil {
+		Error(c, http.StatusInternalServerError, 50001, "数据库服务不可用")
+		return
+	}
+
+	// 验证会话归属（权限校验）
+	var belongsToUser bool
+	if personaIDInt64 > 0 {
+		// 分身维度验证
+		var count int
+		err := db.QueryRow(
+			`SELECT COUNT(*) FROM conversations WHERE session_id = ? AND student_persona_id = ?`,
+			sessionID, personaIDInt64,
+		).Scan(&count)
+		if err == nil && count > 0 {
+			belongsToUser = true
+		}
+	}
+	if !belongsToUser {
+		// user_id 维度验证（向后兼容）
+		var count int
+		err := db.QueryRow(
+			`SELECT COUNT(*) FROM conversations WHERE session_id = ? AND student_id = ?`,
+			sessionID, userIDInt64,
+		).Scan(&count)
+		if err == nil && count > 0 {
+			belongsToUser = true
+		}
+	}
+
+	if !belongsToUser {
+		Error(c, http.StatusForbidden, 40007, "无权操作该会话")
+		return
+	}
+
+	// 异步执行标题生成
+	go h.generateSessionTitle(sessionID, personaIDInt64)
+
+	Success(c, gin.H{
+		"message": "标题生成任务已提交",
+	})
+}
+
+// generateSessionTitle 生成会话标题的核心逻辑
+func (h *Handler) generateSessionTitle(sessionID string, studentPersonaID int64) {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("[标题生成] panic recovered: %v\n", r)
+		}
+	}()
+
+	db := h.manager.GetDB()
+	if db == nil {
+		log.Printf("[标题生成] 数据库服务不可用\n")
+		return
+	}
+
+	titleRepo := database.NewSessionTitleRepository(db)
+
+	// 幂等性检查：已存在标题则跳过
+	existingTitle, err := titleRepo.GetBySessionID(sessionID)
+	if err != nil {
+		log.Printf("[标题生成] 查询标题失败: %v\n", err)
+		return
+	}
+	if existingTitle != nil {
+		log.Printf("[标题生成] 会话 %s 已有标题，跳过生成\n", sessionID)
+		return
+	}
+
+	// 获取会话消息（最近10条）
+	convRepo := database.NewConversationRepository(db)
+	var messages []*database.Conversation
+	var teacherPersonaID int64
+
+	if studentPersonaID > 0 {
+		// 分身维度查询
+		messages, _, err = convRepo.GetByPersonas(0, studentPersonaID, sessionID, 0, 10)
+		if len(messages) > 0 {
+			teacherPersonaID = messages[0].TeacherPersonaID
+		}
+	}
+	if len(messages) == 0 {
+		// user_id 维度查询（向后兼容）
+		var userID int64
+		rows, queryErr := db.Query(
+			`SELECT id, student_id, teacher_id, COALESCE(teacher_persona_id, 0), COALESCE(student_persona_id, 0), session_id, role, content, token_count, COALESCE(sender_type, ''), COALESCE(reply_to_id, 0), created_at 
+			 FROM conversations WHERE session_id = ? 
+			 ORDER BY created_at ASC LIMIT 10`,
+			sessionID,
+		)
+		if queryErr != nil {
+			log.Printf("[标题生成] 查询消息失败: %v\n", queryErr)
+			return
+		}
+		defer rows.Close()
+		for rows.Next() {
+			conv := &database.Conversation{}
+			if scanErr := rows.Scan(&conv.ID, &conv.StudentID, &conv.TeacherID, &conv.TeacherPersonaID, &conv.StudentPersonaID,
+				&conv.SessionID, &conv.Role, &conv.Content, &conv.TokenCount, &conv.SenderType, &conv.ReplyToID, &conv.CreatedAt); scanErr != nil {
+				continue
+			}
+			messages = append(messages, conv)
+			if teacherPersonaID == 0 {
+				teacherPersonaID = conv.TeacherPersonaID
+			}
+			if userID == 0 {
+				userID = conv.StudentID
+			}
+		}
+	}
+
+	if len(messages) == 0 {
+		log.Printf("[标题生成] 会话 %s 没有消息\n", sessionID)
+		return
+	}
+
+	var title string
+
+	// 判断消息数量：≤2条使用首条用户消息前20字
+	if len(messages) <= 2 {
+		// 查找首条用户消息
+		for _, msg := range messages {
+			if msg.Role == "user" {
+				runes := []rune(msg.Content)
+				if len(runes) > 20 {
+					title = string(runes[:20])
+				} else {
+					title = msg.Content
+				}
+				break
+			}
+		}
+		if title == "" {
+			// 没有用户消息，使用第一条消息
+			runes := []rune(messages[0].Content)
+			if len(runes) > 20 {
+				title = string(runes[:20])
+			} else {
+				title = messages[0].Content
+			}
+		}
+	} else {
+		// >2条消息，调用 LLM 生成标题
+		title = h.generateTitleWithLLM(messages)
+	}
+
+	if title == "" {
+		title = "新对话"
+	}
+
+	// 存储标题
+	if studentPersonaID == 0 && len(messages) > 0 {
+		studentPersonaID = messages[0].StudentPersonaID
+	}
+	if teacherPersonaID == 0 && len(messages) > 0 {
+		teacherPersonaID = messages[0].TeacherPersonaID
+	}
+
+	err = titleRepo.Upsert(sessionID, studentPersonaID, teacherPersonaID, title)
+	if err != nil {
+		log.Printf("[标题生成] 存储标题失败: %v\n", err)
+		return
+	}
+
+	log.Printf("[标题生成] 会话 %s 标题生成成功: %s\n", sessionID, title)
+}
+
+// generateTitleWithLLM 调用 LLM 生成会话标题
+func (h *Handler) generateTitleWithLLM(messages []*database.Conversation) string {
+	// 获取 dialogue 插件
+	plugin, err := h.manager.GetPlugin("dialogue")
+	if err != nil {
+		log.Printf("[标题生成] 获取对话插件失败: %v\n", err)
+		return ""
+	}
+
+	dialoguePlugin, ok := plugin.(*dialogue.DialoguePlugin)
+	if !ok {
+		log.Printf("[标题生成] 插件类型断言失败\n")
+		return ""
+	}
+
+	llmClient := dialoguePlugin.GetLLMClient()
+	if llmClient == nil {
+		log.Printf("[标题生成] LLM 客户端不可用\n")
+		return ""
+	}
+
+	// 构建消息内容摘要（最近10条）
+	var contentBuilder strings.Builder
+	maxMessages := 10
+	if len(messages) < maxMessages {
+		maxMessages = len(messages)
+	}
+	for i := len(messages) - maxMessages; i < len(messages); i++ {
+		msg := messages[i]
+		role := "用户"
+		if msg.Role == "assistant" {
+			role = "AI"
+		}
+		contentBuilder.WriteString(fmt.Sprintf("%s: %s\n", role, msg.Content))
+	}
+
+	// 构建 LLM prompt
+	prompt := fmt.Sprintf(`请为以下对话生成一个简短的标题（10-20字），概括对话的主要话题：
+
+%s
+
+要求：
+- 标题简洁明了
+- 体现对话的核心话题
+- 不超过20个字
+
+请直接输出标题，不要包含其他内容。`, contentBuilder.String())
+
+	chatMessages := []dialogue.ChatMessage{
+		{Role: "user", Content: prompt},
+	}
+
+	resp, err := llmClient.Chat(chatMessages)
+	if err != nil {
+		log.Printf("[标题生成] LLM 调用失败: %v\n", err)
+		return ""
+	}
+
+	// 清理响应（去除可能的引号、换行等）
+	title := strings.TrimSpace(resp.Content)
+	title = strings.Trim(title, "\"'「」【】")
+
+	// 限制标题长度
+	runes := []rune(title)
+	if len(runes) > 20 {
+		title = string(runes[:20])
+	}
+
+	return title
 }

@@ -1,0 +1,162 @@
+.course-list {
+  min-height: 100vh;
+  background: #f8f9fa;
+
+  &__tabs {
+    display: flex;
+    padding: 12px 16px;
+    background: #fff;
+    overflow-x: auto;
+    white-space: nowrap;
+    border-bottom: 1px solid #f0f0f0;
+  }
+
+  &__tab {
+    flex-shrink: 0;
+    padding: 8px 16px;
+    margin-right: 12px;
+    background: #f5f5f5;
+    border-radius: 20px;
+    font-size: 14px;
+    color: #666;
+
+    &--active {
+      background: #4F46E5;
+      color: #fff;
+    }
+  }
+
+  &__content {
+    padding: 16px;
+    padding-bottom: 80px;
+  }
+
+  &__empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 60px 0;
+  }
+
+  &__empty-text {
+    font-size: 14px;
+    color: #999;
+    margin-bottom: 24px;
+  }
+
+  &__empty-btn {
+    padding: 12px 32px;
+    background: #4F46E5;
+    border-radius: 24px;
+
+    text {
+      color: #fff;
+      font-size: 15px;
+    }
+  }
+
+  &__item {
+    background: #fff;
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 12px;
+  }
+
+  &__item-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 12px;
+  }
+
+  &__item-title {
+    flex: 1;
+    font-size: 16px;
+    font-weight: 600;
+    color: #333;
+    line-height: 1.4;
+  }
+
+  &__item-time {
+    font-size: 12px;
+    color: #999;
+    margin-left: 12px;
+    flex-shrink: 0;
+  }
+
+  &__item-content {
+    font-size: 14px;
+    color: #666;
+    line-height: 1.6;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    margin-bottom: 12px;
+  }
+
+  &__item-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-top: 12px;
+    border-top: 1px solid #f0f0f0;
+  }
+
+  &__item-actions {
+    display: flex;
+    gap: 16px;
+  }
+
+  &__action {
+    font-size: 13px;
+    color: #666;
+
+    &--primary {
+      color: #4F46E5;
+    }
+  }
+
+  &__pushed {
+    font-size: 12px;
+    color: #10b981;
+  }
+
+  &__loading {
+    padding: 20px;
+    text-align: center;
+    color: #999;
+    font-size: 14px;
+  }
+
+  &__no-more {
+    padding: 20px;
+    text-align: center;
+    color: #999;
+    font-size: 12px;
+  }
+
+  &__fab {
+    position: fixed;
+    right: 20px;
+    bottom: 20px;
+    width: 56px;
+    height: 56px;
+    background: #4F46E5;
+    border-radius: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 12px rgba(79, 70, 229, 0.4);
+
+    &:active {
+      opacity: 0.8;
+    }
+  }
+
+  &__fab-icon {
+    font-size: 32px;
+    color: #fff;
+    font-weight: 300;
+  }
+}

@@ -1,7 +1,6 @@
 package api
 
 import (
-	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -17,7 +16,16 @@ import (
 
 // HandleCreatePersona 创建分身
 // POST /api/personas
+// V2.0 迭代11 M3：教师禁止独立创建分身
 func (h *Handler) HandleCreatePersona(c *gin.Context) {
+	// 迭代11 M3：教师分身随班级创建，禁止独立创建
+	role, _ := c.Get("role")
+	roleStr, _ := role.(string)
+	if roleStr == "teacher" {
+		Error(c, http.StatusBadRequest, 40040, "教师分身随班级创建，请通过创建班级来创建分身")
+		return
+	}
+
 	var req struct {
 		Role        string `json:"role" binding:"required"`
 		Nickname    string `json:"nickname" binding:"required"`
@@ -273,162 +281,25 @@ func (h *Handler) HandleEditPersona(c *gin.Context) {
 	})
 }
 
-// HandleActivatePersona 启用分身
+// HandleActivatePersona 启用分身（已废弃 - 迭代11 M3）
 // PUT /api/personas/:id/activate
+// 无主分身概念后废弃，返回404
 func (h *Handler) HandleActivatePersona(c *gin.Context) {
-	h.setPersonaActive(c, 1)
+	Error(c, http.StatusNotFound, 40400, "接口已移除")
 }
 
-// HandleDeactivatePersona 停用分身
+// HandleDeactivatePersona 停用分身（已废弃 - 迭代11 M3）
 // PUT /api/personas/:id/deactivate
+// 无主分身概念后废弃，返回404
 func (h *Handler) HandleDeactivatePersona(c *gin.Context) {
-	h.setPersonaActive(c, 0)
+	Error(c, http.StatusNotFound, 40400, "接口已移除")
 }
 
-// setPersonaActive 设置分身激活状态（内部公用方法）
-func (h *Handler) setPersonaActive(c *gin.Context, isActive int) {
-	personaIDStr := c.Param("id")
-	personaID, err := strconv.ParseInt(personaIDStr, 10, 64)
-	if err != nil || personaID <= 0 {
-		Error(c, http.StatusBadRequest, 40004, "无效的分身ID")
-		return
-	}
-
-	userID, _ := c.Get("user_id")
-	userIDInt64, ok := userID.(int64)
-	if !ok {
-		Error(c, http.StatusUnauthorized, 40001, "用户信息无效")
-		return
-	}
-
-	db := h.manager.GetDB()
-	if db == nil {
-		Error(c, http.StatusInternalServerError, 50001, "数据库服务不可用")
-		return
-	}
-
-	personaRepo := database.NewPersonaRepository(db)
-
-	// 校验分身存在且属于当前用户
-	persona, err := personaRepo.GetByID(personaID)
-	if err != nil {
-		Error(c, http.StatusInternalServerError, 50001, "查询分身失败: "+err.Error())
-		return
-	}
-	if persona == nil {
-		Error(c, http.StatusNotFound, 40005, "分身不存在")
-		return
-	}
-	if persona.UserID != userIDInt64 {
-		Error(c, http.StatusForbidden, 40003, "无权操作此分身")
-		return
-	}
-
-	if err := personaRepo.SetActive(personaID, isActive); err != nil {
-		Error(c, http.StatusInternalServerError, 50001, "更新分身状态失败: "+err.Error())
-		return
-	}
-
-	action := "activated"
-	if isActive == 0 {
-		action = "deactivated"
-	}
-
-	Success(c, gin.H{
-		"persona_id": personaID,
-		"is_active":  isActive == 1,
-		"action":     action,
-	})
-}
-
-// HandleSwitchPersona 切换当前分身
+// HandleSwitchPersona 切换当前分身（已废弃 - 迭代11 M3）
 // PUT /api/personas/:id/switch
+// 无主分身概念后废弃，返回404
 func (h *Handler) HandleSwitchPersona(c *gin.Context) {
-	personaIDStr := c.Param("id")
-	personaID, err := strconv.ParseInt(personaIDStr, 10, 64)
-	if err != nil || personaID <= 0 {
-		Error(c, http.StatusBadRequest, 40004, "无效的分身ID")
-		return
-	}
-
-	userID, _ := c.Get("user_id")
-	userIDInt64, ok := userID.(int64)
-	if !ok {
-		Error(c, http.StatusUnauthorized, 40001, "用户信息无效")
-		return
-	}
-
-	db := h.manager.GetDB()
-	if db == nil {
-		Error(c, http.StatusInternalServerError, 50001, "数据库服务不可用")
-		return
-	}
-
-	personaRepo := database.NewPersonaRepository(db)
-	userRepo := database.NewUserRepository(db)
-
-	// 切换前：如果当前分身是教师，自动结束所有活跃的接管会话（AI自动接管）
-	currentPersonaID, _ := c.Get("persona_id")
-	if currentPID, ok := currentPersonaID.(int64); ok && currentPID > 0 {
-		takeoverRepo := database.NewTakeoverRepository(db)
-		ended, err := takeoverRepo.EndAllByTeacherPersona(currentPID)
-		if err != nil {
-			// 仅记录日志，不阻断切换流程
-			fmt.Printf("[SwitchPersona] 自动结束接管失败: %v\n", err)
-		} else if ended > 0 {
-			fmt.Printf("[SwitchPersona] 自动结束了 %d 个活跃接管会话\n", ended)
-		}
-	}
-
-	// 校验分身存在且属于当前用户且处于启用状态
-	persona, err := personaRepo.GetByID(personaID)
-	if err != nil {
-		Error(c, http.StatusInternalServerError, 50001, "查询分身失败: "+err.Error())
-		return
-	}
-	if persona == nil {
-		Error(c, http.StatusNotFound, 40005, "分身不存在")
-		return
-	}
-	if persona.UserID != userIDInt64 {
-		Error(c, http.StatusForbidden, 40003, "无权操作此分身")
-		return
-	}
-	if persona.IsActive != 1 {
-		Error(c, http.StatusBadRequest, 40004, "该分身已停用，无法切换")
-		return
-	}
-
-	// 更新 users.default_persona_id
-	if err := userRepo.UpdateDefaultPersonaID(userIDInt64, personaID); err != nil {
-		Error(c, http.StatusInternalServerError, 50001, "切换分身失败: "+err.Error())
-		return
-	}
-
-	// 获取 JWT 管理器，生成新 token
-	jwtManager := GetJWTManager(h.manager)
-	if jwtManager == nil {
-		Error(c, http.StatusInternalServerError, 50001, "认证服务不可用")
-		return
-	}
-
-	username, _ := c.Get("username")
-	usernameStr, _ := username.(string)
-	token, expiresAt, err := jwtManager.GenerateToken(userIDInt64, usernameStr, persona.Role, personaID)
-	if err != nil {
-		Error(c, http.StatusInternalServerError, 50001, "生成 token 失败: "+err.Error())
-		return
-	}
-
-	Success(c, gin.H{
-		"persona_id":  personaID,
-		"role":        persona.Role,
-		"nickname":    persona.Nickname,
-		"school":      persona.School,
-		"description": persona.Description,
-		"token":       token,
-		"expires_at":  expiresAt.Format(time.RFC3339),
-	})
+	Error(c, http.StatusNotFound, 40400, "接口已移除")
 }
 
 // GetJWTManagerFromHandler 从 Handler 获取 JWTManager（内部辅助方法）

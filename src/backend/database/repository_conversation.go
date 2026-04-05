@@ -442,3 +442,163 @@ func (r *ConversationRepository) GetLatestSessionByPersonas(teacherPersonaID, st
 
 	return sessionID, nil
 }
+
+// ======================== V2.0 迭代9 API-104 新增方法 ========================
+
+// GetSessionsByTeacherPersona 按教师分身维度查询会话列表（支持按 teacher_persona_id 过滤）
+// 返回带有标题、消息数、活跃状态的会话列表
+func (r *ConversationRepository) GetSessionsByTeacherPersona(studentPersonaID, teacherPersonaID int64, offset, limit int) ([]SessionItem, int, error) {
+	// 查询总数
+	var total int
+	countQuery := `SELECT COUNT(DISTINCT session_id) FROM conversations WHERE student_persona_id = ?`
+	countArgs := []interface{}{studentPersonaID}
+	if teacherPersonaID > 0 {
+		countQuery += ` AND teacher_persona_id = ?`
+		countArgs = append(countArgs, teacherPersonaID)
+	}
+
+	if err := r.db.QueryRow(countQuery, countArgs...).Scan(&total); err != nil {
+		return nil, 0, fmt.Errorf("查询会话总数失败: %w", err)
+	}
+
+	if total == 0 {
+		return []SessionItem{}, 0, nil
+	}
+
+	// 第一步：获取所有唯一的 session_id，按最新消息时间倒序
+	sessionQuery := `
+		SELECT session_id, MAX(created_at) as last_time
+		FROM conversations
+		WHERE student_persona_id = ?`
+	sessionArgs := []interface{}{studentPersonaID}
+	if teacherPersonaID > 0 {
+		sessionQuery += ` AND teacher_persona_id = ?`
+		sessionArgs = append(sessionArgs, teacherPersonaID)
+	}
+	sessionQuery += ` GROUP BY session_id ORDER BY last_time DESC LIMIT ? OFFSET ?`
+	sessionArgs = append(sessionArgs, limit, offset)
+
+	sessionRows, err := r.db.Query(sessionQuery, sessionArgs...)
+	if err != nil {
+		return nil, 0, fmt.Errorf("查询会话ID列表失败: %w", err)
+	}
+	defer sessionRows.Close()
+
+	type sessionMeta struct {
+		sessionID string
+		updatedAt time.Time
+	}
+	var sessionMetas []sessionMeta
+	for sessionRows.Next() {
+		var sm sessionMeta
+		var timeStr string
+		if err := sessionRows.Scan(&sm.sessionID, &timeStr); err != nil {
+			return nil, 0, fmt.Errorf("扫描会话元数据失败: %w", err)
+		}
+		// 解析时间字符串
+		sm.updatedAt, _ = time.Parse("2006-01-02 15:04:05", timeStr)
+		sessionMetas = append(sessionMetas, sm)
+	}
+
+	if len(sessionMetas) == 0 {
+		return []SessionItem{}, total, nil
+	}
+
+	// 第二步：为每个会话获取详细信息
+	var sessions []SessionItem
+	for _, sm := range sessionMetas {
+		// 获取最新消息
+		var lastMsg, lastRole string
+		var tpID int64
+		err := r.db.QueryRow(`
+			SELECT content, role, teacher_persona_id 
+			FROM conversations 
+			WHERE session_id = ? 
+			ORDER BY created_at DESC LIMIT 1`, sm.sessionID).Scan(&lastMsg, &lastRole, &tpID)
+		if err != nil {
+			continue
+		}
+
+		// 获取消息数
+		var msgCount int
+		r.db.QueryRow(`SELECT COUNT(*) FROM conversations WHERE session_id = ?`, sm.sessionID).Scan(&msgCount)
+
+		// 获取标题
+		var title sql.NullString
+		r.db.QueryRow(`SELECT title FROM session_titles WHERE session_id = ?`, sm.sessionID).Scan(&title)
+
+		// 截断消息
+		runes := []rune(lastMsg)
+		if len(runes) > 100 {
+			lastMsg = string(runes[:100]) + "..."
+		}
+
+		item := SessionItem{
+			SessionID:       sm.sessionID,
+			Title:           nil,
+			LastMessage:     lastMsg,
+			LastMessageRole: lastRole,
+			MessageCount:    msgCount,
+			UpdatedAt:       sm.updatedAt,
+		}
+		if title.Valid {
+			item.Title = &title.String
+		}
+		sessions = append(sessions, item)
+	}
+
+	// 第三步：判断活跃会话：每个老师下最新更新的会话为活跃会话
+	if len(sessions) > 0 {
+		// 查询每个 teacher_persona_id 的最新会话
+		activeQuery := `
+			SELECT session_id 
+			FROM conversations 
+			WHERE id IN (
+				SELECT MAX(id) FROM conversations 
+				WHERE student_persona_id = ?`
+		activeArgs := []interface{}{studentPersonaID}
+		if teacherPersonaID > 0 {
+			activeQuery += ` AND teacher_persona_id = ?`
+			activeArgs = append(activeArgs, teacherPersonaID)
+		}
+		activeQuery += ` GROUP BY teacher_persona_id)`
+
+		activeRows, err := r.db.Query(activeQuery, activeArgs...)
+		if err == nil {
+			defer activeRows.Close()
+			activeSessions := make(map[string]bool)
+			for activeRows.Next() {
+				var sid string
+				if err := activeRows.Scan(&sid); err == nil {
+					activeSessions[sid] = true
+				}
+			}
+			// 标记活跃会话
+			for i := range sessions {
+				sessions[i].IsActive = activeSessions[sessions[i].SessionID]
+			}
+		}
+	}
+
+	return sessions, total, nil
+}
+
+// ======================== V2.0 迭代11 M4 自测学生方法 ========================
+
+// DeleteByStudentPersonaID 删除学生分身的所有对话记录
+func (r *ConversationRepository) DeleteByStudentPersonaID(studentPersonaID int64) (int, error) {
+	result, err := r.db.Exec(
+		`DELETE FROM conversations WHERE student_persona_id = ?`,
+		studentPersonaID,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("删除学生对话失败: %w", err)
+	}
+
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return 0, fmt.Errorf("获取影响行数失败: %w", err)
+	}
+
+	return int(affected), nil
+}

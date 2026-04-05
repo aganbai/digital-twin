@@ -1,0 +1,154 @@
+.avatar-popup {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  &__content {
+    width: 85%;
+    max-height: 70%;
+    background: #fff;
+    border-radius: 16px;
+    overflow: hidden;
+    animation: fadeIn 0.2s ease;
+  }
+
+  &__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 1px solid #f0f0f0;
+  }
+
+  &__title {
+    font-size: 18px;
+    font-weight: 600;
+    color: #333;
+  }
+
+  &__close {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    color: #999;
+  }
+
+  &__body {
+    padding: 16px 20px;
+    max-height: 400px;
+    overflow-y: auto;
+  }
+
+  &__loading {
+    padding: 40px;
+    text-align: center;
+    color: #999;
+  }
+
+  &__empty {
+    padding: 40px;
+    text-align: center;
+    color: #999;
+  }
+
+  &__field {
+    margin-bottom: 16px;
+
+    &:last-child {
+      margin-bottom: 0;
+    }
+
+    &--column {
+      display: flex;
+      flex-direction: column;
+    }
+  }
+
+  &__label-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+  }
+
+  &__label {
+    font-size: 14px;
+    color: #999;
+    margin-bottom: 4px;
+    display: block;
+  }
+
+  &__value {
+    font-size: 15px;
+    color: #333;
+    display: block;
+    line-height: 1.5;
+  }
+
+  &__edit-btn {
+    font-size: 13px;
+    color: #4F46E5;
+    padding: 4px 8px;
+  }
+
+  &__edit-area {
+    margin-top: 8px;
+  }
+
+  &__input {
+    width: 100%;
+    min-height: 80px;
+    padding: 12px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    font-size: 14px;
+    color: #333;
+  }
+
+  &__btns {
+    display: flex;
+    gap: 12px;
+    margin-top: 12px;
+  }
+
+  &__btn {
+    flex: 1;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 18px;
+    font-size: 14px;
+
+    &--cancel {
+      background: #f0f0f0;
+      color: #666;
+    }
+
+    &--confirm {
+      background: #4F46E5;
+      color: #fff;
+    }
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}

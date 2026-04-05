@@ -131,6 +131,12 @@ export default function Profile() {
       action: () => Taro.navigateTo({ url: '/pages/persona-overview/index' }),
     },
     {
+      key: 'test-student',
+      label: '自测学生',
+      roles: ['teacher'],
+      action: () => Taro.navigateTo({ url: '/pages/test-student/index' }),
+    },
+    {
       key: 'curriculum-config',
       label: '教材配置',
       roles: ['teacher'],

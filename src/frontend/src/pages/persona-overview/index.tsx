@@ -23,7 +23,7 @@ export default function PersonaOverview() {
 
   /** 汇总统计 */
   const totalStudents = personas.reduce((sum, p) => sum + (p.student_count || 0), 0)
-  const totalClasses = personas.reduce((sum, p) => sum + (p.class_count || 0), 0)
+  const totalClasses = personas.length
 
   /** 获取分身列表及统计数据 */
   const fetchPersonas = useCallback(async () => {
@@ -88,9 +88,16 @@ export default function PersonaOverview() {
     Taro.switchTab({ url: '/pages/home/index' })
   }
 
-  /** 创建新分身 */
-  const handleCreatePersona = () => {
-    Taro.navigateTo({ url: '/pages/role-select/index' })
+  /** 点击分身卡片 - 跳转到班级详情（迭代11） */
+  const handleCardClick = (persona: PersonaOverviewItem) => {
+    // 如果有绑定班级，跳转到班级详情
+    if (persona.bound_class_id) {
+      setCurrentPersona(persona)
+      Taro.navigateTo({ url: `/pages/class-detail/index?id=${persona.bound_class_id}` })
+    } else {
+      // 没有绑定班级时，进入仪表盘
+      handleEnterDashboard(persona)
+    }
   }
 
   if (loading) {
@@ -107,16 +114,28 @@ export default function PersonaOverview() {
     <View className='persona-overview'>
       {/* 顶部统计 */}
       <View className='persona-overview__header'>
-        <Text className='persona-overview__title'>👨‍🏫 我的分身</Text>
+        <Text className='persona-overview__title'>👨‍🏫 我的班级分身</Text>
         <Text className='persona-overview__summary'>
-          共 {personas.length} 个分身 · {totalStudents} 名学生 · {totalClasses} 个班级
+          共 {personas.length} 个班级 · {totalStudents} 名学生
         </Text>
       </View>
+
+      {/* 空状态提示 */}
+      {personas.length === 0 && (
+        <View className='persona-overview__empty'>
+          <Text className='persona-overview__empty-text'>暂无班级分身</Text>
+          <Text className='persona-overview__empty-hint'>请先创建班级，分身将随班级自动创建</Text>
+        </View>
+      )}
 
       {/* 分身列表 */}
       <View className='persona-overview__list'>
         {personas.map((persona) => (
-          <View key={persona.id} className='persona-overview__card'>
+          <View
+            key={persona.id}
+            className='persona-overview__card'
+            onClick={() => handleCardClick(persona)}
+          >
             <View className='persona-overview__card-header'>
               <View className='persona-overview__card-info'>
                 <Text className='persona-overview__card-name'>{persona.nickname}</Text>
@@ -124,24 +143,13 @@ export default function PersonaOverview() {
                   <Text className='persona-overview__card-school'> · {persona.school}</Text>
                 )}
               </View>
-            </View>
-
-            {persona.description && (
-              <Text className='persona-overview__card-desc'>{persona.description}</Text>
-            )}
-
-            {/* 状态标签 */}
-            <View className='persona-overview__card-badges'>
-              <View
-                className={`persona-overview__badge ${persona.is_active ? 'persona-overview__badge--active' : 'persona-overview__badge--inactive'}`}
-              >
-                <Text className='persona-overview__badge-text'>
-                  {persona.is_active ? '🟢 启用中' : '🔴 已停用'}
-                </Text>
-              </View>
+              {/* 公开/私有状态 */}
               <View
                 className={`persona-overview__badge ${persona.is_public ? 'persona-overview__badge--public' : 'persona-overview__badge--private'}`}
-                onClick={() => handleToggleVisibility(persona)}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  handleToggleVisibility(persona)
+                }}
               >
                 <Text className='persona-overview__badge-text'>
                   {toggling === persona.id
@@ -153,15 +161,23 @@ export default function PersonaOverview() {
               </View>
             </View>
 
+            {persona.description && (
+              <Text className='persona-overview__card-desc'>{persona.description}</Text>
+            )}
+
+            {/* 绑定班级信息（迭代11核心） */}
+            {persona.bound_class_name && (
+              <View className='persona-overview__class-info'>
+                <Text className='persona-overview__class-label'>绑定班级：</Text>
+                <Text className='persona-overview__class-name'>{persona.bound_class_name}</Text>
+              </View>
+            )}
+
             {/* 统计数据 */}
             <View className='persona-overview__card-stats'>
               <View className='persona-overview__stat'>
                 <Text className='persona-overview__stat-value'>{persona.student_count || 0}</Text>
                 <Text className='persona-overview__stat-label'>学生</Text>
-              </View>
-              <View className='persona-overview__stat'>
-                <Text className='persona-overview__stat-value'>{persona.class_count || 0}</Text>
-                <Text className='persona-overview__stat-label'>班级</Text>
               </View>
               <View className='persona-overview__stat'>
                 <Text className='persona-overview__stat-value'>{persona.document_count || 0}</Text>
@@ -170,33 +186,30 @@ export default function PersonaOverview() {
             </View>
 
             {/* 操作按钮 */}
-            <View className='persona-overview__card-actions-row'>
+            <View className='persona-overview__card-actions-row' onClick={(e) => e.stopPropagation()}>
               <View
                 className='persona-overview__card-btn'
                 onClick={() => handleEnterDashboard(persona)}
               >
                 <Text className='persona-overview__card-btn-text'>进入管理</Text>
               </View>
-              {/* R6: 分享码管理入口 */}
-              <View
-                className='persona-overview__card-btn persona-overview__card-btn--share'
-                onClick={() => {
-                  // 进入该分身后跳转分享码管理
-                  setCurrentPersona(persona)
-                  Taro.navigateTo({ url: '/pages/share-manage/index' })
-                }}
-              >
-                <Text className='persona-overview__card-btn-text--share'>🔗 分享码</Text>
-              </View>
+              {persona.bound_class_id && (
+                <View
+                  className='persona-overview__card-btn persona-overview__card-btn--share'
+                  onClick={() => {
+                    setCurrentPersona(persona)
+                    Taro.navigateTo({ url: `/pages/class-detail/index?id=${persona.bound_class_id}` })
+                  }}
+                >
+                  <Text className='persona-overview__card-btn-text--share'>📋 班级详情</Text>
+                </View>
+              )}
             </View>
           </View>
         ))}
       </View>
 
-      {/* 创建新分身按钮 */}
-      <View className='persona-overview__create-btn' onClick={handleCreatePersona}>
-        <Text className='persona-overview__create-btn-text'>+ 创建新分身</Text>
-      </View>
+      {/* 迭代11：移除"创建新分身"按钮，分身随班级创建 */}
     </View>
   )
 }

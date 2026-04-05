@@ -360,11 +360,23 @@ func (p *MemoryPlugin) handlePipeline(input *core.PluginInput) (*core.PluginOutp
 		studentPersonaID = toInt64(v, 0)
 	}
 
+	// V2.0 迭代9: 获取 thinking_step_writer 回调
+	var thinkingStepWriter func(eventType string, data map[string]interface{})
+	if v, ok := input.Data["thinking_step_writer"]; ok {
+		if fn, ok := v.(func(string, map[string]interface{})); ok {
+			thinkingStepWriter = fn
+		}
+	}
+
 	// merge 上游 Data
 	outputData := mergeData(input.Data, nil)
 
 	// 如果有 student_id 和 teacher_id，自动检索记忆
 	if studentID > 0 && teacherID > 0 {
+		// V2.0 迭代9: 发送记忆检索开始事件
+		memoryStartTime := time.Now()
+		sendMemoryThinkingStep(thinkingStepWriter, "memory_recall", "start", "", 0)
+
 		limit := 10
 		var memories []*database.Memory
 		var err error
@@ -377,6 +389,11 @@ func (p *MemoryPlugin) handlePipeline(input *core.PluginInput) (*core.PluginOutp
 			// 分身维度未找到，回退到 user_id 维度
 			memories, err = p.store.RetrieveRelevant(studentID, teacherID, limit)
 		}
+
+		// V2.0 迭代9: 发送记忆检索完成事件
+		memoryDuration := time.Since(memoryStartTime).Milliseconds()
+		memoryDetail := fmt.Sprintf("找到 %d 条相关记忆", len(memories))
+		sendMemoryThinkingStep(thinkingStepWriter, "memory_recall", "done", memoryDetail, memoryDuration)
 
 		if err != nil {
 			// 管道模式下记忆检索失败不阻断流程，只记录错误
@@ -687,4 +704,53 @@ func toFloat64(v interface{}, defaultVal float64) float64 {
 	default:
 		return defaultVal
 	}
+}
+
+// ======================== V2.0 迭代9: 思考过程展示辅助方法 ========================
+
+// sendMemoryThinkingStep 发送思考步骤事件
+// thinkingStepWriter 是一个回调函数，用于发送 SSE 事件
+func sendMemoryThinkingStep(thinkingStepWriter func(eventType string, data map[string]interface{}), step, status, detail string, durationMs int64) {
+	if thinkingStepWriter == nil {
+		return
+	}
+
+	// 步骤提示文案
+	stepMessages := map[string]struct {
+		Start string
+		Done  string
+	}{
+		"rag_search":    {"🔍 正在检索知识库...", "✅ 已检索知识库"},
+		"memory_recall": {"🧠 正在检索相关记忆...", "✅ 已检索记忆"},
+		"tool_call":     {"🔧 正在搜索增强...", "✅ 搜索完成"},
+		"llm_thinking":  {"💭 AI 正在思考...", "✅ 生成完成"},
+	}
+
+	msg, ok := stepMessages[step]
+	if !ok {
+		return
+	}
+
+	var message string
+	if status == "start" {
+		message = msg.Start
+	} else {
+		message = msg.Done
+	}
+
+	data := map[string]interface{}{
+		"type":      "thinking_step",
+		"step":      step,
+		"status":    status,
+		"message":   message,
+		"timestamp": time.Now().UnixMilli(),
+	}
+	if detail != "" {
+		data["detail"] = detail
+	}
+	if durationMs > 0 {
+		data["duration_ms"] = durationMs
+	}
+
+	thinkingStepWriter("thinking_step", data)
 }

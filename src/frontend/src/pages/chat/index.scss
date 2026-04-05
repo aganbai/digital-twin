@@ -70,6 +70,29 @@
   font-weight: 500;
 }
 
+/* 老师头像（导航栏中） */
+.chat-page__teacher-avatar {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 12px;
+  flex-shrink: 0;
+
+  &:active {
+    opacity: 0.8;
+  }
+}
+
+.chat-page__teacher-avatar-text {
+  font-size: 28px;
+  color: #FFFFFF;
+  font-weight: 600;
+}
+
 /* ========== 消息列表区域 ========== */
 .chat-page__messages {
   flex: 1;
@@ -593,6 +616,28 @@
 
 .chat-page__emoji-btn-text {
   font-size: 32px;
+}
+
+/* ========== +号按钮 ========== */
+.chat-page__plus-btn {
+  flex-shrink: 0;
+  width: 64px;
+  height: 64px;
+  border-radius: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 4px;
+
+  &:active {
+    background-color: #e5e7eb;
+  }
+}
+
+.chat-page__plus-btn-text {
+  font-size: 36px;
+  color: #6b7280;
+  font-weight: 300;
 }
 
 /* ========== 教师推送消息卡片 ========== */

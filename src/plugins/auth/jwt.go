@@ -12,7 +12,8 @@ type Claims struct {
 	UserID    int64  `json:"user_id"`
 	PersonaID int64  `json:"persona_id"` // V2.0 迭代2：分身ID
 	Username  string `json:"username"`
-	Role      string `json:"role"`
+	Role      string `json:"role"`      // Persona角色（teacher/student）
+	UserRole  string `json:"user_role"` // 用户角色（admin/teacher/student）
 	jwt.RegisteredClaims
 }
 
@@ -35,6 +36,14 @@ func NewJWTManager(secret, issuer string, expiry time.Duration) *JWTManager {
 // GenerateToken 生成 JWT token
 // personaID 为可变参数，保持向后兼容
 func (m *JWTManager) GenerateToken(userID int64, username, role string, personaID ...int64) (string, time.Time, error) {
+	return m.GenerateTokenWithUserRole(userID, username, role, role, personaID...)
+}
+
+// GenerateTokenWithUserRole 生成 JWT token（带用户角色）
+// userRole: 用户级别角色（admin/teacher/student）
+// role: 当前分身角色（teacher/student）
+// personaID: 分身ID
+func (m *JWTManager) GenerateTokenWithUserRole(userID int64, username, role, userRole string, personaID ...int64) (string, time.Time, error) {
 	now := time.Now()
 	expiresAt := now.Add(m.expiry)
 
@@ -48,6 +57,7 @@ func (m *JWTManager) GenerateToken(userID int64, username, role string, personaI
 		PersonaID: pid,
 		Username:  username,
 		Role:      role,
+		UserRole:  userRole,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Issuer:    m.issuer,
 			IssuedAt:  jwt.NewNumericDate(now),

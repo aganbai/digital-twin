@@ -1,0 +1,34 @@
+{
+  "timestamp": "2026-04-04T16:23:31.617Z",
+  "tests": [
+    {
+      "name": "后端服务健康检查",
+      "expected": "返回版本信息",
+      "actual": "状态码 200",
+      "passed": true
+    },
+    {
+      "name": "SM-AD04：废弃接口返回404",
+      "expected": "switch/activate/deactivate返回404",
+      "actual": "switch=404, activate=404, deactivate=404",
+      "passed": true
+    },
+    {
+      "name": "注册测试教师",
+      "expected": "注册成功",
+      "actual": "状态码 409",
+      "passed": false
+    },
+    {
+      "name": "测试执行错误",
+      "expected": "无异常",
+      "actual": "注册教师失败，无法继续测试",
+      "passed": false
+    }
+  ],
+  "summary": {
+    "passed": 2,
+    "failed": 2,
+    "skipped": 0
+  }
+}
