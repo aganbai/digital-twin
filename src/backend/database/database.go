@@ -48,6 +48,12 @@ func NewDatabase(dbPath string) (*Database, error) {
 		return nil, fmt.Errorf("设置 WAL 模式失败: %w", err)
 	}
 
+	// 设置 busy_timeout：当数据库被锁定时自动重试（最多5秒），避免 SQLITE_BUSY
+	if _, err := db.Exec("PRAGMA busy_timeout = 5000"); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("设置 busy_timeout 失败: %w", err)
+	}
+
 	database := &Database{DB: db}
 
 	// 自动建表

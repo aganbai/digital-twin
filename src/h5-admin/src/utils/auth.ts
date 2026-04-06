@@ -6,9 +6,9 @@
 export function handleWxCallback(): { code: string; state: string } | null {
   const urlParams = new URLSearchParams(window.location.search)
   const code = urlParams.get('code')
-  const state = urlParams.get('state')
+  const state = urlParams.get('state') || ''
 
-  if (code && state) {
+  if (code) {
     return { code, state }
   }
   return null

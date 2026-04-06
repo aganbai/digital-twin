@@ -443,7 +443,7 @@ func (r *UserRepository) ListUsers(role, status string, offset, limit int) ([]Us
 
 	// 查询列表
 	query := fmt.Sprintf(`
-		SELECT id, username, password, role, nickname, email, openid, COALESCE(status, 'active'), COALESCE(wx_unionid, ''),
+		SELECT id, username, password, role, nickname, COALESCE(email, ''), openid, COALESCE(status, 'active'), COALESCE(wx_unionid, ''),
 		       school, description, default_persona_id, created_at, updated_at
 		FROM users WHERE %s
 		ORDER BY created_at DESC

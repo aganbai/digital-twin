@@ -45,11 +45,12 @@ func SetupRouter(mgr *manager.HarnessManager) *gin.Engine {
 	if logDB != nil && mgr.GetDB() != nil {
 		db := &database.Database{DB: mgr.GetDB()}
 		adminHandler = NewAdminHandler(db, logDB)
-		// 获取auth插件用于H5登录
-		authPlugin := getAuthPlugin(mgr)
-		if authPlugin != nil {
-			h5Handler = NewH5Handler(authPlugin)
-		}
+	}
+	
+	// H5处理器（H5登录是公开接口，不依赖日志数据库）
+	authPlugin := getAuthPlugin(mgr)
+	if authPlugin != nil {
+		h5Handler = NewH5Handler(authPlugin)
 	}
 
 	api := r.Group("/api")

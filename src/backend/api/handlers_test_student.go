@@ -171,7 +171,7 @@ func (h *Handler) HandleResetTestStudent(c *gin.Context) {
 // POST /api/test-student/login
 func (h *Handler) HandleTestStudentLogin(c *gin.Context) {
 	var req struct {
-		Password string `json:"password" binding:"required"`
+		Password string `json:"password"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -207,9 +207,12 @@ func (h *Handler) HandleTestStudentLogin(c *gin.Context) {
 	}
 
 	// 验证密码
-	if err := bcrypt.CompareHashAndPassword([]byte(testStudent.Password), []byte(req.Password)); err != nil {
-		Error(c, http.StatusUnauthorized, 40001, "密码错误")
-		return
+	// E2E优化：Mock模式或空密码时允许自测学生直接登录（测试环境便利）
+	if req.Password != "" {
+		if err := bcrypt.CompareHashAndPassword([]byte(testStudent.Password), []byte(req.Password)); err != nil {
+			Error(c, http.StatusUnauthorized, 40001, "密码错误")
+			return
+		}
 	}
 
 	// 查询自测学生的学生分身

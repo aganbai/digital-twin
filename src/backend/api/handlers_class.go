@@ -18,6 +18,14 @@ import (
 // POST /api/classes
 // V2.0 迭代11重构：创建班级时同步创建分身
 func (h *Handler) HandleCreateClass(c *gin.Context) {
+	// 角色校验：仅教师可创建班级（防御深度，配合路由层 RoleRequired 中间件）
+	role, _ := c.Get("role")
+	roleStr, _ := role.(string)
+	if roleStr != "teacher" && roleStr != "admin" {
+		Error(c, http.StatusForbidden, 40301, "仅教师角色可创建班级")
+		return
+	}
+
 	var req struct {
 		Name               string `json:"name" binding:"required"`
 		Description        string `json:"description"`

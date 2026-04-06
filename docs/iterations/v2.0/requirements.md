@@ -1,6 +1,7 @@
 # V2.0 需求规格说明书（全量版）
 
-> **最后更新**: 2026-04-04 | **文档版本**: v2.0.0 | **状态**: 迭代10已完成 + TabBar调整
+> **最后更新**: 2026-04-05 | **文档版本**: v2.1.0 | **状态**: 迭代11已完成
+> **接口清单**：已拆分至独立文件 `api_spec_full.md`（134→136个接口，含迭代11变更）
 
 ---
 
@@ -10,7 +11,7 @@
 |------|------|
 | **版本名称** | V2.0 - 单机生产可用版 |
 | **版本目标** | 功能完整 + 单机部署 + 生产可用 + 多端支持 |
-| **迭代数** | 10 个迭代（已全部完成） |
+| **迭代数** | 11 个迭代（已全部完成） |
 | **前置依赖** | V1.0 全部完成（3 个迭代，39 个集成测试通过） |
 
 ### 1.1 V1.0 已完成内容回顾
@@ -50,6 +51,7 @@
 | 迭代8 | 易用性优化 | 知识库统一输入框 + 班级管理增强 + 审批流程 + 聊天列表仿微信改版 + 发现页 | ✅ |
 | 迭代9 | 对话体验增强 + 教学管理 | 思考过程展示 + 语音恢复 + +号多功能按钮 + 会话列表优化 + 课程发布 + 画像隐私保护 | ✅ |
 | 迭代10 | 管理员H5后台 + 多端支持 | 微信H5 OAuth登录 + 管理员监控面板 + 教师/学生H5页面 + 操作日志流水 | ✅ |
+| 迭代11 | 分身机制重构 + 架构Review | 班级绑定分身（无主分身）+ 老师自测学生角色 + 向量召回策略优化 + 接口一致性Review | ✅ |
 
 **迭代后变更**：
 - 教师端 TabBar 调整：移除"工作台"，改为"聊天列表"（按班级划分） ✅
@@ -74,24 +76,25 @@
 
 | 功能 | 说明 | 来源迭代 |
 |------|------|----------|
-| 分身创建 | 教师可创建多个AI分身（不同学科/班级） | 迭代2 |
-| 分身切换 | 教师/学生可切换当前活跃分身 | 迭代2 |
-| 分身启停 | 教师可启用/停用分身 | 迭代3 |
-| 分身概览 | 分身详情页（基本信息+统计+设置） | 迭代4 |
-| 分身广场 | 公开分身展示，学生可浏览和申请 | 迭代4→迭代5独立化 |
+| 班级绑定分身 | **每个班级一个专属分身**，创建班级时自动创建，无主分身概念 | 迭代2→**迭代11重构** |
+| 分身概览 | 分身详情页（基本信息+统计+设置），按班级展示 | 迭代4→迭代11简化 |
+| 分身广场 | 公开班级展示（is_public=true），学生可浏览和申请 | 迭代4→迭代5独立化→迭代11适配 |
 | 分身分享 | 分享链接/二维码/定向邀请 | 迭代2+迭代4+迭代6 |
+| 教师禁止独立创建分身 | `POST /api/personas` 对教师返回引导错误 | 迭代11 |
+| 删除的功能 | ~~分身切换~~ / ~~分身启停~~ —— 统一通过班级管理 | ~~迭代2/3~~ |
 
 ### 3.3 师生关系与班级管理
 
 | 功能 | 说明 | 来源迭代 |
 |------|------|----------|
-| 班级创建 | 教师昵称+学科+年龄范畴+班级名称+简介 | 迭代2→迭代8增强 |
+| 班级创建 | 教师昵称+学校+分身描述+班级名称+简介+**is_public**（公开/私密）；自动创建班级专属分身 | 迭代2→迭代8增强→**迭代11重构** |
 | 班级分享链接 | 创建后自动生成专属分享链接和二维码 | 迭代2+迭代6 |
 | 学生审批流程 | 学生申请加入→教师填写学生信息→审批通过/拒绝 | 迭代8 |
 | 审批信息 | 评价/特点、年龄、性别、家庭情况（用于Prompt注入） | 迭代8 |
 | 学生管理（合并页） | 全部学生/按班级/待审批/班级设置 四Tab合一 | 迭代5合并 |
 | 批量添加学生 | LLM智能解析文本+分享码加入+信息丰富化引导 | 迭代7 |
-| 班级启停 | 教师可启用/停用班级 | 迭代3 |
+| 班级 is_public | 公开班级展示在发现页；私密班级仅通过分享链接加入 | 迭代11 |
+| 老师自测学生角色 | 教师注册时自动创建测试学生账号，用于自测对话；创建班级后自测学生自动加入 | 迭代11 |
 
 ### 3.4 对话系统
 
@@ -121,7 +124,7 @@
 | 聊天记录导入 | JSON格式对话记录导入 | 迭代6 |
 | 批量上传 | 最多20个文件，总大小≤100MB，异步处理 | 迭代7 |
 | 统一输入框 | 智能识别URL/文字/文件，拖拽上传 | 迭代8 |
-| LlamaIndex语义检索 | Python服务，DashScope Embedding向量化+语义检索 | 迭代5 |
+| LlamaIndex语义检索 | Python服务，DashScope Embedding向量化+语义检索；召回100条→置信度阈值(0.3)→scope过滤→返回≤5条 | 迭代5→**迭代11优化** |
 | Scope精细化 | 全局/班级/学生 三级scope控制 | 迭代2+迭代3多选 |
 | 知识库预览 | 点击文档可预览内容 | 迭代3 |
 | 搜索与筛选 | 按标题关键词搜索，按类型筛选 | 迭代8 |
@@ -309,9 +312,9 @@
 
 | 表名 | 说明 | 来源迭代 |
 |------|------|----------|
-| `users` | 用户表（含role/openid/wx_unionid/status/profile_snapshot） | V1.0+多次扩展 |
-| `personas` | 分身表（教师创建的AI分身） | 迭代2 |
-| `classes` | 班级表（含teacher_display_name/subject/age_group/share_link/invite_code/qr_code_url） | 迭代2+迭代8增强 |
+| `users` | 用户表（含role/openid/wx_unionid/status/profile_snapshot/**is_test_account**/**created_by_teacher_id**） | V1.0+多次扩展+**迭代11** |
+| `personas` | 分身表（含**bound_class_id** 绑定班级）；每班一个专属分身 | 迭代2→**迭代11重构** |
+| `classes` | 班级表（含teacher_display_name/subject/age_group/share_link/invite_code/qr_code_url/**is_public**） | 迭代2+迭代8增强+**迭代11** |
 | `class_members` | 班级成员表（含approval_status/teacher_evaluation/age/gender/family_info） | 迭代2+迭代8增强 |
 | `class_join_requests` | 班级加入申请表 | 迭代8 |
 | `conversations` | 对话记录表 | V1.0 |
@@ -384,311 +387,28 @@
 #### 管理员后台（src/h5-admin/）
 - 登录页、仪表盘、用户管理、反馈管理、日志查询、日志统计
 
-#### 教师端（src/h5-teacher/）
-- 登录页、角色选择、聊天列表、对话页、班级管理、班级创建、班级详情、知识库、知识库添加、知识库预览、课程管理、课程发布、分身管理、分享管理、记忆管理、审批管理、学生详情、教材配置、反馈、个人中心
+#### 教师H5页面（src/h5-teacher/）
+- 登录页、角色选择、聊天列表、对话页、班级管理（含分身信息）、班级创建（含分身信息+is_public）、班级详情、知识库、知识库添加、知识库预览、课程管理、课程发布、分身管理（按班级展示）、分享管理、记忆管理、审批管理、学生详情、教材配置、反馈、个人中心
+- **迭代11调整**：分身管理简化为按班级展示分身列表；班级管理中显示对应分身信息
 
-#### 学生端（src/h5-student/）
+#### 学生H5页面（src/h5-student/）
 - 登录页、角色选择、首页、聊天列表、对话页、发现页、分享加入、历史记录、我的教师、我的评语、分身管理、反馈、个人中心
 
 ---
 
-## 7. 接口完整清单（基于 router.go 实际代码）
+## 7. 接口清单
 
-> 以下接口清单从 `src/backend/api/router.go` 和 `src/knowledge-service/app/main.py` 中逐行提取，共计 **102 个接口**。
-
-### 7.1 认证接口（无需鉴权）
-
-| # | 方法 | 路径 | 说明 | 角色 | 来源 |
-|---|------|------|------|------|------|
-| 1 | POST | `/api/auth/register` | 用户注册 | 所有 | V1.0 |
-| 2 | POST | `/api/auth/login` | 用户登录 | 所有 | V1.0 |
-| 3 | POST | `/api/auth/wx-login` | 微信小程序登录 | 所有 | V1.0 |
-| 4 | POST | `/api/auth/refresh` | 刷新JWT令牌 | 所有 | V1.0 |
-| 5 | GET | `/api/auth/wx-h5-login-url` | 获取H5微信授权URL | 所有 | 迭代10 |
-| 6 | POST | `/api/auth/wx-h5-callback` | H5微信授权回调 | 所有 | 迭代10 |
-| 7 | POST | `/api/auth/complete-profile` | 补全用户信息（需鉴权） | 所有 | V1.0 |
-
-### 7.2 用户接口
-
-| # | 方法 | 路径 | 说明 | 角色 | 来源 |
-|---|------|------|------|------|------|
-| 8 | GET | `/api/user/profile` | 获取当前用户信息 | 所有 | V1.0 |
-| 9 | PUT | `/api/user/student-profile` | 更新学生基础信息 | student | 迭代8 |
-| 10 | GET | `/api/teachers` | 获取教师列表 | 所有 | V1.0 |
-
-### 7.3 分身管理接口
-
-| # | 方法 | 路径 | 说明 | 角色 | 来源 |
-|---|------|------|------|------|------|
-| 11 | POST | `/api/personas` | 创建分身 | 所有 | 迭代2 |
-| 12 | GET | `/api/personas` | 获取分身列表 | 所有 | 迭代2 |
-| 13 | PUT | `/api/personas/:id` | 编辑分身 | 所有 | 迭代2 |
-| 14 | PUT | `/api/personas/:id/activate` | 激活分身 | 所有 | 迭代2 |
-| 15 | PUT | `/api/personas/:id/deactivate` | 停用分身 | 所有 | 迭代2 |
-| 16 | PUT | `/api/personas/:id/switch` | 切换当前分身 | 所有 | 迭代2 |
-| 17 | GET | `/api/personas/:id/dashboard` | 分身Dashboard数据 | 所有 | 迭代3 |
-| 18 | GET | `/api/personas/marketplace` | 分身广场 | 所有 | 迭代4 |
-| 19 | PUT | `/api/personas/:id/visibility` | 设置分身公开/私密 | 所有 | 迭代4 |
-
-### 7.4 班级管理接口
-
-| # | 方法 | 路径 | 说明 | 角色 | 来源 |
-|---|------|------|------|------|------|
-| 20 | POST | `/api/classes` | 创建班级 | teacher | 迭代2 |
-| 21 | GET | `/api/classes` | 获取班级列表 | teacher | 迭代2 |
-| 22 | PUT | `/api/classes/:id` | 更新班级 | teacher | 迭代2 |
-| 23 | DELETE | `/api/classes/:id` | 删除班级 | teacher | 迭代2 |
-| 24 | GET | `/api/classes/:id/members` | 获取班级成员 | teacher | 迭代2 |
-| 25 | POST | `/api/classes/:id/members` | 添加班级成员 | teacher | 迭代2 |
-| 26 | DELETE | `/api/classes/:id/members/:member_id` | 移除班级成员 | teacher | 迭代2 |
-| 27 | PUT | `/api/classes/:id/toggle` | 启停班级 | teacher | 迭代3 |
-| 28 | POST | `/api/classes/v8` | 创建班级（V8增强版） | teacher | 迭代8 |
-| 29 | GET | `/api/classes/:id/share-info` | 获取班级分享信息 | teacher | 迭代8 |
-| 30 | GET | `/api/classes/:id/members/v8` | 获取班级成员（V8增强版） | teacher | 迭代8 |
-| 31 | GET | `/api/classes/:id` | 学生查看班级详情 | 所有 | 迭代9 |
-
-### 7.5 班级加入申请接口
-
-| # | 方法 | 路径 | 说明 | 角色 | 来源 |
-|---|------|------|------|------|------|
-| 32 | POST | `/api/classes/join` | 学生申请加入班级 | student | 迭代8 |
-| 33 | GET | `/api/join-requests/pending` | 获取待审批申请列表 | teacher | 迭代8 |
-| 34 | PUT | `/api/join-requests/:id/approve` | 审批通过 | teacher | 迭代8 |
-| 35 | PUT | `/api/join-requests/:id/reject` | 审批拒绝 | teacher | 迭代8 |
-
-### 7.6 师生关系接口
-
-| # | 方法 | 路径 | 说明 | 角色 | 来源 |
-|---|------|------|------|------|------|
-| 36 | POST | `/api/relations/invite` | 教师邀请学生 | teacher | 迭代1 |
-| 37 | POST | `/api/relations/apply` | 学生申请使用分身 | student | 迭代1 |
-| 38 | PUT | `/api/relations/:id/approve` | 教师审批同意 | teacher | 迭代1 |
-| 39 | PUT | `/api/relations/:id/reject` | 教师审批拒绝 | teacher | 迭代1 |
-| 40 | GET | `/api/relations` | 获取师生关系列表 | 所有 | 迭代1 |
-| 41 | PUT | `/api/relations/:id/toggle` | 启停师生关系 | teacher | 迭代3 |
-
-### 7.7 对话接口
-
-| # | 方法 | 路径 | 说明 | 角色 | 来源 |
-|---|------|------|------|------|------|
-| 42 | POST | `/api/chat` | 发送消息（非流式） | 所有 | V1.0 |
-| 43 | POST | `/api/chat/stream` | SSE流式对话 | 所有 | 迭代1 |
-| 44 | GET | `/api/conversations` | 获取对话历史 | 所有 | V1.0 |
-| 45 | GET | `/api/conversations/sessions` | 获取会话列表 | 所有 | V1.0 |
-| 46 | POST | `/api/chat/new-session` | 创建新会话 | 所有 | 迭代8 |
-| 47 | GET | `/api/chat/quick-actions` | 获取快捷指令 | 所有 | 迭代8 |
-| 48 | POST | `/api/conversations/sessions/:session_id/title` | 生成会话标题 | 所有 | 迭代9 |
-
-### 7.8 教师介入对话接口
-
-| # | 方法 | 路径 | 说明 | 角色 | 来源 |
-|---|------|------|------|------|------|
-| 49 | POST | `/api/chat/teacher-reply` | 教师真人回复 | teacher | 迭代4 |
-| 50 | GET | `/api/chat/takeover-status` | 获取接管状态 | 所有 | 迭代4 |
-| 51 | POST | `/api/chat/end-takeover` | 结束接管 | teacher | 迭代4 |
-| 52 | GET | `/api/conversations/student/:student_persona_id` | 查看学生对话记录 | teacher | 迭代4 |
-
-### 7.9 聊天列表接口
-
-| # | 方法 | 路径 | 说明 | 角色 | 来源 |
-|---|------|------|------|------|------|
-| 53 | GET | `/api/chat-list/teacher` | 教师端聊天列表（按班级组织） | teacher | 迭代8 |
-| 54 | GET | `/api/chat-list/student` | 学生端聊天列表（按老师分组） | student | 迭代8 |
-| 55 | POST | `/api/chat-pins` | 置顶聊天 | 所有 | 迭代8 |
-| 56 | DELETE | `/api/chat-pins/:type/:id` | 取消置顶 | 所有 | 迭代8 |
-| 57 | GET | `/api/chat-pins` | 获取置顶列表 | 所有 | 迭代8 |
-
-### 7.10 知识库接口（旧版 documents）
-
-| # | 方法 | 路径 | 说明 | 角色 | 来源 |
-|---|------|------|------|------|------|
-| 58 | POST | `/api/documents` | 添加文档 | teacher/admin | V1.0 |
-| 59 | GET | `/api/documents` | 获取文档列表 | teacher/admin | V1.0 |
-| 60 | DELETE | `/api/documents/:id` | 删除文档 | teacher/admin | V1.0 |
-| 61 | POST | `/api/documents/upload` | 文件上传 | teacher/admin | 迭代1 |
-| 62 | POST | `/api/documents/import-url` | URL导入 | teacher/admin | 迭代1 |
-| 63 | POST | `/api/documents/preview` | 预览文档 | teacher/admin | 迭代3 |
-| 64 | POST | `/api/documents/preview-upload` | 预览上传文件 | teacher/admin | 迭代3 |
-| 65 | POST | `/api/documents/preview-url` | 预览URL内容 | teacher/admin | 迭代3 |
-| 66 | POST | `/api/documents/confirm` | 确认添加文档 | teacher/admin | 迭代3 |
-| 67 | POST | `/api/documents/import-chat` | 聊天记录导入 | teacher/admin | 迭代6 |
-| 68 | POST | `/api/documents/batch-upload` | 批量文件上传 | teacher/admin | 迭代7 |
-| 69 | GET | `/api/batch-tasks/:task_id` | 查询批量任务状态 | teacher/admin | 迭代7 |
-
-### 7.11 知识库接口（V8增强版 knowledge）
-
-| # | 方法 | 路径 | 说明 | 角色 | 来源 |
-|---|------|------|------|------|------|
-| 70 | POST | `/api/knowledge/upload` | 智能知识库上传（统一输入框） | teacher/admin | 迭代8 |
-| 71 | GET | `/api/knowledge` | 搜索知识库列表 | teacher/admin | 迭代8 |
-| 72 | GET | `/api/knowledge/:id` | 获取知识详情 | teacher/admin | 迭代8 |
-| 73 | PUT | `/api/knowledge/:id` | 更新知识 | teacher/admin | 迭代8 |
-| 74 | DELETE | `/api/knowledge/:id` | 删除知识 | teacher/admin | 迭代8 |
-
-### 7.12 记忆接口
-
-| # | 方法 | 路径 | 说明 | 角色 | 来源 |
-|---|------|------|------|------|------|
-| 75 | GET | `/api/memories` | 获取记忆列表 | 所有 | V1.0 |
-| 76 | PUT | `/api/memories/:id` | 更新记忆 | teacher | 迭代6 |
-| 77 | DELETE | `/api/memories/:id` | 删除记忆 | teacher | 迭代6 |
-| 78 | POST | `/api/memories/summarize` | 手动触发记忆合并 | teacher | 迭代6 |
-
-### 7.13 评语与问答风格接口
-
-| # | 方法 | 路径 | 说明 | 角色 | 来源 |
-|---|------|------|------|------|------|
-| 79 | POST | `/api/comments` | 教师写评语/备注 | teacher | 迭代1 |
-| 80 | GET | `/api/comments` | 获取评语列表 | 所有 | 迭代1 |
-| 81 | PUT | `/api/students/:id/dialogue-style` | 设置学生问答风格 | teacher | 迭代1 |
-| 82 | GET | `/api/students/:id/dialogue-style` | 获取学生问答风格 | 所有 | 迭代1 |
-
-### 7.14 对话风格接口
-
-| # | 方法 | 路径 | 说明 | 角色 | 来源 |
-|---|------|------|------|------|------|
-| 83 | PUT | `/api/styles` | 设置对话风格配置 | teacher | 迭代6 |
-| 84 | GET | `/api/styles` | 获取对话风格配置 | 所有 | 迭代6 |
-
-### 7.15 学生管理接口
-
-| # | 方法 | 路径 | 说明 | 角色 | 来源 |
-|---|------|------|------|------|------|
-| 85 | GET | `/api/students/search` | 搜索学生 | teacher | 迭代1 |
-| 86 | GET | `/api/students/:id/profile` | 查看学生详情 | teacher | 迭代9 |
-| 87 | PUT | `/api/students/:id/evaluation` | 更新学生评语 | teacher | 迭代9 |
-| 88 | POST | `/api/students/parse-text` | LLM解析学生文本 | teacher | 迭代7 |
-| 89 | POST | `/api/students/batch-create` | 批量创建学生 | teacher | 迭代7 |
-
-### 7.16 教材配置接口
-
-| # | 方法 | 路径 | 说明 | 角色 | 来源 |
-|---|------|------|------|------|------|
-| 90 | POST | `/api/curriculum-configs` | 创建教材配置 | teacher | 迭代7 |
-| 91 | GET | `/api/curriculum-configs` | 获取教材配置列表 | teacher | 迭代7 |
-| 92 | PUT | `/api/curriculum-configs/:id` | 更新教材配置 | teacher | 迭代7 |
-| 93 | DELETE | `/api/curriculum-configs/:id` | 删除教材配置 | teacher | 迭代7 |
-| 94 | GET | `/api/curriculum-versions` | 获取教材版本列表 | 所有 | 迭代7 |
-
-### 7.17 课程接口
-
-| # | 方法 | 路径 | 说明 | 角色 | 来源 |
-|---|------|------|------|------|------|
-| 95 | POST | `/api/courses` | 发布课程 | teacher | 迭代9 |
-| 96 | GET | `/api/courses` | 课程列表 | teacher | 迭代9 |
-| 97 | PUT | `/api/courses/:id` | 更新课程 | teacher | 迭代9 |
-| 98 | DELETE | `/api/courses/:id` | 删除课程 | teacher | 迭代9 |
-| 99 | POST | `/api/courses/:id/push` | 推送课程给学生 | teacher | 迭代9 |
-
-### 7.18 教师消息推送接口
-
-| # | 方法 | 路径 | 说明 | 角色 | 来源 |
-|---|------|------|------|------|------|
-| 100 | POST | `/api/teacher-messages` | 教师推送消息 | teacher | 迭代7 |
-| 101 | GET | `/api/teacher-messages/history` | 推送历史 | teacher | 迭代7 |
-
-### 7.19 分享码接口
-
-| # | 方法 | 路径 | 说明 | 角色 | 来源 |
-|---|------|------|------|------|------|
-| 102 | POST | `/api/shares` | 创建分享码 | teacher | 迭代2 |
-| 103 | GET | `/api/shares` | 获取分享码列表 | teacher | 迭代2 |
-| 104 | POST | `/api/shares/:code/join` | 通过分享码加入 | 所有 | 迭代2 |
-| 105 | PUT | `/api/shares/:id/deactivate` | 废止分享码 | teacher | 迭代2 |
-| 106 | GET | `/api/shares/:code/info` | 获取分享码信息（可选鉴权） | 所有 | 迭代2 |
-
-### 7.20 反馈接口
-
-| # | 方法 | 路径 | 说明 | 角色 | 来源 |
-|---|------|------|------|------|------|
-| 107 | POST | `/api/feedbacks` | 提交反馈 | 所有 | 迭代7 |
-| 108 | GET | `/api/feedbacks` | 反馈列表 | teacher/admin | 迭代7 |
-| 109 | PUT | `/api/feedbacks/:id/status` | 更新反馈状态 | teacher/admin | 迭代7 |
-
-### 7.21 发现页接口
-
-| # | 方法 | 路径 | 说明 | 角色 | 来源 |
-|---|------|------|------|------|------|
-| 110 | GET | `/api/discover` | 发现页数据 | 所有 | 迭代8 |
-| 111 | GET | `/api/discover/detail` | 发现详情 | 所有 | 迭代8 |
-| 112 | GET | `/api/discover/search` | 发现页搜索 | 所有 | 迭代8 |
-
-### 7.22 通用文件上传接口
-
-| # | 方法 | 路径 | 说明 | 角色 | 来源 |
-|---|------|------|------|------|------|
-| 113 | POST | `/api/upload` | 通用文件上传 | 所有 | 迭代5 |
-| 114 | POST | `/api/upload/h5` | H5文件上传 | 所有 | 迭代10 |
-
-### 7.23 平台配置接口（无需鉴权）
-
-| # | 方法 | 路径 | 说明 | 角色 | 来源 |
-|---|------|------|------|------|------|
-| 115 | GET | `/api/platform/config` | 平台配置（小程序/H5差异） | 所有 | 迭代10 |
-
-### 7.24 管理员接口
-
-| # | 方法 | 路径 | 说明 | 角色 | 来源 |
-|---|------|------|------|------|------|
-| 116 | GET | `/api/admin/dashboard/overview` | 管理员仪表盘总览 | admin | 迭代10 |
-| 117 | GET | `/api/admin/dashboard/user-stats` | 用户统计 | admin | 迭代10 |
-| 118 | GET | `/api/admin/dashboard/chat-stats` | 对话统计 | admin | 迭代10 |
-| 119 | GET | `/api/admin/dashboard/knowledge-stats` | 知识库统计 | admin | 迭代10 |
-| 120 | GET | `/api/admin/dashboard/active-users` | 活跃用户排行 | admin | 迭代10 |
-| 121 | GET | `/api/admin/users` | 用户列表 | admin | 迭代10 |
-| 122 | PUT | `/api/admin/users/:id/role` | 修改用户角色 | admin | 迭代10 |
-| 123 | PUT | `/api/admin/users/:id/status` | 启禁用户 | admin | 迭代10 |
-| 124 | GET | `/api/admin/feedbacks` | 反馈管理列表 | admin | 迭代10 |
-| 125 | GET | `/api/admin/logs` | 操作日志查询 | admin | 迭代10 |
-| 126 | GET | `/api/admin/logs/stats` | 日志统计 | admin | 迭代10 |
-| 127 | GET | `/api/admin/logs/export` | 日志导出CSV | admin | 迭代10 |
-
-### 7.25 系统接口
-
-| # | 方法 | 路径 | 说明 | 角色 | 来源 |
-|---|------|------|------|------|------|
-| 128 | GET | `/api/system/health` | 健康检查 | 所有 | V1.0 |
-| 129 | GET | `/api/system/plugins` | 插件列表 | admin | V1.0 |
-| 130 | GET | `/api/system/pipelines` | 管道列表 | admin | V1.0 |
-
-### 7.26 Python LlamaIndex 服务接口（内部，端口8100）
-
-| # | 方法 | 路径 | 说明 | 来源 |
-|---|------|------|------|------|
-| 131 | POST | `/api/v1/vectors/documents` | 存储文档向量（接收已分好的chunks） | 迭代5 |
-| 132 | POST | `/api/v1/vectors/search` | 语义检索（返回top-k相似文档块） | 迭代5 |
-| 133 | DELETE | `/api/v1/vectors/documents/{doc_id}` | 删除指定文档的所有向量 | 迭代5 |
-| 134 | GET | `/api/v1/health` | 健康检查 | 迭代5 |
-
-### 7.27 接口统计
-
-| 分类 | 数量 |
-|------|------|
-| Go 后端接口（`/api/`） | 130 个 |
-| Python 服务接口（`/api/v1/`） | 4 个 |
-| **总计** | **134 个** |
-
-| 按来源迭代统计 | 数量 |
-|----------------|------|
-| V1.0 | 12 |
-| 迭代1 | 12 |
-| 迭代2 | 14 |
-| 迭代3 | 7 |
-| 迭代4 | 6 |
-| 迭代5 | 5 |
-| 迭代6 | 7 |
-| 迭代7 | 14 |
-| 迭代8 | 22 |
-| 迭代9 | 11 |
-| 迭代10 | 20 |
-
-| 按角色统计 | 数量 |
-|------------|------|
-| 所有角色可访问 | 48 |
-| teacher 专属 | 52 |
-| student 专属 | 3 |
-| teacher/admin | 17 |
-| admin 专属 | 14 |
+> 接口完整清单已拆分为独立文件：**`docs/iterations/v2.0/api_spec_full.md`**
+>
+> 当前版本共 **136 个接口**（Go 后端 132 个 + Python 服务 4 个），含迭代11变更（3个删除、1个重构、1个增强、2个新增）。
+>
+> 按分组快速导航：
+> - 认证（7）、用户（3）、分身管理（6，迭代11重构）、班级管理（12，迭代11重构）
+> - 班级加入申请（4）、师生关系（6）、对话（7）、教师介入（4）、聊天列表（5）
+> - 知识库旧版（12）、知识库V8（5）、记忆（4）、评语与问答风格（4）、对话风格（2）
+> - 学生管理（5）、教材配置（5）、课程（5）、教师消息（2）、分享码（5）
+> - 反馈（3）、发现页（3）、通用上传（2）、平台配置（1）、管理员（12）、系统（3）
+> - 自测学生（2，迭代11新增）、Python服务（4）
 
 ---
 
@@ -774,6 +494,7 @@
 | 微信订阅消息 | 需要微信后台配置消息模板，当前为Mock | 中 |
 | 小程序审核发布 | 域名备案、服务器域名配置、微信提审 | 高 |
 | H5端语音输入 | H5不支持微信语音SDK，暂不可用 | 低 |
+| 发现页公开班级过滤 | 迭代11新增 is_public 字段，发现页需适配仅展示 is_public=true 的班级 | 中 |
 
 ---
 
@@ -811,10 +532,14 @@
 | 多端需求 | 教师/学生H5页面 | 迭代10 |
 | 运营需求 | 操作日志流水 | 迭代10 |
 | 用户需求 | 教师端TabBar调整（聊天列表替换工作台） | 迭代后变更 |
+| 架构需求 | 班级绑定分身（无主分身）+ 教师禁止独立创建分身 | 迭代11 |
+| 运营需求 | 老师自测学生角色 | 迭代11 |
+| 技术优化 | 向量召回100条+置信度阈值过滤 | 迭代11 |
+| 架构需求 | 班级 is_public 公开/私密控制 | 迭代11 |
 
 ---
 
-**文档版本**: v2.0.0
+**文档版本**: v2.1.0
 **创建日期**: 2026-03-28
-**最后更新**: 2026-04-04
-**维护说明**: 本文档为 V2.0 全量需求汇总，各迭代详细需求见 `iteration{N}_requirements.md`，API详细规范见 `iteration{N}_api_spec.md`
+**最后更新**: 2026-04-05
+**维护说明**: 本文档为 V2.0 全量需求汇总，各迭代详细需求见 `iteration{N}_requirements.md`，API 完整规范见 `api_spec_full.md`

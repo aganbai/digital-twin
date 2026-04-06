@@ -877,10 +877,23 @@ func (p *AuthPlugin) handleWxH5Callback(input *core.PluginInput) (*core.PluginOu
 			nickname = "微信用户"
 		}
 
+		// 根据 code 确定角色（Mock 模式支持多角色体验）
+		role := ""
+		switch {
+		case code == "h5_admin_test" || code == "admin":
+			role = "admin"
+		case code == "h5_teacher_test" || code == "teacher":
+			role = "teacher"
+		case code == "h5_student_test" || code == "student":
+			role = "student"
+		case code == "h5_user_test":
+			role = "student" // 默认角色
+		}
+
 		user = &database.User{
 			Username:  "wx_h5_" + openidSuffix,
 			Password:  string(hashedPassword),
-			Role:      "",
+			Role:      role,
 			Nickname:  nickname,
 			OpenID:    tokenResp.OpenID,
 			WxUnionID: tokenResp.UnionID,

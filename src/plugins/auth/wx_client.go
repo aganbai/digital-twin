@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 )
 
@@ -150,6 +151,8 @@ type MockWxClient struct{}
 // Mock 模式下使用固定 openid，确保再次登录能识别为同一用户。
 // 如果 code 以 "test_user_" 开头，则使用 code 作为区分（方便 E2E 测试模拟多用户）。
 // 如果 code 以 "v9iter_" 开头（迭代9测试专用），也使用 code 作为区分。
+// 如果 code 以 "mock_" 开头（通用测试模式），使用 code 作为区分。
+// 如果 code 以 "smoke_" 开头（冒烟测试专用），使用 code 作为区分。
 func (m *MockWxClient) Code2Session(code string) (*WxSessionResult, error) {
 	openid := "mock_openid_default_user"
 	// 支持 "test_user_" 前缀
@@ -164,6 +167,14 @@ func (m *MockWxClient) Code2Session(code string) (*WxSessionResult, error) {
 	if len(code) > 5 && code[:5] == "mock_" {
 		openid = "mock_openid_" + code
 	}
+	// 支持 "smoke_" 前缀（冒烟测试专用）
+	if len(code) > 6 && code[:6] == "smoke_" {
+		openid = "mock_openid_" + code
+	}
+	// 支持 "iter" 前缀（迭代 E2E 测试）
+	if len(code) > 4 && code[:4] == "iter" && code != "iteration" {
+		openid = "mock_openid_" + code
+	}
 	return &WxSessionResult{
 		OpenID: openid,
 	}, nil
@@ -171,14 +182,33 @@ func (m *MockWxClient) Code2Session(code string) (*WxSessionResult, error) {
 
 // GetAuthURL 生成 mock 授权URL
 func (m *MockWxClient) GetAuthURL(redirectURI, state string) string {
-	return fmt.Sprintf("https://mock.weixin.com/oauth2?redirect_uri=%s&state=%s", redirectURI, state)
+	// Mock模式：根据redirectURI判断端类型，返回对应角色的code
+	code := "h5_user_test" // 默认
+	switch {
+	case strings.Contains(redirectURI, ":5173") || strings.Contains(redirectURI, ":5177"):
+		code = "h5_admin_test"
+	case strings.Contains(redirectURI, ":5174") || strings.Contains(redirectURI, ":5178"):
+		code = "h5_teacher_test"
+	case strings.Contains(redirectURI, ":3002") || strings.Contains(redirectURI, ":3004"):
+		code = "h5_student_test"
+	}
+	return fmt.Sprintf("%s?code=%s&state=%s", redirectURI, code, state)
 }
 
 // GetAccessToken 返回 mock access_token
 func (m *MockWxClient) GetAccessToken(code string) (*WxAccessTokenResult, error) {
-	// Mock 模式下，使用 code 生成 openid
+	// Mock 模式下，使用 code 生成 openid（支持多角色独立用户）
 	openid := "mock_h5_openid_default"
-	if len(code) > 8 && code[:8] == "h5_user_" {
+	switch {
+	case code == "h5_admin_test":
+		openid = "mock_h5_openid_admin"
+	case code == "h5_teacher_test":
+		openid = "mock_h5_openid_teacher"
+	case code == "h5_student_test":
+		openid = "mock_h5_openid_student"
+	case code == "h5_user_test":
+		openid = "mock_h5_openid_default"
+	case len(code) > 8 && code[:8] == "h5_user_":
 		openid = "mock_h5_openid_" + code
 	}
 	return &WxAccessTokenResult{

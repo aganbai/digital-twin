@@ -1,0 +1,71 @@
+# Digital-Twin 项目配置
+# 本文件从 skills/project-dev-skill.md 剥离，由 dt-orchest 动态加载
+
+# 项目基本信息
+project:
+  name: "digital-twin"
+  display_name: "数字分身教学助手"
+  description: "基于 Harness 插件管道架构的教学助手系统"
+  
+# Go 模块配置
+go_module:
+  module_path: "digital-twin"
+  core_interface: "src/harness/core/plugin.go"
+  frozen_files:
+    - "src/harness/core/plugin.go"
+  
+# 配置文件路径
+config_files:
+  harness: "configs/harness.yaml"
+  env: ".env"
+  env_production: ".env.production"
+  
+# 核心目录
+directories:
+  backend_source: "src/harness"
+  frontend_miniprogram: "src/frontend"
+  frontend_h5_teacher: "src/h5-teacher"
+  frontend_h5_student: "src/h5-student"
+  tests: "tests"
+  integration_tests: "tests/integration"
+  
+# 技术栈
+tech_stack:
+  backend:
+    language: "Go"
+    frameworks:
+      - "github.com/gin-gonic/gin"
+      - "modernc.org/sqlite"
+      - "github.com/golang-jwt/jwt/v5"
+      - "gopkg.in/yaml.v3"
+    llm_provider: "OpenAI兼容格式（通义千问 qwen-turbo）"
+  
+  frontend_miniprogram:
+    framework: "Taro + React"
+    test_framework: "Jest + @testing-library/react + MSW"
+    e2e_tool: "miniprogram-automator"
+    
+  frontend_h5:
+    framework: "Vue3 + Vite"
+    test_framework: "Vitest + @vue/test-utils + MSW"
+    e2e_tool: "Playwright"
+
+# 受保护文件（禁止修改）
+protected_files:
+  - ".env"
+  - ".env.production"
+  - "src/harness/core/plugin.go"
+  - "configs/harness.yaml"
+
+# 文档路径配置
+docs:
+  smoke_test_plan: "docs/testing/smoke_test_plan.md"
+  known_traps: "docs/known_traps.md"
+  archive: "docs/archive/iteration-modules-archive.md"
+  iterations_base: "docs/iterations"
+  
+# Agent 配置
+agents:
+  backend: "dev_backend_agent"
+  frontend: "dev_frontent_agent"
+  ci_test: "ci_test_agent"
