@@ -63,22 +63,45 @@ cases:
     dependencies: [SMOKE-001]
 
   - case_id: SMOKE-004
-    name: 分享码创建 + 学生扫码加入 + 审批通过
+    name: 分享码创建 + 多学生扫码加入 + 审批通过
     type: part_a
     source: "D-01 + D-02 + D-03"
     priority: P0
-    mock_token_type: registered_teacher
+    mock_token_type: mixed
+    mock_accounts:
+      - alias: teacher_a
+        role: teacher
+        code: smoke_teacher_001
+        description: 主测试教师（SMOKE-001 注册的）
+      - alias: student_1
+        role: student
+        code: smoke_student_001
+        description: 学生1（SMOKE-002 注册的）
+      - alias: student_2
+        role: student
+        code: smoke_student_002
+        description: 学生2（本用例新注册）
+      - alias: student_3
+        role: student
+        code: smoke_student_003
+        description: 学生3（本用例新注册）
     steps:
-      - "POST /api/shares { persona_id } 创建分享码"
-      - "学生B POST /api/shares/:code/join 扫码加入"
-      - "教师 GET /api/join-requests/pending 查看待审批"
-      - "教师 PUT /api/join-requests/:id/approve 审批通过"
-      - "GET /api/relations 验证师生关系建立"
+      - "[teacher_a] POST /api/shares { persona_id } 创建分享码"
+      - "[student_1] POST /api/shares/:code/join 扫码加入"
+      - "[student_2] 注册新学生 → POST /api/shares/:code/join 扫码加入"
+      - "[student_3] 注册新学生 → POST /api/shares/:code/join 扫码加入"
+      - "[teacher_a] GET /api/join-requests/pending 查看待审批（应有3条）"
+      - "[teacher_a] PUT /api/join-requests/:id/approve 逐一审批通过"
+      - "[teacher_a] GET /api/classes/:id/members 验证成员列表（含3个学生+自测学生）"
+      - "[teacher_a] UI验证：切换到教师端，查看班级成员列表排版是否正常"
+      - "[student_1] UI验证：切换到学生1，查看教师列表展示是否正常"
     expected:
       - 分享码正确生成
-      - 学生加入申请成功
-      - 审批流程正常
+      - 3个学生加入申请均成功
+      - 审批流程正常（批量审批）
       - 师生关系正确建立
+      - 教师端成员列表排版正常（多学生场景）
+      - 学生端教师列表展示正常
     dependencies: [SMOKE-002, SMOKE-003]
 
   - case_id: SMOKE-005
@@ -174,17 +197,28 @@ cases:
     type: part_b
     source: "F-01 + F-02 + F-03 + F-05"
     priority: P0
-    mock_token_type: registered_teacher
+    mock_token_type: mixed
+    mock_accounts:
+      - alias: teacher_a
+        role: teacher
+        code: smoke_teacher_001
+        description: 介入对话的教师
+      - alias: student_1
+        role: student
+        code: smoke_student_001
+        description: 被介入的学生
     steps:
-      - "POST /api/chat/teacher-reply { student_persona_id, message }"
-      - "验证 sender_type=teacher"
-      - "GET /api/chat/takeover-status 验证 is_taken_over=true"
-      - "学生发消息验证 AI 不回复"
-      - "POST /api/chat/end-takeover 结束接管"
-      - "学生发消息验证 AI 恢复回复"
+      - "[teacher_a] POST /api/chat/teacher-reply { student_persona_id, message }"
+      - "[teacher_a] 验证 sender_type=teacher"
+      - "[teacher_a] GET /api/chat/takeover-status 验证 is_taken_over=true"
+      - "[student_1] 发消息验证 AI 不回复（教师已接管）"
+      - "[student_1] UI验证：切换到学生端，验证聊天界面显示'教师已介入'提示"
+      - "[teacher_a] POST /api/chat/end-takeover 结束接管"
+      - "[student_1] 发消息验证 AI 恢复回复"
     expected:
       - 教师回复成功标记teacher类型
       - 接管后AI停止
+      - 学生端正确显示教师介入状态
       - 结束接管后AI恢复
     dependencies: [SMOKE-007]
 
@@ -337,21 +371,46 @@ cases:
   # ================================================================
 
   - case_id: SMOKE-019
-    name: 学生端与教师端聊天列表
+    name: 学生端与教师端聊天列表（多人场景）
     type: part_d
     source: "G-01 + G-02 + G-06"
     priority: P0
-    mock_token_type: registered_student
+    mock_token_type: mixed
+    mock_accounts:
+      - alias: teacher_a
+        role: teacher
+        code: smoke_teacher_001
+        description: 主测试教师
+      - alias: teacher_b
+        role: teacher
+        code: smoke_teacher_002
+        description: 第二教师（验证学生端多教师列表）
+      - alias: student_1
+        role: student
+        code: smoke_student_001
+        description: 学生1（同时关注两个教师）
+      - alias: student_2
+        role: student
+        code: smoke_student_002
+        description: 学生2
+      - alias: student_3
+        role: student
+        code: smoke_student_003
+        description: 学生3
     steps:
-      - "GET /api/chat-list/student 学生端列表"
-      - "验证按教师→会话二级结构"
-      - "GET /api/chat-list/teacher 教师端列表"
-      - "验证按班级组织学生"
-      - "POST /api/chat-pins 置顶聊天"
-      - "GET /api/chat-pins 验证置顶"
+      - "数据准备：teacher_b 注册并创建班级，student_1 加入 teacher_b 的班级"
+      - "数据准备：确保 student_1/2/3 都已与 teacher_a 建立关系并有对话记录"
+      - "[student_1] UI验证：查看聊天列表，应显示 teacher_a 和 teacher_b 两个教师"
+      - "[student_1] 验证按教师→会话二级结构，排版正常"
+      - "[teacher_a] UI验证：查看聊天列表，应显示 student_1/2/3 三个学生"
+      - "[teacher_a] 验证按班级组织学生，多学生排版正常"
+      - "[student_1] POST /api/chat-pins 置顶 teacher_a 的聊天"
+      - "[student_1] GET /api/chat-pins 验证置顶生效"
     expected:
-      - 两端列表数据正确
+      - 学生端正确显示多个教师（排版正常）
+      - 教师端正确显示多个学生（排版正常）
       - 置顶功能正常
+      - 多人数据下列表无溢出、截断等排版问题
     dependencies: [SMOKE-007]
 
   - case_id: SMOKE-020
@@ -480,10 +539,23 @@ cases:
     source: "Q-01 + Q-02 + Q-03"
     priority: P0
     mock_token_type: mixed
+    mock_accounts:
+      - alias: teacher_a
+        role: teacher
+        code: smoke_teacher_001
+        description: 教师A（数据所有者）
+      - alias: teacher_b
+        role: teacher
+        code: smoke_teacher_002
+        description: 教师B（越权访问者）
+      - alias: student_1
+        role: student
+        code: smoke_student_001
+        description: 学生（角色越权测试）
     steps:
       - "GET /api/personas（无Authorization）验证返回 401"
-      - "POST /api/classes（学生token）验证返回 403"
-      - "PUT /api/personas/:教师A的id（教师B token）验证返回 403"
+      - "[student_1] POST /api/classes 验证返回 403（学生无权创建班级）"
+      - "[teacher_b] PUT /api/personas/:teacher_a的persona_id 验证返回 403（数据越权）"
     expected:
       - 未登录401
       - 角色越权403
@@ -510,13 +582,22 @@ cases:
     type: part_f
     source: "M-01 + M-02 + M-03 + AD-05"
     priority: P1
-    mock_token_type: registered_student
+    mock_token_type: mixed
+    mock_accounts:
+      - alias: teacher_a
+        role: teacher
+        code: smoke_teacher_001
+        description: 控制班级公开状态的教师
+      - alias: student_1
+        role: student
+        code: smoke_student_001
+        description: 浏览发现页的学生
     steps:
-      - "GET /api/discover 验证仅返回 is_public=true 的班级"
-      - "GET /api/discover/search?q=关键词 搜索验证"
-      - "GET /api/personas/marketplace 验证公开班级分身"
-      - "教师 PUT /api/classes/:id { is_public: false }"
-      - "再次查询发现页验证该班级不再出现"
+      - "[student_1] GET /api/discover 验证仅返回 is_public=true 的班级"
+      - "[student_1] GET /api/discover/search?q=关键词 搜索验证"
+      - "[student_1] GET /api/personas/marketplace 验证公开班级分身"
+      - "[teacher_a] PUT /api/classes/:id { is_public: false } 关闭公开"
+      - "[student_1] 再次查询发现页验证该班级不再出现"
     expected:
       - 发现页仅展示公开班级
       - is_public切换实时生效

@@ -237,6 +237,51 @@ class SandboxDeployer:
             logger.error(f"❌ 服务重启失败: {e}")
             return False
     
+    def restore_real_env(self) -> bool:
+        """
+        恢复真实环境（冒烟测试后调用）
+        
+        冒烟测试期间，后端以 WX_MODE=mock 运行以支持 Mock 登录。
+        测试完成后，需要去掉 Mock 登录态，切换回真实微信登录，
+        方便用户人工体验。
+        
+        核心操作：
+        1. 去掉 WX_MODE=mock 环境变量（使用 .env.production 配置）
+        2. 重启后端服务使配置生效
+        3. 健康检查确认服务正常
+        """
+        logger.info("========== 恢复真实环境 ==========")
+        logger.info("目标：去掉 WX_MODE=mock，切换回真实微信登录")
+        
+        try:
+            # 1. 停止当前服务（带 Mock 登录态的）
+            logger.info("停止当前服务（Mock 环境）...")
+            self.ssh_command(f"cd {self.config.deploy_dir} && docker compose down || true", check=False)
+            
+            # 2. 使用 .env.production 配置重启（不含 WX_MODE=mock）
+            logger.info("使用 .env.production 配置重启服务（真实微信登录）...")
+            self.ssh_command(
+                f"cd {self.config.deploy_dir} && "
+                f"docker compose --env-file .env.production up -d"
+            )
+            
+            # 3. 等待服务就绪
+            logger.info("等待服务就绪...")
+            time.sleep(15)
+            
+            # 4. 健康检查
+            if self.health_check():
+                logger.info("✅ 真实环境恢复完成")
+                logger.info("   - WX_MODE: 未设置（使用真实微信 API）")
+                logger.info("   - 用户可通过真实微信扫码登录体验")
+                return True
+            else:
+                logger.error("❌ 真实环境恢复后健康检查失败")
+                return False
+        except Exception as e:
+            logger.error(f"❌ 真实环境恢复失败: {e}")
+            return False
+    
     def health_check(self, max_retries: int = 30, interval: int = 10) -> bool:
         """健康检查"""
         logger.info("========== 健康检查 ==========")
@@ -340,8 +385,8 @@ def main():
     """主函数"""
     parser = argparse.ArgumentParser(description="沙盒一键部署工具")
     
-    parser.add_argument("command", choices=["full", "build", "upload", "restart", "status", "logs"],
-                        default="full", help="部署命令")
+    parser.add_argument("command", choices=["full", "build", "upload", "restart", "restore", "status", "logs"],
+                        default="full", help="部署命令（restore: 冒烟测试后恢复真实环境，去掉 Mock 登录态）")
     parser.add_argument("--host", help="沙盒服务器地址")
     parser.add_argument("--user", default="root", help="SSH 用户名")
     parser.add_argument("--port", type=int, default=22, help="SSH 端口")
@@ -398,6 +443,12 @@ def main():
             logger.error("未指定沙盒服务器地址")
             sys.exit(1)
         success = deployer.restart_services()
+    elif args.command == "restore":
+        # 冒烟测试后恢复真实环境：去掉 WX_MODE=mock，使用 .env.production 重启
+        if not config.host:
+            logger.error("未指定沙盒服务器地址")
+            sys.exit(1)
+        success = deployer.restore_real_env()
     elif args.command == "status":
         result = deployer.get_status()
         print(result["output"])

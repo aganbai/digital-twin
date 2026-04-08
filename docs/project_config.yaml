@@ -105,7 +105,7 @@ testing:
   
   # 冒烟测试后环境恢复配置（Phase 3c 完成后切换回真实环境，方便人工体验）
   env_restore:
-    # 环境恢复脚本路径（使用分身项目自带的部署脚本，restart 命令重启真实环境）
+    # 环境恢复脚本路径（使用分身项目自带的部署脚本）
     script: "deployments/scripts/deploy_sandbox.py"
-    # 传递 restart 参数：重启服务使用真实配置
-    args: ["restart"]
+    # 传递 restore 参数：去掉 WX_MODE=mock，使用 .env.production 重启服务（真实微信登录）
+    args: ["restore"]
