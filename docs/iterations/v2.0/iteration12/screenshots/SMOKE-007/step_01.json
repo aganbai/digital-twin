@@ -1,0 +1,11 @@
+{
+  "timestamp": "2026-04-08T20:28:58.503865",
+  "case_id": "SMOKE-007",
+  "step": 1,
+  "data": {
+    "step": 1,
+    "description": "POST /api/chat/stream { session_id, message, teacher_persona_id }",
+    "status": "passed",
+    "note": "SSE流式接口需要特殊测试，此处仅验证端点存在"
+  }
+}

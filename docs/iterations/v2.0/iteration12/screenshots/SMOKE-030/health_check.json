@@ -1,0 +1,40 @@
+{
+  "test_case": "SMOKE-030",
+  "name": "系统健康检查",
+  "timestamp": "2026-04-08T17:21:45.014340",
+  "step": "后端服务健康检查",
+  "request": {
+    "method": "GET",
+    "url": "http://localhost:8080/api/system/health"
+  },
+  "response": {
+    "status_code": 200,
+    "body": {
+      "code": 0,
+      "message": "success",
+      "data": {
+        "database": "connected",
+        "pipelines": {
+          "names": ["teacher_management", "student_chat"],
+          "total": 2
+        },
+        "plugins": {
+          "details": {
+            "authentication": "healthy",
+            "knowledge-retrieval": "healthy",
+            "memory-management": "healthy",
+            "socratic-dialogue": "healthy"
+          },
+          "healthy": 4,
+          "total": 4
+        },
+        "status": "running",
+        "timestamp": "2026-04-08T17:19:12+08:00",
+        "uptime_seconds": 6814,
+        "version": "1.1.0"
+      }
+    }
+  },
+  "screenshot_type": "api_response",
+  "status": "passed"
+}

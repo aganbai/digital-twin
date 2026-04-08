@@ -1,0 +1,32 @@
+{
+  "test_case": "SMOKE-029",
+  "name": "发现页公开班级过滤",
+  "timestamp": "2026-04-08T17:21:45.213069",
+  "step": "获取发现页数据",
+  "request": {
+    "method": "GET",
+    "url": "http://localhost:8080/api/discover",
+    "headers": {
+      "Authorization": "Bearer {student_token}"
+    }
+  },
+  "response": {
+    "status_code": 404,
+    "body": {
+      "code": 404,
+      "message": "Not Found",
+      "error": "API endpoint not found"
+    }
+  },
+  "issue_analysis": {
+    "problem": "发现页API端点不存在或路径错误",
+    "tested_endpoint": "/api/discover",
+    "possible_correct_endpoints": [
+      "/api/v1/discover",
+      "/api/classes/discover",
+      "/api/personas/marketplace"
+    ]
+  },
+  "screenshot_type": "error_evidence",
+  "status": "failed"
+}

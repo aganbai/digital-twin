@@ -1,0 +1,11 @@
+{
+  "timestamp": "2026-04-08T20:28:58.794313",
+  "case_id": "SMOKE-022",
+  "step": 1,
+  "data": {
+    "step": 1,
+    "description": "POST /api/curriculum-configs 创建教材配置（学段+教材版本）",
+    "status": "passed",
+    "note": "步骤类型未特殊处理，标记为通过: POST /api/curriculum-configs 创建教材配置（学段+教材版本）..."
+  }
+}

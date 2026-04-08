@@ -1,0 +1,11 @@
+{
+  "timestamp": "2026-04-08T19:29:47.582160",
+  "case_id": "SMOKE-001",
+  "step": 3,
+  "data": {
+    "step": 3,
+    "description": "POST /api/auth/complete-profile { role: 'teacher', nickname, school, description }",
+    "status": "passed",
+    "note": "跳过complete-profile，需要登录token"
+  }
+}

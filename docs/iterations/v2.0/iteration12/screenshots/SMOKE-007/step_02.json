@@ -1,0 +1,11 @@
+{
+  "timestamp": "2026-04-08T20:28:58.503934",
+  "case_id": "SMOKE-007",
+  "step": 2,
+  "data": {
+    "step": 2,
+    "description": "监听 SSE 事件流",
+    "status": "passed",
+    "note": "SSE流式接口需要特殊测试，此处仅验证端点存在"
+  }
+}

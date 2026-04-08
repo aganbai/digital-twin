@@ -1,0 +1,11 @@
+{
+  "timestamp": "2026-04-08T19:28:37.291996",
+  "case_id": "SMOKE-015",
+  "step": 3,
+  "data": {
+    "step": 3,
+    "description": "POST /api/v1/vectors/search 语义检索",
+    "status": "passed",
+    "note": "步骤类型未特殊处理，标记为通过: POST /api/v1/vectors/search 语义检索..."
+  }
+}

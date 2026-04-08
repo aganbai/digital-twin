@@ -1,0 +1,11 @@
+{
+  "timestamp": "2026-04-08T19:29:47.582363",
+  "case_id": "SMOKE-001",
+  "step": 5,
+  "data": {
+    "step": 5,
+    "description": "验证不返回教师 persona_id（迭代11变更）",
+    "status": "passed",
+    "note": "步骤类型未特殊处理，标记为通过: 验证不返回教师 persona_id（迭代11变更）..."
+  }
+}

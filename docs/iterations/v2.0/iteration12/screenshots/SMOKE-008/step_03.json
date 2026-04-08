@@ -1,0 +1,19 @@
+{
+  "timestamp": "2026-04-08T20:28:58.505971",
+  "case_id": "SMOKE-008",
+  "step": 3,
+  "data": {
+    "step": 3,
+    "description": "验证返回 200, {code: 0, data: {aborted: true}}",
+    "status": "failed",
+    "request": {
+      "method": "POST",
+      "url": "/api/chat/stream/test-session/abort"
+    },
+    "response": {
+      "error": "Extra data: line 1 column 5 (char 4)",
+      "status_code": -1
+    },
+    "error": "HTTP -1"
+  }
+}

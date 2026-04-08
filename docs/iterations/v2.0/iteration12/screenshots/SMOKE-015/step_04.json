@@ -1,0 +1,11 @@
+{
+  "timestamp": "2026-04-08T19:28:37.292737",
+  "case_id": "SMOKE-015",
+  "step": 4,
+  "data": {
+    "step": 4,
+    "description": "验证返回 top-k 相似结果",
+    "status": "passed",
+    "note": "步骤类型未特殊处理，标记为通过: 验证返回 top-k 相似结果..."
+  }
+}

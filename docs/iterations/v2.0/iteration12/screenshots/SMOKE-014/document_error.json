@@ -1,0 +1,35 @@
+{
+  "test_case": "SMOKE-014",
+  "name": "知识库CRUD",
+  "timestamp": "2026-04-08T17:21:45.155003",
+  "step": "添加文本文档",
+  "request": {
+    "method": "POST",
+    "url": "http://localhost:8080/api/documents",
+    "headers": {
+      "Authorization": "Bearer {teacher_token}"
+    },
+    "body": {
+      "title": "冒烟测试文档_1744105305",
+      "content": "这是冒烟测试的内容，用于测试知识库功能。"
+    }
+  },
+  "response": {
+    "status_code": 500,
+    "body": {
+      "error": "Internal Server Error",
+      "message": "Failed to create document"
+    }
+  },
+  "issue_analysis": {
+    "problem": "文档创建接口返回500错误",
+    "possible_causes": [
+      "缺少必要的persona_id或class_id参数",
+      "后端文档创建逻辑异常",
+      "数据库约束检查失败"
+    ],
+    "suggestion": "检查接口文档确认完整参数要求"
+  },
+  "screenshot_type": "error_evidence",
+  "status": "failed"
+}

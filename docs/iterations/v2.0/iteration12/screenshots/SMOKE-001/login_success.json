@@ -1,0 +1,27 @@
+{
+  "test_case": "SMOKE-001",
+  "name": "微信登录与教师注册",
+  "timestamp": "2026-04-08T17:21:45.106911",
+  "step": "教师微信登录",
+  "request": {
+    "method": "POST",
+    "url": "http://localhost:8080/api/auth/wx-login",
+    "body": {
+      "code": "smoke_teacher_1744105305"
+    }
+  },
+  "response": {
+    "status_code": 200,
+    "body": {
+      "code": 0,
+      "message": "success",
+      "data": {
+        "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NzU3MjY1MjEsImlhdCI6MTc3NTY0MDEyMX0...",
+        "expires_at": "2026-04-09T17:21:45+08:00",
+        "is_new_user": true
+      }
+    }
+  },
+  "screenshot_type": "api_response",
+  "status": "passed"
+}

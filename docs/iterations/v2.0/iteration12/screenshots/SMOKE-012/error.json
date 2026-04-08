@@ -1,0 +1,21 @@
+{
+  "timestamp": "2026-04-08T20:28:58.558706",
+  "case_id": "SMOKE-012",
+  "step": 6,
+  "data": {
+    "step": 6,
+    "description": "点击+新会话按钮",
+    "status": "failed",
+    "request": {
+      "method": "GET",
+      "url": "/api/conversations/sessions"
+    },
+    "response": {
+      "status_code": 400,
+      "body": {
+        "code": 40001
+      }
+    },
+    "error": "HTTP 400"
+  }
+}

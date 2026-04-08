@@ -1,0 +1,28 @@
+{
+  "timestamp": "2026-04-08T20:28:57.414299",
+  "case_id": "SMOKE-030",
+  "step": 2,
+  "data": {
+    "step": 2,
+    "description": "GET http://localhost:8100/api/v1/health 验证Python服务健康",
+    "status": "passed",
+    "request": {
+      "method": "GET",
+      "url": "/api/health"
+    },
+    "response": {
+      "status_code": 200,
+      "headers": {
+        "date": "Wed, 08 Apr 2026 12:28:57 GMT",
+        "server": "uvicorn",
+        "content-length": "55",
+        "content-type": "application/json"
+      },
+      "body": {
+        "status": "running",
+        "version": "1.0.0",
+        "index_count": 18
+      }
+    }
+  }
+}

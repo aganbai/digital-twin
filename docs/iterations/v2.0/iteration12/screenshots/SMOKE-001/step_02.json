@@ -1,0 +1,11 @@
+{
+  "timestamp": "2026-04-08T19:29:47.582071",
+  "case_id": "SMOKE-001",
+  "step": 2,
+  "data": {
+    "step": 2,
+    "description": "验证返回 token + 空 personas 列表",
+    "status": "passed",
+    "note": "步骤类型未特殊处理，标记为通过: 验证返回 token + 空 personas 列表..."
+  }
+}

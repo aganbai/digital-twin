@@ -74,10 +74,8 @@ agents:
 testing:
   # 沙箱部署配置
   sandbox_deploy:
-    # 沙箱部署脚本路径（相对于项目根目录或绝对路径）
-    # 如果配置，Phase 3b 集成测试前会先执行此脚本进行沙箱部署
-    # script: "deployments/scripts/deploy_sandbox.py"
-    script: null  # 设为 null 表示不使用预部署脚本，使用 Agent 内置逻辑
+    # 沙箱部署脚本路径（使用分身项目自带的部署脚本）
+    script: "deployments/scripts/deploy_sandbox.py"
     
     # 沙箱服务器配置（可选，脚本可通过环境变量 SANDBOX_HOST 等获取）
     host: "${SANDBOX_HOST:-localhost}"
@@ -87,15 +85,27 @@ testing:
     # 额外参数（可选，传递给脚本）
     args: []
   
+  # 测试数据清理配置（Phase 3b/3c 执行前自动清理脏数据）
+  data_cleanup:
+    # 数据清理脚本路径（使用分身项目自带的测试数据管理脚本）
+    script: "scripts/manage_test_data.sh"
+    # 传递 reset 参数：先清理再重建测试数据
+    args: ["reset"]
+  
   # 冒烟测试环境检查配置
   smoke_env_check:
-    # 环境检查脚本路径（相对于项目根目录或绝对路径）
-    # 如果配置，Phase 3c 冒烟测试前会先执行此脚本进行环境检查
+    # 环境检查脚本路径（使用分身项目自带的环境检查脚本）
     script: "deployments/scripts/check_smoke_env.py"
-    # script: null  # 设为 null 表示不使用预检查脚本，使用 Agent 环境检查
     
     # 额外参数（可选，传递给脚本）
     args: []
     
     # 是否使用 JSON 输出格式（脚本支持 --json 参数时设为 true）
     json_output: false
+  
+  # 冒烟测试后环境恢复配置（Phase 3c 完成后切换回真实环境，方便人工体验）
+  env_restore:
+    # 环境恢复脚本路径（使用分身项目自带的部署脚本，restart 命令重启真实环境）
+    script: "deployments/scripts/deploy_sandbox.py"
+    # 传递 restart 参数：重启服务使用真实配置
+    args: ["restart"]

@@ -1,0 +1,170 @@
+{
+  "test_run": {
+    "version": "V2.0",
+    "iteration": "IT12",
+    "timestamp": "2026-04-08T18:47:00+08:00",
+    "executor": "Claude Code Agent"
+  },
+  "screenshots": [
+    {
+      "case_id": "SMOKE-001",
+      "name": "微信登录与教师注册",
+      "files": [
+        {
+          "file": "SMOKE-001/step_01_wx_login.png",
+          "description": "微信登录请求",
+          "step": 1
+        },
+        {
+          "file": "SMOKE-001/step_02_token_received.png",
+          "description": "获取JWT Token",
+          "step": 2
+        }
+      ],
+      "status": "passed"
+    },
+    {
+      "case_id": "SMOKE-002",
+      "name": "学生注册与登录",
+      "files": [
+        {
+          "file": "SMOKE-002/step_01_wx_login.png",
+          "description": "学生微信登录",
+          "step": 1
+        },
+        {
+          "file": "SMOKE-002/step_02_profile_complete.png",
+          "description": "完善学生资料",
+          "step": 2
+        }
+      ],
+      "status": "passed"
+    },
+    {
+      "case_id": "SMOKE-003",
+      "name": "创建班级（同步创建分身）",
+      "files": [
+        {
+          "file": "SMOKE-003/step_01_create_class.png",
+          "description": "创建班级请求",
+          "step": 1
+        }
+      ],
+      "status": "passed"
+    },
+    {
+      "case_id": "SMOKE-006",
+      "name": "普通消息发送与AI回复",
+      "files": [
+        {
+          "file": "SMOKE-006/step_01_send_message.png",
+          "description": "发送普通消息",
+          "step": 1
+        }
+      ],
+      "status": "passed"
+    },
+    {
+      "case_id": "SMOKE-011",
+      "name": "新会话创建 + 会话列表 + 标题生成",
+      "files": [
+        {
+          "file": "SMOKE-011/step_01_new_session.png",
+          "description": "创建新会话",
+          "step": 1
+        }
+      ],
+      "status": "passed"
+    },
+    {
+      "case_id": "SMOKE-014",
+      "name": "知识库CRUD + 统一输入框",
+      "files": [
+        {
+          "file": "SMOKE-014/step_01_doc_list.png",
+          "description": "文档列表查询",
+          "step": 1
+        },
+        {
+          "file": "SMOKE-014/step_02_create_doc.png",
+          "description": "创建文档",
+          "step": 2
+        }
+      ],
+      "status": "passed"
+    },
+    {
+      "case_id": "SMOKE-015",
+      "name": "Python LlamaIndex语义检索服务",
+      "files": [
+        {
+          "file": "SMOKE-015/step_01_health.png",
+          "description": "Python服务健康检查",
+          "step": 1
+        }
+      ],
+      "status": "passed"
+    },
+    {
+      "case_id": "SMOKE-023",
+      "name": "管理员仪表盘全套统计",
+      "files": [
+        {
+          "file": "SMOKE-023/step_01_admin_overview.png",
+          "description": "管理员仪表盘概览",
+          "step": 1
+        }
+      ],
+      "status": "passed"
+    },
+    {
+      "case_id": "SMOKE-027",
+      "name": "鉴权与角色隔离",
+      "files": [
+        {
+          "file": "SMOKE-027/error_40051_rate_limit.png",
+          "description": "限流触发错误(40051)",
+          "step": "error",
+          "is_error": true
+        }
+      ],
+      "status": "failed",
+      "error": "鉴权隔离检查失败 - 限流优先级高于认证"
+    },
+    {
+      "case_id": "SMOKE-029",
+      "name": "发现页 + 广场（is_public过滤）",
+      "files": [
+        {
+          "file": "SMOKE-029/step_01_discover.png",
+          "description": "发现页列表",
+          "step": 1
+        },
+        {
+          "file": "SMOKE-029/step_02_marketplace.png",
+          "description": "分身广场",
+          "step": 2
+        }
+      ],
+      "status": "passed"
+    },
+    {
+      "case_id": "SMOKE-030",
+      "name": "系统健康检查",
+      "files": [
+        {
+          "file": "SMOKE-030/step_01_health_check.png",
+          "description": "系统和后端服务健康检查",
+          "step": 1
+        }
+      ],
+      "status": "passed"
+    }
+  ],
+  "summary": {
+    "total_cases_with_screenshots": 11,
+    "passed": 10,
+    "failed": 1,
+    "total_screenshots": 15
+  }
+}

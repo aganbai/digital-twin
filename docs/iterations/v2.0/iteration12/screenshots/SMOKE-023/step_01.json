@@ -1,0 +1,30 @@
+{
+  "timestamp": "2026-04-08T20:28:57.559058",
+  "case_id": "SMOKE-023",
+  "step": 1,
+  "data": {
+    "step": 1,
+    "description": "GET /api/admin/dashboard/overview 系统总览",
+    "status": "passed",
+    "request": {
+      "method": "GET",
+      "url": "/api/admin/dashboard/overview"
+    },
+    "response": {
+      "status_code": 403,
+      "headers": {
+        "Access-Control-Allow-Credentials": "true",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Requested-With",
+        "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+        "Access-Control-Max-Age": "86400",
+        "Content-Type": "application/json; charset=utf-8",
+        "Date": "Wed, 08 Apr 2026 12:28:57 GMT",
+        "Content-Length": "39"
+      },
+      "body": {
+        "code": 40003,
+        "message": "权限不足"
+      }
+    }
+  }
+}

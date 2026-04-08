@@ -1,0 +1,32 @@
+{
+  "timestamp": "2026-04-08T20:28:58.748332",
+  "case_id": "SMOKE-021",
+  "step": 1,
+  "data": {
+    "step": 1,
+    "description": "PUT /api/styles { style_template: 'socratic' } 设置苏格拉底式",
+    "status": "failed",
+    "request": {
+      "method": "GET",
+      "url": "/api/styles"
+    },
+    "response": {
+      "status_code": 400,
+      "headers": {
+        "Access-Control-Allow-Credentials": "true",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Requested-With",
+        "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+        "Access-Control-Max-Age": "86400",
+        "Content-Type": "application/json; charset=utf-8",
+        "Date": "Wed, 08 Apr 2026 12:28:58 GMT",
+        "Content-Length": "73"
+      },
+      "body": {
+        "code": 40004,
+        "message": "缺少或无效的分身 ID 参数",
+        "data": null
+      }
+    },
+    "error": "HTTP 400"
+  }
+}

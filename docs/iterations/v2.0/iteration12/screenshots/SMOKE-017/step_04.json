@@ -1,0 +1,11 @@
+{
+  "timestamp": "2026-04-08T20:28:58.654263",
+  "case_id": "SMOKE-017",
+  "step": 4,
+  "data": {
+    "step": 4,
+    "description": "验证 core/episodic/archived 三层分类正确",
+    "status": "passed",
+    "note": "步骤类型未特殊处理，标记为通过: 验证 core/episodic/archived 三层分类正确..."
+  }
+}

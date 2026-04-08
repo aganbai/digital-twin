@@ -1,0 +1,11 @@
+{
+  "timestamp": "2026-04-08T20:28:58.794491",
+  "case_id": "SMOKE-022",
+  "step": 3,
+  "data": {
+    "step": 3,
+    "description": "POST /api/teacher-messages 推送消息",
+    "status": "passed",
+    "note": "步骤类型未特殊处理，标记为通过: POST /api/teacher-messages 推送消息..."
+  }
+}

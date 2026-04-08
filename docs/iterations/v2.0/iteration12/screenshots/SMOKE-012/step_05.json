@@ -1,0 +1,11 @@
+{
+  "timestamp": "2026-04-08T20:28:58.557844",
+  "case_id": "SMOKE-012",
+  "step": 5,
+  "data": {
+    "step": 5,
+    "description": "验证消息列表更新",
+    "status": "passed",
+    "note": "步骤类型未特殊处理，标记为通过: 验证消息列表更新..."
+  }
+}

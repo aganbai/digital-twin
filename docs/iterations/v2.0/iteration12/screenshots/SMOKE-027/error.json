@@ -1,0 +1,31 @@
+{
+  "timestamp": "2026-04-08T20:28:58.224664",
+  "case_id": "SMOKE-027",
+  "step": 2,
+  "data": {
+    "step": 2,
+    "description": "POST /api/classes（学生token）验证返回 403",
+    "status": "failed",
+    "request": {
+      "method": "POST",
+      "url": "/api/classes"
+    },
+    "response": {
+      "status_code": 403,
+      "headers": {
+        "Access-Control-Allow-Credentials": "true",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Requested-With",
+        "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+        "Access-Control-Max-Age": "86400",
+        "Content-Type": "application/json; charset=utf-8",
+        "Date": "Wed, 08 Apr 2026 12:28:58 GMT",
+        "Content-Length": "39"
+      },
+      "body": {
+        "code": 40003,
+        "message": "权限不足"
+      }
+    },
+    "error": "HTTP 403"
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "test_case": "SMOKE-015",
+  "name": "Python知识服务",
+  "timestamp": "2026-04-08T17:21:45.160859",
+  "step": "Python知识服务健康检查",
+  "request": {
+    "method": "GET",
+    "url": "http://localhost:8100/api/v1/health"
+  },
+  "response": {
+    "status_code": 200,
+    "body": {
+      "status": "running",
+      "version": "1.0.0",
+      "index_count": 16
+    }
+  },
+  "key_data": {
+    "vector_store_test": "completed",
+    "storage_status": "functional",
+    "indices": 16
+  },
+  "screenshot_type": "api_response",
+  "status": "passed"
+}

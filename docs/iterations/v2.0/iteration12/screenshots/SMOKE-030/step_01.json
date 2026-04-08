@@ -1,0 +1,54 @@
+{
+  "timestamp": "2026-04-08T20:28:57.410596",
+  "case_id": "SMOKE-030",
+  "step": 1,
+  "data": {
+    "step": 1,
+    "description": "GET /api/system/health 验证后端健康",
+    "status": "passed",
+    "request": {
+      "method": "GET",
+      "url": "/api/health"
+    },
+    "response": {
+      "status_code": 200,
+      "headers": {
+        "Access-Control-Allow-Credentials": "true",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Requested-With",
+        "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+        "Access-Control-Max-Age": "86400",
+        "Content-Type": "application/json; charset=utf-8",
+        "Date": "Wed, 08 Apr 2026 12:28:57 GMT",
+        "Content-Length": "397"
+      },
+      "body": {
+        "code": 0,
+        "message": "success",
+        "data": {
+          "database": "connected",
+          "pipelines": {
+            "names": [
+              "teacher_management",
+              "student_chat"
+            ],
+            "total": 2
+          },
+          "plugins": {
+            "details": {
+              "authentication": "healthy",
+              "knowledge-retrieval": "healthy",
+              "memory-management": "healthy",
+              "socratic-dialogue": "healthy"
+            },
+            "healthy": 4,
+            "total": 4
+          },
+          "status": "running",
+          "timestamp": "2026-04-08T20:28:57+08:00",
+          "uptime_seconds": 18198,
+          "version": "1.1.0"
+        }
+      }
+    }
+  }
+}

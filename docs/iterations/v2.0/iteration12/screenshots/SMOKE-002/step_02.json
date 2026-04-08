@@ -1,0 +1,44 @@
+{
+  "timestamp": "2026-04-08T20:28:58.315911",
+  "case_id": "SMOKE-002",
+  "step": 2,
+  "data": {
+    "step": 2,
+    "description": "POST /api/auth/complete-profile { role: 'student', nickname }",
+    "status": "passed",
+    "request": {
+      "method": "POST",
+      "url": "/api/auth/complete-profile",
+      "body": {
+        "role": "student"
+      }
+    },
+    "response": {
+      "status_code": 200,
+      "headers": {
+        "Access-Control-Allow-Credentials": "true",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Requested-With",
+        "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+        "Access-Control-Max-Age": "86400",
+        "Content-Type": "application/json; charset=utf-8",
+        "Date": "Wed, 08 Apr 2026 12:28:58 GMT",
+        "Content-Length": "543"
+      },
+      "body": {
+        "code": 0,
+        "message": "success",
+        "data": {
+          "description": "Smoke test user",
+          "expires_at": "2026-04-09T20:28:58+08:00",
+          "nickname": "SmokeStudent",
+          "persona_id": 379,
+          "role": "student",
+          "school": "TestSchool",
+          "test_student": null,
+          "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjozNzUsInBlcnNvbmFfaWQiOjM3OSwidXNlcm5hbWUiOiJ3eF9zdHVkZW50XzE3NzU2NTEzMzhfNzc0NDMiLCJyb2xlIjoic3R1ZGVudCIsInVzZXJfcm9sZSI6InN0dWRlbnQiLCJpc3MiOiJkaWdpdGFsLXR3aW4iLCJleHAiOjE3NzU3Mzc3MzgsImlhdCI6MTc3NTY1MTMzOH0.7ZzRIUJhNstxdE7xw7U0oEZpJHoDq3NQjmt36f5HDEY",
+          "user_id": 375
+        }
+      }
+    }
+  }
+}

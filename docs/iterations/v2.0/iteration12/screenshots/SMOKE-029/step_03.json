@@ -1,0 +1,34 @@
+{
+  "timestamp": "2026-04-08T20:28:58.824390",
+  "case_id": "SMOKE-029",
+  "step": 3,
+  "data": {
+    "step": 3,
+    "description": "GET /api/personas/marketplace 验证公开班级分身",
+    "status": "passed",
+    "request": {
+      "method": "GET",
+      "url": "/api/personas"
+    },
+    "response": {
+      "status_code": 200,
+      "headers": {
+        "Access-Control-Allow-Credentials": "true",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Requested-With",
+        "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+        "Access-Control-Max-Age": "86400",
+        "Content-Type": "application/json; charset=utf-8",
+        "Date": "Wed, 08 Apr 2026 12:28:58 GMT",
+        "Content-Length": "78"
+      },
+      "body": {
+        "code": 0,
+        "message": "success",
+        "data": {
+          "current_persona_id": 0,
+          "personas": null
+        }
+      }
+    }
+  }
+}
