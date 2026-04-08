@@ -564,4 +564,85 @@
 .chat-list__expand-arrow {
   font-size: 20px;
   color: #4F46E5;
+
+  &--up {
+    transform: rotate(180deg);
+  }
+}
+
+/* ========== 迭代9：老师分组和历史会话 ========== */
+.chat-list__teacher-group {
+  background-color: #FFFFFF;
+  margin-bottom: 12px;
+}
+
+.chat-list__expand-sessions {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  padding: 16px 32px;
+  background-color: #FAFAFA;
+  border-top: 1px solid #F3F4F6;
+
+  &:active {
+    background-color: #F3F4F6;
+  }
+}
+
+.chat-list__sessions {
+  background-color: #FAFAFA;
+  padding: 8px 0;
+}
+
+.chat-list__session-item {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  padding: 16px 32px;
+  background-color: #FFFFFF;
+  margin: 4px 16px;
+  border-radius: 12px;
+
+  &:active {
+    background-color: #F3F4F6;
+  }
+}
+
+.chat-list__session-icon {
+  font-size: 28px;
+  margin-right: 12px;
+}
+
+.chat-list__session-info {
+  flex: 1;
+  overflow: hidden;
+}
+
+.chat-list__session-title {
+  font-size: 26px;
+  color: #374151;
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-bottom: 4px;
+}
+
+.chat-list__session-meta {
+  font-size: 22px;
+  color: #9CA3AF;
+}
+
+.chat-list__sessions-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background-color: #FAFAFA;
+
+  Text {
+    font-size: 24px;
+    color: #9CA3AF;
+  }
 }

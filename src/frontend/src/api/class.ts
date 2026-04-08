@@ -127,6 +127,89 @@ export function toggleClass(classId: number, isActive: boolean) {
   })
 }
 
+// ===================== 迭代11 新增 =====================
+
+/** V11 创建班级请求体（同步创建分身） */
+export interface CreateClassV11Params {
+  name: string
+  description?: string
+  persona_nickname: string
+  persona_school: string
+  persona_description: string
+  is_public?: boolean
+}
+
+/** V11 创建班级响应 */
+export interface CreateClassV11Response {
+  id: number
+  name: string
+  description?: string
+  is_public: boolean
+  persona_id: number
+  persona_nickname: string
+  persona_school: string
+  persona_description?: string
+  share_code: string
+  share_url: string
+  created_at: string
+}
+
+/**
+ * V11 创建班级（同步创建分身）
+ */
+export function createClassV11(params: CreateClassV11Params) {
+  return request<CreateClassV11Response>({
+    url: '/api/classes',
+    method: 'POST',
+    data: params,
+  })
+}
+
+/** V11 更新班级请求体 */
+export interface UpdateClassV11Params {
+  name?: string
+  description?: string
+  is_public?: boolean
+}
+
+/** V11 班级详情 */
+export interface ClassDetailV11 {
+  id: number
+  name: string
+  description?: string
+  is_public: boolean
+  persona_id: number
+  persona_nickname: string
+  persona_school: string
+  persona_description?: string
+  student_count: number
+  created_at: string
+}
+
+/**
+ * V11 更新班级信息（支持 is_public）
+ * @param id - 班级 ID
+ * @param params - 更新字段
+ */
+export function updateClassV11(id: number, params: UpdateClassV11Params) {
+  return request<ClassDetailV11>({
+    url: `/api/classes/${id}`,
+    method: 'PUT',
+    data: params,
+  })
+}
+
+/**
+ * 获取班级详情
+ * @param id - 班级 ID
+ */
+export function getClassDetail(id: number) {
+  return request<ClassDetailV11>({
+    url: `/api/classes/${id}`,
+    method: 'GET',
+  })
+}
+
 // ===================== 迭代8 新增 =====================
 
 /** V8 班级创建请求体 */

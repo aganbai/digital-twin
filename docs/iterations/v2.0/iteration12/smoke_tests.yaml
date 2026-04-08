@@ -1,0 +1,221 @@
+# V2.0 迭代12 冒烟测试用例
+# 快速验证核心功能可用性
+
+cases:
+  # Part A: 新用户引导流程测试
+  - case_id: SMOKE-A-001
+    name: 新用户首次进入聊天页测试
+    type: part_a
+    mock_token_type: new_user
+    steps:
+      - 用户首次进入聊天页
+      - 验证显示空状态提示，无历史会话
+      - 检查左上角会话入口图标显示正常
+      - 检查输入框正常显示
+      - 用户发送第一条消息
+      - 验证消息发送成功，AI开始回复
+      - 观察流式回复过程中显示停止生成按钮
+      - 用户点击停止生成按钮
+      - 验证AI回复立即停止，已接收内容保留
+      - 继续发送新消息验证功能正常
+    expected:
+      - 页面正常加载，无错误
+      - 消息发送和接收正常
+      - 中断功能正常工作
+      - 新会话创建成功
+    dependencies: []
+
+  - case_id: SMOKE-A-002
+    name: 新用户会话列表功能测试
+    type: part_a
+    mock_token_type: new_user
+    steps:
+      - 用户点击左上角会话入口图标
+      - 验证侧边栏从左侧滑入，显示遮罩层
+      - 查看会话列表显示空状态提示
+      - 点击遮罩层关闭侧边栏
+      - 验证侧边栏滑出，遮罩层淡出
+      - 再次打开侧边栏验证功能正常
+      - 点击新会话按钮
+      - 验证侧边栏关闭，准备创建新会话
+    expected:
+      - 侧边栏动画流畅
+      - 空状态显示正确
+      - 打开关闭操作正常
+      - 新会话按钮功能正常
+    dependencies: []
+
+  - case_id: SMOKE-A-003
+    name: 新用户指令功能测试
+    type: part_a
+    mock_token_type: new_user
+    steps:
+      - 用户在输入框输入 #新会话
+      - 验证指令被识别，不作为普通消息发送
+      - 点击发送按钮
+      - 验证清空消息列表，重置session_id
+      - 输入 #给老师留言
+      - 验证进入留言模式，输入框提示变化
+      - 发送留言内容
+      - 验证消息正常发送，标记为留言类型
+      - 输入普通消息验证不触发指令
+    expected:
+      - 指令正确识别和执行
+      - 新会话创建成功
+      - 留言模式正常切换
+      - 普通消息发送正常
+    dependencies: []
+
+  # Part B: 老用户核心操作测试
+  - case_id: SMOKE-B-001
+    name: 老用户会话切换功能测试
+    type: part_b
+    mock_token_type: registered_user
+    steps:
+      - 用户打开会话列表
+      - 验证显示所有历史会话，当前会话高亮
+      - 查看会话信息显示会话标题、最后消息、时间、消息数量
+      - 点击历史会话
+      - 验证切换到对应会话，加载历史消息
+      - 在新会话中发送消息
+      - 验证消息正常发送，AI正常回复
+      - 使用#新话题指令验证功能正常
+    expected:
+      - 会话列表数据正确加载
+      - 会话切换功能正常
+      - 切换后消息发送正常
+      - 指令功能在切换后正常
+    dependencies: []
+
+  - case_id: SMOKE-B-002
+    name: 老用户流式中断压力测试
+    type: part_b
+    mock_token_type: registered_user
+    steps:
+      - 用户发送复杂问题
+      - 验证AI开始长文本流式回复
+      - 在回复过程中多次快速点击停止
+      - 验证立即中断，无重复中断问题
+      - 中断后立即发送新消息
+      - 验证新消息正常发送，创建新会话
+      - 在新会话中再次中断验证稳定性
+      - 切换回历史会话并中断验证会话独立性
+    expected:
+      - 中断响应迅速
+      - 多次中断无异常
+      - 中断后状态正确重置
+      - 跨会话中断功能正常
+    dependencies: []
+
+  - case_id: SMOKE-B-003
+    name: 老用户指令系统全面测试
+    type: part_b
+    mock_token_type: registered_user
+    steps:
+      - 在当前会话中使用#新对话
+      - 验证创建新会话，保留分身上下文
+      - 在新会话中使用#给老师留言
+      - 验证进入留言模式，可发送留言
+      - 发送留言后使用#新会话
+      - 验证创建新会话，退出留言模式
+      - 使用#留言指令验证指令别名功能
+      - 指令后发送普通消息验证状态清理彻底
+    expected:
+      - 所有指令类型正常工作
+      - 指令链式使用无异常
+      - 指令别名功能正常
+      - 指令状态清理彻底
+    dependencies: []
+
+  # Part C: 异常场景处理测试
+  - case_id: SMOKE-C-001
+    name: 网络异常下的功能降级测试
+    type: part_b
+    mock_token_type: registered_user
+    steps:
+      - 模拟网络延迟（3秒）
+      - 验证操作有加载状态，最终成功
+      - 模拟网络中断
+      - 验证显示网络错误提示
+      - 网络恢复后重试
+      - 验证功能恢复正常
+      - 中断过程中网络异常
+      - 验证中断请求失败，显示错误状态
+    expected:
+      - 网络异常有明确提示
+      - 网络恢复后功能正常
+      - 异常状态处理合理
+      - 用户体验友好
+    dependencies: []
+
+  - case_id: SMOKE-C-002
+    name: 边界条件功能测试
+    type: part_b
+    mock_token_type: registered_user
+    steps:
+      - 输入框为空时点击发送验证不发送任何内容
+      - 输入空格包围的指令验证正确识别
+      - 快速打开关闭侧边栏多次验证动画流畅无卡顿
+      - 持续使用15分钟验证功能稳定无内存泄漏
+    expected:
+      - 边界条件处理合理
+      - 性能表现稳定
+      - 无内存泄漏问题
+      - 长时间使用稳定
+    dependencies: []
+
+# 测试执行配置
+execution_config:
+  execution_order:
+    - phase: 1
+      name: "核心功能验证"
+      test_ids:
+        - "SMOKE-A-001"
+        - "SMOKE-A-002"
+        - "SMOKE-B-001"
+      timeout: "10分钟"
+    - phase: 2
+      name: "完整流程验证"
+      test_ids:
+        - "SMOKE-A-003"
+        - "SMOKE-B-002"
+        - "SMOKE-B-003"
+      timeout: "15分钟"
+    - phase: 3
+      name: "异常场景验证"
+      test_ids:
+        - "SMOKE-C-001"
+        - "SMOKE-C-002"
+      timeout: "10分钟"
+
+  pass_criteria:
+    - "所有P0优先级测试用例通过"
+    - "无阻塞性bug（崩溃、数据丢失）"
+    - "核心用户流程完整可用"
+    - "性能指标在可接受范围内"
+
+  fail_criteria:
+    - "任意P0测试用例失败"
+    - "出现崩溃或数据丢失"
+    - "核心功能不可用"
+    - "性能严重下降"
+
+  retry_policy:
+    max_retries: 3
+    retry_delay: "5秒"
+    retry_on_failure_only: true
+
+# 测试环境配置
+test_environment:
+  environment_type: "生产环境"
+  test_user: "测试账号"
+  test_device: "主流手机型号"
+  network_condition: "正常网络"
+  test_time: "业务低峰期"
+
+# 测试报告配置
+report_config:
+  report_format: "yaml"
+  include_screenshots: true
+  include_logs: true
+  report_path: "./test_reports/smoke_test_report_iteration12.yaml"

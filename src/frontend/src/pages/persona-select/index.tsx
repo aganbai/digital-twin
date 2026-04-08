@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react'
 import { View, Text } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { getPersonas, switchPersona } from '@/api/persona'
+import { loginTestStudent } from '@/api/test-student'
 import type { Persona } from '@/api/persona'
 import { useUserStore, usePersonaStore } from '@/store'
 import './index.scss'
@@ -41,34 +42,63 @@ export default function PersonaSelect() {
   const handleSwitch = async (persona: Persona) => {
     if (switching) return
     setSwitching(true)
+
     try {
-      const res = await switchPersona(persona.id)
-      const { token, persona_id, role, nickname, school, description } = res.data
+      let switchedPersona: Persona
 
-      // 后端返回扁平结构，组装成 persona 对象
-      const switchedPersona: Persona = {
-        id: persona_id,
-        role: role as 'teacher' | 'student',
-        nickname,
-        school,
-        description,
-        is_active: true,
-        created_at: '',
-      }
+      if (persona.role === 'student') {
+        // 学生分身 → 使用 test-student 登录 API（迭代11后 switch API 已废弃）
+        // 直接登录，跳过确认弹窗（MCP自动化无法操作原生modal）
+        try {
+          Taro.showLoading({ title: '切换中...' })
+          const result = await loginTestStudent()
+          Taro.hideLoading()
+          // 更新 token 和用户信息
+          setToken(result.data.token)
+          setUserInfo({
+            id: result.data.user_id,
+            nickname: result.data.nickname,
+            role: 'student',
+          })
+          switchedPersona = {
+            id: result.data.user_id,
+            role: 'student',
+            nickname: result.data.nickname,
+            is_active: true,
+            created_at: '',
+          }
+          setCurrentPersona(switchedPersona)
+          Taro.showToast({ title: '切换成功', icon: 'success' })
+          setTimeout(() => {
+            Taro.switchTab({ url: '/pages/home/index' })
+          }, 500)
+        } catch (err: any) {
+          Taro.hideLoading()
+          Taro.showToast({ title: err?.message || '切换失败', icon: 'none' })
+        }
+        // 教师分身 → 使用原有 switch API
+        const res = await switchPersona(persona.id)
+        const { token, persona_id, role, nickname, school, description } = res.data
 
-      // 更新 token 和用户信息
-      setToken(token)
-      setUserInfo({
-        id: switchedPersona.id,
-        nickname: switchedPersona.nickname,
-        role: switchedPersona.role,
-      })
-      setCurrentPersona(switchedPersona)
+        switchedPersona = {
+          id: persona_id,
+          role: role as 'teacher' | 'student',
+          nickname,
+          school,
+          description,
+          is_active: true,
+          created_at: '',
+        }
 
-      // 根据角色跳转
-      if (switchedPersona.role === 'student') {
-        Taro.switchTab({ url: '/pages/home/index' })
-      } else if (switchedPersona.role === 'teacher') {
+        // 更新 token 和用户信息
+        setToken(token)
+        setUserInfo({
+          id: switchedPersona.id,
+          nickname: switchedPersona.nickname,
+          role: switchedPersona.role,
+        })
+        setCurrentPersona(switchedPersona)
+
         Taro.switchTab({ url: '/pages/home/index' })
       }
     } catch (error) {

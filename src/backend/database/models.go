@@ -10,11 +10,15 @@ type User struct {
 	Role             string    `json:"role"`
 	Nickname         string    `json:"nickname,omitempty"`
 	Email            string    `json:"email,omitempty"`
-	OpenID           string    `json:"openid,omitempty"` // 微信 openid
+	OpenID           string    `json:"openid,omitempty"`     // 微信 openid
+	Status           string    `json:"status"`               // 用户状态：active/disabled，默认 active
+	WxUnionID        string    `json:"wx_unionid,omitempty"` // 微信 UnionID（H5和小程序统一身份）
 	School           string    `json:"school,omitempty"`
 	Description      string    `json:"description,omitempty"`
 	DefaultPersonaID int64     `json:"default_persona_id"`
 	ProfileSnapshot  string    `json:"profile_snapshot,omitempty"` // V2.0 迭代7: 用户画像快照(JSON)
+	IsTestStudent    bool      `json:"is_test_student"`            // V2.0 迭代11: 是否为自测学生账号
+	TestTeacherID    int64     `json:"test_teacher_id"`            // V2.0 迭代11: 自测学生所属教师ID
 	CreatedAt        time.Time `json:"created_at"`
 	UpdatedAt        time.Time `json:"updated_at"`
 }
@@ -194,33 +198,36 @@ type CommentWithNames struct {
 
 // Persona 分身模型
 type Persona struct {
-	ID          int64     `json:"id"`
-	UserID      int64     `json:"user_id"`
-	Role        string    `json:"role"`
-	Nickname    string    `json:"nickname"`
-	School      string    `json:"school,omitempty"`
-	Description string    `json:"description,omitempty"`
-	Avatar      string    `json:"avatar,omitempty"`
-	IsActive    int       `json:"is_active"`
-	IsPublic    int       `json:"is_public"`
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
+	ID           int64     `json:"id"`
+	UserID       int64     `json:"user_id"`
+	Role         string    `json:"role"`
+	Nickname     string    `json:"nickname"`
+	School       string    `json:"school,omitempty"`
+	Description  string    `json:"description,omitempty"`
+	Avatar       string    `json:"avatar,omitempty"`
+	IsActive     int       `json:"is_active"`
+	IsPublic     int       `json:"is_public"`
+	BoundClassID *int64    `json:"bound_class_id,omitempty"` // V2.0 迭代11: 绑定的班级ID（教师分身必填）
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
 }
 
 // PersonaListItem 分身列表项（含统计信息）
 type PersonaListItem struct {
-	ID            int64     `json:"id"`
-	Role          string    `json:"role"`
-	Nickname      string    `json:"nickname"`
-	School        string    `json:"school,omitempty"`
-	Description   string    `json:"description,omitempty"`
-	IsActive      bool      `json:"is_active"`
-	IsPublic      bool      `json:"is_public"`
-	StudentCount  int       `json:"student_count,omitempty"`  // 教师分身：学生数
-	DocumentCount int       `json:"document_count,omitempty"` // 教师分身：文档数
-	ClassCount    int       `json:"class_count,omitempty"`    // 教师分身：班级数
-	TeacherCount  int       `json:"teacher_count,omitempty"`  // 学生分身：教师数
-	CreatedAt     time.Time `json:"created_at"`
+	ID             int64     `json:"id"`
+	Role           string    `json:"role"`
+	Nickname       string    `json:"nickname"`
+	School         string    `json:"school,omitempty"`
+	Description    string    `json:"description,omitempty"`
+	IsActive       bool      `json:"is_active"`
+	IsPublic       bool      `json:"is_public"`
+	BoundClassID   *int64    `json:"bound_class_id,omitempty"`   // V2.0 迭代11: 绑定的班级ID
+	BoundClassName string    `json:"bound_class_name,omitempty"` // V2.0 迭代11: 绑定的班级名称
+	StudentCount   int       `json:"student_count,omitempty"`    // 教师分身：学生数
+	DocumentCount  int       `json:"document_count,omitempty"`   // 教师分身：文档数
+	ClassCount     int       `json:"class_count,omitempty"`      // 教师分身：班级数
+	TeacherCount   int       `json:"teacher_count,omitempty"`    // 学生分身：教师数
+	CreatedAt      time.Time `json:"created_at"`
 }
 
 // Class 班级模型
@@ -230,6 +237,7 @@ type Class struct {
 	Name        string    `json:"name"`
 	Description string    `json:"description,omitempty"`
 	IsActive    int       `json:"is_active"`
+	IsPublic    int       `json:"is_public"` // V2.0 迭代11: 班级是否公开（默认公开）
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
 }
@@ -239,6 +247,18 @@ type ClassWithMemberCount struct {
 	ID          int64     `json:"id"`
 	Name        string    `json:"name"`
 	Description string    `json:"description,omitempty"`
+	MemberCount int       `json:"member_count"`
+	IsActive    bool      `json:"is_active"`
+	CreatedAt   time.Time `json:"created_at"`
+}
+
+// ClassDetailForStudent 班级详情（学生视角）
+type ClassDetailForStudent struct {
+	ID          int64     `json:"id"`
+	Name        string    `json:"name"`
+	Subject     string    `json:"subject"` // 科目（暂时从班级名称推导）
+	Description string    `json:"description"`
+	TeacherName string    `json:"teacher_name"` // 教师昵称
 	MemberCount int       `json:"member_count"`
 	IsActive    bool      `json:"is_active"`
 	CreatedAt   time.Time `json:"created_at"`
@@ -533,4 +553,105 @@ type DiscoverItem struct {
 	MemberCount int      `json:"member_count,omitempty"`
 	TeacherName string   `json:"teacher_name,omitempty"`
 	School      string   `json:"school,omitempty"`
+}
+
+// ======================== V2.0 迭代9 新增模型 ========================
+
+// CourseNotification 课程推送通知记录
+type CourseNotification struct {
+	ID           int64     `json:"id"`
+	CourseItemID int64     `json:"course_item_id"`
+	ClassID      int64     `json:"class_id"`
+	TeacherID    int64     `json:"teacher_id"`
+	PersonaID    int64     `json:"persona_id"`
+	PushType     string    `json:"push_type"` // "in_app" / "wechat"
+	Status       string    `json:"status"`    // "pending" / "sent" / "failed"
+	CreatedAt    time.Time `json:"created_at"`
+}
+
+// WxSubscription 微信订阅状态记录
+type WxSubscription struct {
+	ID                int64      `json:"id"`
+	UserID            int64      `json:"user_id"`
+	TemplateID        string     `json:"template_id"`
+	IsSubscribed      bool       `json:"is_subscribed"`
+	LastSubscribeTime *time.Time `json:"last_subscribe_time,omitempty"`
+	CreatedAt         time.Time  `json:"created_at"`
+}
+
+// SessionTitle 会话标题
+type SessionTitle struct {
+	ID               int64     `json:"id"`
+	SessionID        string    `json:"session_id"`
+	StudentPersonaID int64     `json:"student_persona_id"`
+	TeacherPersonaID int64     `json:"teacher_persona_id"`
+	Title            string    `json:"title"`
+	CreatedAt        time.Time `json:"created_at"`
+	UpdatedAt        time.Time `json:"updated_at"`
+}
+
+// SessionItem 会话列表项（API-104）
+type SessionItem struct {
+	SessionID       string    `json:"session_id"`
+	Title           *string   `json:"title"`             // 会话标题（最新会话为 null）
+	LastMessage     string    `json:"last_message"`      // 最后一条消息内容
+	LastMessageRole string    `json:"last_message_role"` // 最后一条消息角色
+	MessageCount    int       `json:"message_count"`     // 消息总数
+	IsActive        bool      `json:"is_active"`         // 是否为当前活跃会话
+	UpdatedAt       time.Time `json:"updated_at"`        // 最后更新时间
+}
+
+// StudentProfileDetail 学生画像详情（教师视角）
+type StudentProfileDetail struct {
+	ID                int64  `json:"id"`                 // 学生分身ID
+	Nickname          string `json:"nickname"`           // 学生昵称
+	Age               int    `json:"age"`                // 年龄
+	Gender            string `json:"gender"`             // 性别 male/female/other
+	FamilyInfo        string `json:"family_info"`        // 家庭情况
+	TeacherEvaluation string `json:"teacher_evaluation"` // 教师评语
+	ClassName         string `json:"class_name"`         // 所在班级名称
+}
+
+// ======================== V2.0 迭代12 新增模型 ========================
+
+// StudentMessage 学生留言（V2.0 迭代12）
+type StudentMessage struct {
+	ID               int64      `json:"id"`
+	StudentPersonaID int64      `json:"student_persona_id"`
+	TeacherPersonaID int64      `json:"teacher_persona_id"`
+	SessionID        string     `json:"session_id"`
+	MessageType      string     `json:"message_type"` // note / question
+	Content          string     `json:"content"`
+	IsRead           bool       `json:"is_read"`
+	IsPinned         bool       `json:"is_pinned"`
+	CreatedAt        time.Time  `json:"created_at"`
+	ReadAt           *time.Time `json:"read_at,omitempty"`
+}
+
+// StudentMessageItem 学生留言列表项（教师视角）
+type StudentMessageItem struct {
+	ID               int64      `json:"id"`
+	StudentPersonaID int64      `json:"student_persona_id"`
+	StudentNickname  string     `json:"student_nickname"`
+	StudentAvatar    string     `json:"student_avatar,omitempty"`
+	SessionID        string     `json:"session_id"`
+	MessageType      string     `json:"message_type"`
+	Content          string     `json:"content"`
+	IsRead           bool       `json:"is_read"`
+	IsPinned         bool       `json:"is_pinned"`
+	CreatedAt        time.Time  `json:"created_at"`
+	ReadAt           *time.Time `json:"read_at,omitempty"`
+}
+
+// SessionTitleWithHidden 会话标题（含隐藏状态，V2.0 迭代12）
+type SessionTitleWithHidden struct {
+	ID               int64      `json:"id"`
+	SessionID        string     `json:"session_id"`
+	StudentPersonaID int64      `json:"student_persona_id"`
+	TeacherPersonaID int64      `json:"teacher_persona_id"`
+	Title            string     `json:"title"`
+	IsHidden         bool       `json:"is_hidden"`
+	HiddenAt         *time.Time `json:"hidden_at,omitempty"`
+	CreatedAt        time.Time  `json:"created_at"`
+	UpdatedAt        time.Time  `json:"updated_at"`
 }

@@ -1,0 +1,322 @@
+# V2.0 迭代8 模块划分
+# 由 Phase 1 自动生成，可在执行前手动微调
+
+version: "2.0"
+iteration: 8
+generated_at: "2026-04-06T19:55:00"
+status: "draft"  # draft | confirmed | completed
+
+# 后端模块
+backend_modules:
+  - module_id: "V2-IT8-BE-M1"
+    name: "数据库变更 + User表精简"
+    priority: "P0"
+    layer: 0
+    dependencies: []
+    description: "移除users表冗余字段；扩展classes表；新增knowledge_items表；修改class_members表；新增chat_pins表"
+    api_endpoints: []
+    test_cases: []
+
+  - module_id: "V2-IT8-BE-M2"
+    name: "智能知识库上传API"
+    priority: "P0"
+    layer: 1
+    dependencies: ["V2-IT8-BE-M1"]
+    description: "POST /api/knowledge/smart-upload（URL/文字/文件统一入口）"
+    api_endpoints:
+      - method: "POST"
+        path: "/api/knowledge/smart-upload"
+    test_cases: ["IT-501", "IT-502", "IT-503"]
+
+  - module_id: "V2-IT8-BE-M3"
+    name: "知识库管理API（搜索/CRUD）"
+    priority: "P0"
+    layer: 1
+    dependencies: ["V2-IT8-BE-M1"]
+    description: "GET /api/knowledge（支持搜索筛选）、PUT/DELETE /api/knowledge/:id"
+    api_endpoints:
+      - method: "GET"
+        path: "/api/knowledge"
+      - method: "PUT"
+        path: "/api/knowledge/:id"
+      - method: "DELETE"
+        path: "/api/knowledge/:id"
+    test_cases: ["IT-504", "IT-505"]
+
+  - module_id: "V2-IT8-BE-M4"
+    name: "班级管理增强API"
+    priority: "P0"
+    layer: 1
+    dependencies: ["V2-IT8-BE-M1"]
+    description: "扩展班级创建字段；生成分享链接/二维码；班级分享信息接口"
+    api_endpoints:
+      - method: "POST"
+        path: "/api/classes"
+      - method: "GET"
+        path: "/api/classes/:id/share"
+    test_cases: ["IT-506"]
+
+  - module_id: "V2-IT8-BE-M5"
+    name: "学生加入审批API"
+    priority: "P0"
+    layer: 1
+    dependencies: ["V2-IT8-BE-M1"]
+    description: "申请加入、待审批列表、审批处理（含学生信息登记）"
+    api_endpoints:
+      - method: "POST"
+        path: "/api/join-request"
+      - method: "GET"
+        path: "/api/join-request/pending"
+      - method: "POST"
+        path: "/api/join-request/:id/approve"
+    test_cases: ["IT-507", "IT-508", "IT-509"]
+
+  - module_id: "V2-IT8-BE-M6"
+    name: "聊天列表重构API"
+    priority: "P0"
+    layer: 1
+    dependencies: ["V2-IT8-BE-M1"]
+    description: "学生端老师列表、教师端按班级组织的学生列表"
+    api_endpoints:
+      - method: "GET"
+        path: "/api/chat/teacher-list"
+      - method: "GET"
+        path: "/api/chat/student-list"
+    test_cases: ["IT-510", "IT-511"]
+
+  - module_id: "V2-IT8-BE-M7"
+    name: "置顶功能API"
+    priority: "P0"
+    layer: 1
+    dependencies: ["V2-IT8-BE-M1"]
+    description: "POST/DELETE /api/chat/pin、GET /api/chat/pins"
+    api_endpoints:
+      - method: "POST"
+        path: "/api/chat/pin"
+      - method: "DELETE"
+        path: "/api/chat/pin/:id"
+      - method: "GET"
+        path: "/api/chat/pins"
+    test_cases: ["IT-512", "IT-513"]
+
+  - module_id: "V2-IT8-BE-M8"
+    name: "会话管理API"
+    priority: "P1"
+    layer: 1
+    dependencies: ["V2-IT8-BE-M1"]
+    description: "新会话开启、快捷指令获取"
+    api_endpoints:
+      - method: "POST"
+        path: "/api/session/new"
+      - method: "GET"
+        path: "/api/session/quick-actions"
+    test_cases: ["IT-514"]
+
+  - module_id: "V2-IT8-BE-M9"
+    name: "发现页API"
+    priority: "P1"
+    layer: 1
+    dependencies: ["V2-IT8-BE-M1"]
+    description: "推荐班级/老师、搜索班级"
+    api_endpoints:
+      - method: "GET"
+        path: "/api/discover"
+    test_cases: ["IT-515"]
+
+# 前端模块
+frontend_modules:
+  - module_id: "V2-IT8-FE-M1"
+    name: "知识库上传页面改版"
+    priority: "P0"
+    layer: 0
+    dependencies: []
+    pages: ["knowledge/add"]
+    backend_modules: ["V2-IT8-BE-M2"]
+
+  - module_id: "V2-IT8-FE-M2"
+    name: "知识库管理页面"
+    priority: "P0"
+    layer: 0
+    dependencies: []
+    pages: ["knowledge/index", "knowledge/preview"]
+    backend_modules: ["V2-IT8-BE-M3"]
+
+  - module_id: "V2-IT8-FE-M3"
+    name: "班级创建页面扩展"
+    priority: "P0"
+    layer: 0
+    dependencies: []
+    pages: ["class-create/index"]
+    backend_modules: ["V2-IT8-BE-M4"]
+
+  - module_id: "V2-IT8-FE-M4"
+    name: "班级创建后引导"
+    priority: "P0"
+    layer: 0
+    dependencies: []
+    pages: []  # 新增引导弹窗/页面
+    backend_modules: []
+
+  - module_id: "V2-IT8-FE-M5"
+    name: "分享链接落地页"
+    priority: "P0"
+    layer: 0
+    dependencies: []
+    pages: ["share-join/index"]
+    backend_modules: ["V2-IT8-BE-M5"]
+
+  - module_id: "V2-IT8-FE-M6"
+    name: "学生审批页面"
+    priority: "P0"
+    layer: 0
+    dependencies: []
+    pages: ["student-approve/index"]
+    backend_modules: ["V2-IT8-BE-M5"]
+
+  - module_id: "V2-IT8-FE-M7"
+    name: "学生端聊天列表"
+    priority: "P0"
+    layer: 0
+    dependencies: []
+    pages: ["chat-list/index"]
+    backend_modules: ["V2-IT8-BE-M6"]
+
+  - module_id: "V2-IT8-FE-M8"
+    name: "聊天页改版（学生端）"
+    priority: "P0"
+    layer: 0
+    dependencies: []
+    pages: ["chat/index"]
+    backend_modules: ["V2-IT8-BE-M8"]
+
+  - module_id: "V2-IT8-FE-M9"
+    name: "教师端聊天列表改版"
+    priority: "P0"
+    layer: 0
+    dependencies: []
+    pages: ["teacher-chat-list/index"]
+    backend_modules: ["V2-IT8-BE-M6", "V2-IT8-BE-M7"]
+
+  - module_id: "V2-IT8-FE-M10"
+    name: "发现页实现"
+    priority: "P1"
+    layer: 0
+    dependencies: []
+    pages: ["discover/index"]
+    backend_modules: ["V2-IT8-BE-M9"]
+
+  - module_id: "V2-IT8-FE-M11"
+    name: "注册流程优化（移除字段）"
+    priority: "P0"
+    layer: 0
+    dependencies: []
+    pages: ["login/index", "role-select/index"]
+    backend_modules: []
+
+  - module_id: "V2-IT8-FE-M12"
+    name: "教师首次引导流程"
+    priority: "P0"
+    layer: 0
+    dependencies: []
+    pages: []  # 新增引导页面/弹窗
+    backend_modules: []
+
+# 集成测试用例
+integration_tests:
+  - test_id: "IT-501"
+    name: "知识库URL上传 + 解析"
+    modules: ["V2-IT8-BE-M2"]
+    data_dependencies: []
+
+  - test_id: "IT-502"
+    name: "知识库文字上传"
+    modules: ["V2-IT8-BE-M2"]
+    data_dependencies: []
+
+  - test_id: "IT-503"
+    name: "知识库文件批量上传"
+    modules: ["V2-IT8-BE-M2"]
+    data_dependencies: []
+
+  - test_id: "IT-504"
+    name: "知识库列表搜索筛选"
+    modules: ["V2-IT8-BE-M3"]
+    data_dependencies: ["IT-501", "IT-502", "IT-503"]
+
+  - test_id: "IT-505"
+    name: "知识库编辑删除"
+    modules: ["V2-IT8-BE-M3"]
+    data_dependencies: ["IT-501"]
+
+  - test_id: "IT-506"
+    name: "班级创建（扩展字段）+ 分享链接生成"
+    modules: ["V2-IT8-BE-M4"]
+    data_dependencies: []
+
+  - test_id: "IT-507"
+    name: "学生通过分享链接申请加入"
+    modules: ["V2-IT8-BE-M5"]
+    data_dependencies: ["IT-506"]
+
+  - test_id: "IT-508"
+    name: "教师审批通过 + 填写学生信息"
+    modules: ["V2-IT8-BE-M5"]
+    data_dependencies: ["IT-507"]
+
+  - test_id: "IT-509"
+    name: "教师审批拒绝"
+    modules: ["V2-IT8-BE-M5"]
+    data_dependencies: ["IT-507"]
+
+  - test_id: "IT-510"
+    name: "学生端获取多老师聊天列表"
+    modules: ["V2-IT8-BE-M6"]
+    data_dependencies: ["IT-508"]
+
+  - test_id: "IT-511"
+    name: "教师端获取按班级组织的学生列表"
+    modules: ["V2-IT8-BE-M6"]
+    data_dependencies: ["IT-508"]
+
+  - test_id: "IT-512"
+    name: "置顶班级/学生"
+    modules: ["V2-IT8-BE-M7"]
+    data_dependencies: ["IT-511"]
+
+  - test_id: "IT-513"
+    name: "取消置顶"
+    modules: ["V2-IT8-BE-M7"]
+    data_dependencies: ["IT-512"]
+
+  - test_id: "IT-514"
+    name: "开启新会话 + 快捷指令"
+    modules: ["V2-IT8-BE-M8"]
+    data_dependencies: ["IT-510"]
+
+  - test_id: "IT-515"
+    name: "发现页推荐 + 搜索"
+    modules: ["V2-IT8-BE-M9"]
+    data_dependencies: ["IT-506"]
+
+  - test_id: "IT-516"
+    name: "全链路：注册→创建班级→分享→申请→审批→聊天→新会话"
+    modules: ["V2-IT8-BE-M1", "V2-IT8-BE-M2", "V2-IT8-BE-M3", "V2-IT8-BE-M4", "V2-IT8-BE-M5", "V2-IT8-BE-M6", "V2-IT8-BE-M7", "V2-IT8-BE-M8", "V2-IT8-BE-M9"]
+    data_dependencies: []
+
+# 测试批次规划
+test_batches:
+  - batch_id: "batch-1"
+    name: "知识库"
+    tests: ["IT-501", "IT-502", "IT-503", "IT-504", "IT-505"]
+
+  - batch_id: "batch-2"
+    name: "班级+审批"
+    tests: ["IT-506", "IT-507", "IT-508", "IT-509"]
+
+  - batch_id: "batch-3"
+    name: "聊天列表+置顶"
+    tests: ["IT-510", "IT-511", "IT-512", "IT-513"]
+
+  - batch_id: "batch-4"
+    name: "会话+发现+全链路"
+    tests: ["IT-514", "IT-515", "IT-516"]

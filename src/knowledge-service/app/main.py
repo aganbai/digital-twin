@@ -69,7 +69,7 @@ class SearchRequest(BaseModel):
     """语义检索请求"""
     collection: str = Field(..., description="集合名")
     query: str = Field(..., description="检索查询文本")
-    top_k: int = Field(default=5, ge=1, le=20, description="返回数量")
+    top_k: int = Field(default=5, ge=1, le=100, description="返回数量（最大100）")
 
 
 class SearchResultItem(BaseModel):

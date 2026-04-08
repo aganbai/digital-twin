@@ -9,6 +9,7 @@ import {
 } from '@/api/chat'
 import type { Conversation, TakeoverStatusResponse } from '@/api/chat'
 import { formatTime } from '@/utils/format'
+import AvatarPopup from '@/components/AvatarPopup'
 import './index.scss'
 
 /** 判断两条消息之间是否需要显示时间戳（间隔超过 5 分钟） */
@@ -36,6 +37,9 @@ export default function StudentChatHistory() {
   const [replyToMsg, setReplyToMsg] = useState<Conversation | null>(null)
   const [scrollIntoId, setScrollIntoId] = useState('')
   const initialized = useRef(false)
+  /** 头像弹窗状态 */
+  const [showAvatarPopup, setShowAvatarPopup] = useState(false)
+  const [avatarPopupTargetId, setAvatarPopupTargetId] = useState<number>(0)
 
   /** 设置导航栏标题 */
   useDidShow(() => {
@@ -146,6 +150,16 @@ export default function StudentChatHistory() {
         }
       },
     })
+  }
+
+  /** 头像点击处理（老师点击学生头像查看学生信息） */
+  const handleAvatarClick = (msg: Conversation) => {
+    const senderType = msg.sender_type || (msg.role === 'user' ? 'student' : 'ai')
+    // 只有学生消息才显示学生信息弹窗
+    if (senderType !== 'student') return
+    // 使用路由参数中的 studentPersonaId
+    setAvatarPopupTargetId(studentPersonaId)
+    setShowAvatarPopup(true)
   }
 
   /** 获取消息气泡样式类（老师视角：教师消息靠右，学生/AI消息靠左） */
@@ -259,7 +273,10 @@ export default function StudentChatHistory() {
               <View className={`chat-bubble ${getBubbleClass(msg)}`}>
                 {/* 非教师消息：左侧头像（学生/AI） */}
                 {!isTeacher && (
-                  <View className={`chat-bubble__avatar ${isStudent ? 'chat-bubble__avatar--student' : 'chat-bubble__avatar--ai'}`}>
+                  <View 
+                    className={`chat-bubble__avatar ${isStudent ? 'chat-bubble__avatar--student' : 'chat-bubble__avatar--ai'}`}
+                    onClick={() => handleAvatarClick(msg)}
+                  >
                     <Text className='chat-bubble__avatar-text'>
                       {getAvatarText(msg)}
                     </Text>
@@ -347,6 +364,14 @@ export default function StudentChatHistory() {
           </View>
         </View>
       </View>
+
+      {/* 头像点击弹窗 */}
+      <AvatarPopup
+        visible={showAvatarPopup}
+        onClose={() => setShowAvatarPopup(false)}
+        userRole='teacher'
+        targetId={avatarPopupTargetId}
+      />
     </View>
   )
 }

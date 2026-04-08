@@ -58,6 +58,12 @@ func JWTAuthMiddleware(jwtManager *JWTManager) gin.HandlerFunc {
 		c.Set("persona_id", claims.PersonaID) // V2.0 迭代2：分身ID
 		c.Set("username", claims.Username)
 		c.Set("role", claims.Role)
+		// 设置用户角色（如果存在），用于admin权限检查
+		if claims.UserRole != "" {
+			c.Set("user_role", claims.UserRole)
+		} else {
+			c.Set("user_role", claims.Role) // 兼容旧token
+		}
 
 		c.Next()
 	}
@@ -103,8 +109,23 @@ func OptionalJWTAuthMiddleware(jwtManager *JWTManager) gin.HandlerFunc {
 // RoleRequired 角色权限校验中间件
 func RoleRequired(roles ...string) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		userRole, exists := c.Get("role")
-		if !exists {
+		// 优先检查用户角色（UserRole），用于admin等用户级别权限
+		userRole, hasUserRole := c.Get("user_role")
+		if hasUserRole {
+			userRoleStr, ok := userRole.(string)
+			if ok {
+				for _, allowedRole := range roles {
+					if userRoleStr == allowedRole {
+						c.Next()
+						return
+					}
+				}
+			}
+		}
+
+		// 其次检查分身角色（Role）
+		personaRole, hasRole := c.Get("role")
+		if !hasRole {
 			c.JSON(http.StatusForbidden, gin.H{
 				"code":    40003,
 				"message": "权限不足",
@@ -113,7 +134,7 @@ func RoleRequired(roles ...string) gin.HandlerFunc {
 			return
 		}
 
-		roleStr, ok := userRole.(string)
+		roleStr, ok := personaRole.(string)
 		if !ok {
 			c.JSON(http.StatusForbidden, gin.H{
 				"code":    40003,

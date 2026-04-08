@@ -1,5 +1,5 @@
 /** API 基础地址 */
-export const BASE_URL = 'http://localhost:8080'
+export const BASE_URL = 'http://192.168.1.123:8080'
 
 /** 颜色常量 */
 export const COLORS = {

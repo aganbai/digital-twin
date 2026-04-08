@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"log"
 	"time"
 
 	"digital-twin/src/backend/database"
@@ -129,6 +130,11 @@ func (p *KnowledgePlugin) Execute(ctx context.Context, input *core.PluginInput) 
 }
 
 // handlePipeline 管道模式：自动检索知识并注入到 Data
+// V2.0 迭代11: 向量召回策略优化
+// - 召回数量提升到 100 条
+// - 置信度阈值过滤（默认 0.3）
+// - 阈值过滤后最多保留 20 条
+// - scope 过滤后最多保留 5 条
 func (p *KnowledgePlugin) handlePipeline(input *core.PluginInput) (*core.PluginOutput, error) {
 	// 从 Data 获取 message 作为检索 query
 	query, _ := input.Data["message"].(string)
@@ -147,27 +153,78 @@ func (p *KnowledgePlugin) handlePipeline(input *core.PluginInput) (*core.PluginO
 		studentPersonaID = toInt64(v, 0)
 	}
 
+	// V2.0 迭代9: 获取 thinking_step_writer 回调
+	var thinkingStepWriter func(eventType string, data map[string]interface{})
+	if v, ok := input.Data["thinking_step_writer"]; ok {
+		if fn, ok := v.(func(string, map[string]interface{})); ok {
+			thinkingStepWriter = fn
+		}
+	}
+
 	// merge 上游 Data
 	outputData := mergeData(input.Data, nil)
 
 	// 如果有 query 和 teacher_id，执行检索
 	if query != "" && teacherID > 0 {
+		// V2.0 迭代9: 发送 RAG 检索开始事件
+		ragStartTime := time.Now()
+		sendThinkingStep(thinkingStepWriter, "rag_search", "start", "", 0)
+
 		collectionName := fmt.Sprintf("teacher_%d", teacherID)
-		// 先检索较多结果，再按 scope 过滤（使用 VectorClient 调用 Python 服务）
-		results := p.vectorClient.Search(collectionName, query, 20)
 
-		// 如果有 student_persona_id，需要按 scope 过滤
+		// V2.0 迭代11: 向量召回策略优化
+		// 步骤1: 召回 100 条
+		const recallTopK = 100
+		results := p.vectorClient.Search(collectionName, query, recallTopK)
+		recallCount := len(results)
+		log.Printf("[KnowledgePlugin] 向量召回: %d 条 (top_k=%d)", recallCount, recallTopK)
+
+		// 步骤2: 置信度阈值过滤（默认 0.3）
+		const confidenceThreshold = 0.3
+		var filteredByScore []SearchResult
+		for _, r := range results {
+			if r.Score >= confidenceThreshold {
+				filteredByScore = append(filteredByScore, r)
+			}
+		}
+		afterScoreFilter := len(filteredByScore)
+		log.Printf("[KnowledgePlugin] 置信度过滤: %d 条 → %d 条 (threshold=%.2f)", recallCount, afterScoreFilter, confidenceThreshold)
+
+		// 步骤3: 置信度过滤后最多保留 20 条
+		const maxAfterScoreFilter = 20
+		if len(filteredByScore) > maxAfterScoreFilter {
+			filteredByScore = filteredByScore[:maxAfterScoreFilter]
+		}
+		afterScoreLimit := len(filteredByScore)
+		if afterScoreFilter > maxAfterScoreFilter {
+			log.Printf("[KnowledgePlugin] 置信度结果截断: %d 条 → %d 条", afterScoreFilter, afterScoreLimit)
+		}
+
+		// 步骤4: scope 过滤（如果有 student_persona_id）
+		var filteredByScope []SearchResult
 		if studentPersonaID > 0 && teacherPersonaID > 0 {
-			results = p.filterByScope(results, teacherPersonaID, studentPersonaID)
+			filteredByScope = p.filterByScope(filteredByScore, teacherPersonaID, studentPersonaID)
+			log.Printf("[KnowledgePlugin] Scope过滤: %d 条 → %d 条 (teacher_persona_id=%d, student_persona_id=%d)",
+				afterScoreLimit, len(filteredByScope), teacherPersonaID, studentPersonaID)
+		} else {
+			filteredByScope = filteredByScore
+			log.Printf("[KnowledgePlugin] 跳过Scope过滤（无学生分身信息）")
 		}
 
-		// 限制最终返回数量
-		if len(results) > 5 {
-			results = results[:5]
+		// 步骤5: 最终返回数量限制（≤5 条）
+		const maxFinalResults = 5
+		if len(filteredByScope) > maxFinalResults {
+			filteredByScope = filteredByScope[:maxFinalResults]
 		}
+		log.Printf("[KnowledgePlugin] 最终返回: %d 条", len(filteredByScope))
+
+		// V2.0 迭代9: 发送 RAG 检索完成事件
+		ragDuration := time.Since(ragStartTime).Milliseconds()
+		ragDetail := fmt.Sprintf("召回%d条→置信度过滤%d条→最终%d条", recallCount, afterScoreFilter, len(filteredByScope))
+		sendThinkingStep(thinkingStepWriter, "rag_search", "done", ragDetail, ragDuration)
 
 		var chunksOutput []map[string]interface{}
-		for _, r := range results {
+		for _, r := range filteredByScope {
 			chunksOutput = append(chunksOutput, map[string]interface{}{
 				"content":     r.Content,
 				"score":       r.Score,
@@ -179,6 +236,15 @@ func (p *KnowledgePlugin) handlePipeline(input *core.PluginInput) (*core.PluginO
 			chunksOutput = []map[string]interface{}{}
 		}
 		outputData["chunks"] = chunksOutput
+
+		// V2.0 迭代11: 在 Metadata 中记录各阶段数量，便于调试
+		outputData["_rag_stats"] = map[string]interface{}{
+			"recall_count":         recallCount,
+			"after_score_filter":   afterScoreFilter,
+			"after_score_limit":    afterScoreLimit,
+			"after_scope_filter":   len(filteredByScope),
+			"confidence_threshold": confidenceThreshold,
+		}
 	} else {
 		outputData["chunks"] = []map[string]interface{}{}
 	}
@@ -623,4 +689,53 @@ func toInt64(v interface{}, defaultVal int64) int64 {
 	default:
 		return defaultVal
 	}
+}
+
+// ======================== V2.0 迭代9: 思考过程展示辅助方法 ========================
+
+// sendThinkingStep 发送思考步骤事件
+// thinkingStepWriter 是一个回调函数，用于发送 SSE 事件
+func sendThinkingStep(thinkingStepWriter func(eventType string, data map[string]interface{}), step, status, detail string, durationMs int64) {
+	if thinkingStepWriter == nil {
+		return
+	}
+
+	// 步骤提示文案
+	stepMessages := map[string]struct {
+		Start string
+		Done  string
+	}{
+		"rag_search":    {"🔍 正在检索知识库...", "✅ 已检索知识库"},
+		"memory_recall": {"🧠 正在检索相关记忆...", "✅ 已检索记忆"},
+		"tool_call":     {"🔧 正在搜索增强...", "✅ 搜索完成"},
+		"llm_thinking":  {"💭 AI 正在思考...", "✅ 生成完成"},
+	}
+
+	msg, ok := stepMessages[step]
+	if !ok {
+		return
+	}
+
+	var message string
+	if status == "start" {
+		message = msg.Start
+	} else {
+		message = msg.Done
+	}
+
+	data := map[string]interface{}{
+		"type":      "thinking_step",
+		"step":      step,
+		"status":    status,
+		"message":   message,
+		"timestamp": time.Now().UnixMilli(),
+	}
+	if detail != "" {
+		data["detail"] = detail
+	}
+	if durationMs > 0 {
+		data["duration_ms"] = durationMs
+	}
+
+	thinkingStepWriter("thinking_step", data)
 }

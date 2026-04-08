@@ -1,0 +1,115 @@
+.thinking-panel {
+  margin: 16px 0;
+  background: #f8f9fa;
+  border-radius: 12px;
+  overflow: hidden;
+  font-size: 14px;
+
+  &__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    background: #fff;
+    border-bottom: 1px solid #eee;
+  }
+
+  &__header-left {
+    display: flex;
+    align-items: center;
+  }
+
+  &__icon {
+    font-size: 16px;
+    margin-right: 8px;
+  }
+
+  &__title {
+    font-size: 14px;
+    color: #333;
+    font-weight: 500;
+  }
+
+  &__header-right {
+    display: flex;
+    align-items: center;
+  }
+
+  &__total-time {
+    font-size: 12px;
+    color: #999;
+    margin-right: 12px;
+  }
+
+  &__arrow {
+    font-size: 12px;
+    color: #999;
+    transition: transform 0.2s;
+
+    &--expanded {
+      transform: rotate(180deg);
+    }
+  }
+
+  &__steps {
+    padding: 8px 16px;
+  }
+
+  &__step {
+    padding: 12px 0;
+    border-bottom: 1px solid #eee;
+
+    &:last-child {
+      border-bottom: none;
+    }
+  }
+
+  &__step-header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+
+  &__step-icon {
+    font-size: 14px;
+    margin-right: 8px;
+  }
+
+  &__step-label {
+    flex: 1;
+    font-size: 13px;
+    color: #333;
+    font-weight: 500;
+  }
+
+  &__step-status {
+    font-size: 12px;
+
+    &--done {
+      color: #10b981;
+    }
+  }
+
+  &__step-body {
+    display: flex;
+    flex-direction: column;
+    padding-left: 22px;
+  }
+
+  &__step-message {
+    font-size: 12px;
+    color: #666;
+    margin-bottom: 4px;
+  }
+
+  &__step-detail {
+    font-size: 11px;
+    color: #999;
+    margin-bottom: 4px;
+  }
+
+  &__step-duration {
+    font-size: 11px;
+    color: #999;
+  }
+}

@@ -81,7 +81,7 @@ echo "   ✅ Go 依赖就绪"
 # 6. 编译并启动
 echo ""
 echo "🔨 编译项目..."
-go build -o "$PROJECT_DIR/bin/digital-twin" "$PROJECT_DIR/cmd/server/main.go" 2>&1
+go build -o "$PROJECT_DIR/bin/digital-twin" "$PROJECT_DIR/src/cmd/server/main.go" 2>&1
 echo "   ✅ 编译成功"
 
 echo ""

@@ -1,13 +1,17 @@
-# V2.0 需求规格说明书
+# V2.0 需求规格说明书（全量版）
+
+> **最后更新**: 2026-04-05 | **文档版本**: v2.1.0 | **状态**: 迭代11已完成
+> **接口清单**：已拆分至独立文件 `api_spec_full.md`（134→136个接口，含迭代11变更）
+
+---
 
 ## 1. 版本概述
 
 | 项目 | 说明 |
 |------|------|
 | **版本名称** | V2.0 - 单机生产可用版 |
-| **版本目标** | 功能完整 + 单机部署 + 生产可用 |
-| **迭代数** | 3 个迭代 |
-| **预计周期** | ~11 周 |
+| **版本目标** | 功能完整 + 单机部署 + 生产可用 + 多端支持 |
+| **迭代数** | 11 个迭代（已全部完成） |
 | **前置依赖** | V1.0 全部完成（3 个迭代，39 个集成测试通过） |
 
 ### 1.1 V1.0 已完成内容回顾
@@ -20,7 +24,7 @@
 
 ### 1.2 V2.0 目标
 
-> **单机部署、生产可用、功能完整** —— 一台服务器跑起来，能真正给师生用。
+> **单机部署、生产可用、功能完整、多端支持** —— 一台服务器跑起来，能真正给师生用；同时支持小程序和H5多端访问。
 
 ### 1.3 明确排除
 
@@ -29,596 +33,513 @@
 | 多机部署 / K8s / 自动扩缩容 | 保持单机部署 |
 | 多租户支持 | 企业级特性 |
 | 插件市场 / API 开放平台 | 企业级特性 |
-| 留言系统 | 优先级低，可后续补充 |
 | 智能推荐 | 优先级低，可后续补充 |
 
 ---
 
 ## 2. 迭代规划总览
 
-```
-迭代1: 核心功能开发（用户需求优先）     ~4 周
-迭代2: 多角色多分身架构                ~4 周
-迭代3: 生产就绪与上线                  ~3 周
-                              总计 ~11 周
-```
+| 迭代 | 主题 | 核心内容 | 状态 |
+|------|------|----------|------|
+| 迭代1 | 核心功能开发 | 师生授权 + 注册增强 + 评语 + 问答风格 + 作业系统 + 文件上传 + URL导入 + SSE流式输出 | ✅ |
+| 迭代2 | 多角色多分身架构 | 多分身体系 + 班级管理 + 分身分享 + 知识库精细化 + 分身化改造 | ✅ |
+| 迭代3 | UI重构与体验优化 | 教师/学生仪表盘 + 班级详情 + 启停管理 + 知识库scope多选 + 上传预览 + 分享码优化 | ✅ |
+| 迭代4 | 分身广场与教师介入 | 分身广场/定向邀请 + 教师真人介入对话 + LLM智能摘要 + 分身概览 | ✅ |
+| 迭代5 | LlamaIndex语义检索 + UX重构 | Python LlamaIndex服务 + 教师Dashboard + 学生管理合并 + 对话附件 + 广场独立化 | ✅ |
+| 迭代6 | 记忆增强 + 对话风格 + 部署 | 记忆三层分层 + 6种对话风格模板 + 二维码分享 + 聊天记录导入 + 自定义TabBar + Docker部署 | ✅ |
+| 迭代7 | 教材配置 + 安全加固 | 8档学段教材配置 + Adaptive RAG + 批量上传 + API限流 + 隐私防护 + 语音/Emoji + 班级推送 + 用户画像 | ✅ |
+| 迭代8 | 易用性优化 | 知识库统一输入框 + 班级管理增强 + 审批流程 + 聊天列表仿微信改版 + 发现页 | ✅ |
+| 迭代9 | 对话体验增强 + 教学管理 | 思考过程展示 + 语音恢复 + +号多功能按钮 + 会话列表优化 + 课程发布 + 画像隐私保护 | ✅ |
+| 迭代10 | 管理员H5后台 + 多端支持 | 微信H5 OAuth登录 + 管理员监控面板 + 教师/学生H5页面 + 操作日志流水 | ✅ |
+| 迭代11 | 分身机制重构 + 架构Review | 班级绑定分身（无主分身）+ 老师自测学生角色 + 向量召回策略优化 + 接口一致性Review | ✅ |
 
-| 迭代 | 主题 | 核心内容 |
+**迭代后变更**：
+- 教师端 TabBar 调整：移除"工作台"，改为"聊天列表"（按班级划分） ✅
+
+---
+
+## 3. 功能模块总览
+
+### 3.1 认证与用户管理
+
+| 功能 | 说明 | 来源迭代 |
 |------|------|----------|
-| 迭代1 | 核心功能开发 | 师生授权 + 注册增强 + 评语 + 问答风格 + 作业系统 + 文件上传 + URL 导入 + SSE 流式输出 |
-| 迭代2 | 多角色多分身架构 | 多分身体系 + 班级管理 + 分身分享 + 知识库精细化 + 现有模块分身化改造 |
-| 迭代3 | UI 重构与体验优化 | 教师/学生仪表盘首页 + 班级详情页 + 启停管理 + 知识库 scope 多选 + 上传预览 + 分享码入口优化 |
-
----
-
-## 3. 迭代1：核心功能开发（~4 周）
-
-> **目标**：完成所有用户可感知的新功能，让系统从 MVP 变成功能完整的产品
-
-### 3.1 师生关系与教学管理（🆕 用户需求）
-
-#### 3.1.1 数据库变更
-
-**新增表**：
-
-```sql
--- 师生授权关系表
-CREATE TABLE IF NOT EXISTS teacher_student_relations (
-    id              INTEGER PRIMARY KEY AUTOINCREMENT,
-    teacher_id      INTEGER NOT NULL,
-    student_id      INTEGER NOT NULL,
-    status          TEXT NOT NULL DEFAULT 'pending',  -- pending/approved/rejected
-    initiated_by    TEXT NOT NULL,                     -- teacher(邀请) / student(申请)
-    created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (teacher_id) REFERENCES users(id),
-    FOREIGN KEY (student_id) REFERENCES users(id),
-    UNIQUE(teacher_id, student_id)
-);
-
--- 教师评语表
-CREATE TABLE IF NOT EXISTS teacher_comments (
-    id              INTEGER PRIMARY KEY AUTOINCREMENT,
-    teacher_id      INTEGER NOT NULL,
-    student_id      INTEGER NOT NULL,
-    content         TEXT NOT NULL,           -- 评语内容
-    progress_summary TEXT,                   -- 学习进度摘要
-    created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (teacher_id) REFERENCES users(id),
-    FOREIGN KEY (student_id) REFERENCES users(id)
-);
-
--- 学生问答风格配置表
-CREATE TABLE IF NOT EXISTS student_dialogue_styles (
-    id              INTEGER PRIMARY KEY AUTOINCREMENT,
-    teacher_id      INTEGER NOT NULL,
-    student_id      INTEGER NOT NULL,
-    style_config    TEXT NOT NULL,           -- JSON 格式配置
-    created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (teacher_id) REFERENCES users(id),
-    FOREIGN KEY (student_id) REFERENCES users(id),
-    UNIQUE(teacher_id, student_id)
-);
-
--- 学生作业/成果表
-CREATE TABLE IF NOT EXISTS assignments (
-    id              INTEGER PRIMARY KEY AUTOINCREMENT,
-    student_id      INTEGER NOT NULL,
-    teacher_id      INTEGER NOT NULL,
-    title           TEXT NOT NULL,
-    content         TEXT,                    -- 文本内容
-    file_path       TEXT,                    -- 上传文件路径
-    file_type       TEXT,                    -- 文件类型
-    status          TEXT DEFAULT 'submitted', -- submitted/reviewed
-    created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (student_id) REFERENCES users(id),
-    FOREIGN KEY (teacher_id) REFERENCES users(id)
-);
-
--- 作业点评表（AI 和教师共用）
-CREATE TABLE IF NOT EXISTS assignment_reviews (
-    id              INTEGER PRIMARY KEY AUTOINCREMENT,
-    assignment_id   INTEGER NOT NULL,
-    reviewer_type   TEXT NOT NULL,            -- ai / teacher
-    reviewer_id     INTEGER,                  -- teacher 时为教师 ID，ai 时为 NULL
-    content         TEXT NOT NULL,            -- 点评内容
-    score           REAL,                     -- 评分（可选，0-100）
-    created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (assignment_id) REFERENCES assignments(id)
-);
-```
-
-**users 表变更**：
-
-```sql
-ALTER TABLE users ADD COLUMN school TEXT DEFAULT '';          -- 学校名称（教师必填）
-ALTER TABLE users ADD COLUMN description TEXT DEFAULT '';     -- 分身简短描述（教师必填）
--- 教师 nickname + school 联合唯一索引
-CREATE UNIQUE INDEX IF NOT EXISTS idx_teacher_school ON users(nickname, school) WHERE role = 'teacher';
-```
-
-#### 3.1.2 新增接口
-
-**师生授权**：
-
-| 方法 | 路径 | 说明 | 角色 |
-|------|------|------|------|
-| POST | `/api/relations/invite` | 教师邀请学生 | teacher |
-| POST | `/api/relations/apply` | 学生申请使用分身 | student |
-| PUT | `/api/relations/:id/approve` | 教师审批同意 | teacher |
-| PUT | `/api/relations/:id/reject` | 教师审批拒绝 | teacher |
-| GET | `/api/relations` | 获取师生关系列表 | 所有 |
-
-**教师评语**：
-
-| 方法 | 路径 | 说明 | 角色 |
-|------|------|------|------|
-| POST | `/api/comments` | 教师写评语 | teacher |
-| GET | `/api/comments` | 获取评语列表 | 所有 |
-
-**个性化问答风格**：
-
-| 方法 | 路径 | 说明 | 角色 |
-|------|------|------|------|
-| PUT | `/api/students/:id/dialogue-style` | 设置学生问答风格 | teacher |
-| GET | `/api/students/:id/dialogue-style` | 获取学生问答风格 | teacher/student |
-
-**作业系统**：
-
-| 方法 | 路径 | 说明 | 角色 |
-|------|------|------|------|
-| POST | `/api/assignments` | 学生提交作业 | student |
-| GET | `/api/assignments` | 获取作业列表 | 所有 |
-| GET | `/api/assignments/:id` | 获取作业详情 | 所有 |
-| POST | `/api/assignments/:id/review` | 教师点评作业 | teacher |
-| POST | `/api/assignments/:id/ai-review` | AI 自动点评 | student/teacher |
-
-#### 3.1.3 改造接口
-
-| 接口 | 改造内容 |
-|------|----------|
-| `POST /api/auth/complete-profile` | 教师注册必填 school + description，校验 nickname+school 唯一 |
-| `POST /api/chat` | 增加师生授权鉴权（未授权返回 403）+ 注入个性化问答风格 |
-
-#### 3.1.4 核心业务逻辑
-
-**师生授权机制**：
-```
-教师邀请学生:
-  POST /api/relations/invite {student_id}
-  → 创建关系 status=approved, initiated_by=teacher（邀请即同意）
-
-学生申请使用分身:
-  POST /api/relations/apply {teacher_id}
-  → 创建关系 status=pending, initiated_by=student
-
-教师审批:
-  PUT /api/relations/:id/approve → status=approved
-  PUT /api/relations/:id/reject  → status=rejected
-
-对话鉴权（改造 POST /api/chat）:
-  学生发起对话 → 检查 teacher_student_relations
-  → status != 'approved' → 403 "未获得该教师授权，请先申请"
-```
-
-**教师注册唯一性校验**：
-```
-POST /api/auth/complete-profile:
-  if role == "teacher":
-    必填: nickname, school, description
-    校验: SELECT COUNT(*) FROM users WHERE nickname=? AND school=? AND role='teacher'
-    → 已存在 → 409 "该学校已有同名教师，请修改名称"
-```
-
-**个性化问答风格**（`style_config` JSON 结构）：
-```json
-{
-  "temperature": 0.7,           // 回复随机性 0.1-1.0
-  "guidance_level": "medium",   // 引导程度: low/medium/high
-  "style_prompt": "对该学生请多用鼓励性语言，注重基础概念的巩固",
-  "max_turns_per_topic": 5      // 每个话题最大追问轮次
-}
-```
-
-对话时，`socratic-dialogue` 插件先查询 `student_dialogue_styles`，将 `style_config` 注入系统提示词。
-
-**AI 点评逻辑**：
-```
-学生提交作业 → 可触发 AI 点评:
-  1. 读取作业内容（文本 or 解析文件）
-  2. 检索该教师知识库中的相关知识
-  3. 构建 prompt: "你是{教师名}的数字分身，请根据以下知识库内容，对学生的作业进行点评..."
-  4. 调用大模型生成点评
-  5. 存入 assignment_reviews (reviewer_type='ai')
-
-教师也可手动点评:
-  POST /api/assignments/:id/review → 存入 assignment_reviews (reviewer_type='teacher')
-```
-
----
-
-### 3.2 知识库增强
-
-| 事项 | 说明 |
-|------|------|
-| 文件上传（PDF/DOCX/TXT/MD） | 文件接收 → 内容解析 → 分块 → 向量化存储 |
-| URL 页面导入 | 网页抓取 → HTML 解析 → 正文提取 → 存储 |
-
-**新增接口**：
-
-| 方法 | 路径 | 说明 |
-|------|------|------|
-| POST | `/api/documents/upload` | 文件上传（multipart/form-data） |
-| POST | `/api/documents/import-url` | URL 导入 |
-
-**文件上传规格**：
-- 支持格式：PDF / DOCX / TXT / MD
-- 单文件最大：50MB
-- 存储路径：`uploads/documents/{teacher_id}/{filename}`
-- 解析后自动分块（chunk_size=1000, overlap=200）→ 向量化存入 Chroma
-
-**URL 导入规格**：
-- 后端抓取网页内容（HTTP GET + User-Agent）
-- HTML 解析：去除标签、提取正文、处理编码
-- 异常处理：URL 不可达、内容为空、超时（10s）、内容过长（截断 100000 字符）
-- 解析后内容自动填充标题和正文，教师可编辑后提交
-
----
-
-### 3.3 对话增强
-
-| 事项 | 说明 |
-|------|------|
-| 流式输出（SSE） | 大模型流式调用 → SSE 推送 → 前端逐字渲染 |
-
-**改造接口**：
-
-| 方法 | 路径 | 说明 |
-|------|------|------|
-| POST | `/api/chat/stream` | SSE 流式对话（新增，与 `/api/chat` 并存） |
-
-**SSE 响应格式**：
-```
-data: {"type": "start", "session_id": "uuid"}
-
-data: {"type": "delta", "content": "这是"}
-
-data: {"type": "delta", "content": "一个"}
-
-data: {"type": "delta", "content": "很好的问题"}
-
-data: {"type": "done", "conversation_id": 42, "token_usage": {"prompt_tokens": 850, "completion_tokens": 120, "total_tokens": 970}}
-```
-
----
-
-### 3.4 前端页面变更
-
-#### 改造页面
-
-| 页面 | 改造内容 |
-|------|----------|
-| 角色选择页 FE-P2 | 教师注册增加"学校"和"分身描述"输入框 |
-| 学生首页 FE-P3 | 教师卡片增加授权状态（"申请使用" / "已授权" / "审批中"） |
-| 对话页 FE-P5 | SSE 流式输出，逐字渲染 AI 回复 |
-| 添加文档页 FE-P8 | 三 Tab 切换：文本录入 / 文件上传 / URL 导入 |
-
-#### 新增页面
-
-| 页面 | 角色 | 说明 |
-|------|------|------|
-| 🆕 师生管理页 | teacher | 学生列表、审批申请、邀请学生 |
-| 🆕 我的教师页 | student | 已授权 / 待审批教师列表 |
-| 🆕 学生详情页 | teacher | 评语 + 问答风格设置 + 学生基础信息 |
-| 🆕 我的评语页 | student | 查看教师评语 |
-| 🆕 提交作业页 | student | 标题 + 内容 + 文件上传 |
-| 🆕 作业列表页 | teacher | 查看学生提交的作业 |
-| 🆕 作业详情页 | 所有 | 作业内容 + AI 点评 + 教师点评 |
-| 🆕 我的作业页 | student | 查看自己的作业和点评 |
-
----
-
-### 3.5 后端模块划分
-
-| 模块编号 | 模块名称 | 优先级 | 涉及文件 |
-|----------|----------|--------|----------|
-| V2-M1 | 教师注册增强 | P0 | auth_plugin.go, database.go, repository.go, models.go |
-| V2-M2 | 师生授权机制 | P0 | handlers.go, router.go, repository.go, models.go |
-| V2-M3 | 对话鉴权改造 | P0 | handlers.go, dialogue_plugin.go |
-| V2-M4 | 教师评语系统 | P1 | handlers.go, router.go, repository.go, models.go |
-| V2-M5 | 个性化问答风格 | P1 | handlers.go, router.go, repository.go, dialogue_plugin.go, prompt.go |
-| V2-M6 | 作业系统 | P1 | handlers.go, router.go, repository.go, models.go, llm_client.go |
-| V2-M7 | 文件上传 | P1 | handlers.go, router.go, knowledge_plugin.go, 新增 file_parser.go |
-| V2-M8 | URL 导入 | P1 | handlers.go, router.go, 新增 url_fetcher.go |
-| V2-M9 | SSE 流式输出 | P1 | handlers.go, router.go, dialogue_plugin.go, llm_client.go |
-| V2-M10 | 集成测试 | P0 | tests/integration/ |
-
-**开发顺序**：
-```
-第1层（并行）: V2-M1 教师注册增强 + V2-M7 文件上传 + V2-M8 URL 导入
-      ↓
-第2层（并行）: V2-M2 师生授权 + V2-M3 对话鉴权 + V2-M9 SSE 流式输出
-      ↓
-第3层（并行）: V2-M4 评语系统 + V2-M5 问答风格 + V2-M6 作业系统
-      ↓
-第4层: V2-M10 集成测试
-```
-
-### 3.6 前端模块划分
-
-| 模块编号 | 模块名称 | 优先级 |
-|----------|----------|--------|
-| V2-FE-M1 | 角色选择页改造（学校+描述） | P0 |
-| V2-FE-M2 | 学生首页改造（授权状态） | P0 |
-| V2-FE-M3 | 师生管理页 + 我的教师页 | P0 |
-| V2-FE-M4 | 对话页 SSE 改造 | P1 |
-| V2-FE-M5 | 添加文档页改造（文件上传 + URL） | P1 |
-| V2-FE-M6 | 学生详情页（评语 + 风格设置） | P1 |
-| V2-FE-M7 | 我的评语页 | P1 |
-| V2-FE-M8 | 作业相关页面（提交/列表/详情/我的作业） | P1 |
-
----
-
-### 3.7 迭代1 交付标准
-
-| 编号 | 验收项 |
-|------|--------|
-| AC-01 | 教师注册必填学校和描述，同名+同校不允许注册（409） |
-| AC-02 | 教师可邀请学生（邀请即同意），学生可申请（需审批） |
-| AC-03 | 未授权学生对话返回 403 |
-| AC-04 | 教师可对学生写评语，学生可查看 |
-| AC-05 | 教师可针对每个学生设置问答风格，对话时生效 |
-| AC-06 | 学生可提交作业（文本+文件），AI 自动点评，教师可手动点评 |
-| AC-07 | 教师可上传 PDF/DOCX/TXT/MD 文件，自动解析入库 |
-| AC-08 | 教师可输入 URL，自动抓取网页内容入库 |
-| AC-09 | 对话 SSE 流式输出，前端逐字渲染 |
-| AC-10 | 所有新功能通过集成测试 |
-
----
-
-## 4. 迭代2：生产就绪与上线（~3 周）
-
-> **目标**：让系统安全、稳定地跑在服务器上，补全运营能力，完成发布
-
-### 4.1 生产基础设施
-
-| 编号 | 事项 | 说明 |
-|------|------|------|
-| V2-PROD-01 | Docker 容器化 | Dockerfile + docker-compose（Go 后端 + Chroma DB + Nginx 三容器） |
-| V2-PROD-02 | Chroma DB 持久化 | Docker 运行 Chroma，替换内存向量库，数据挂载到宿主机 |
-| V2-PROD-03 | Nginx + HTTPS | Let's Encrypt 证书、反向代理、前端静态文件托管 |
-| V2-PROD-04 | SQLite 生产加固 | WAL 模式、数据目录挂载到宿主机、定时备份脚本 |
-| V2-PROD-05 | 安全加固 | JWT Secret 环境变量强制校验、API 限流落地、CORS 收紧为实际域名 |
-| V2-PROD-06 | 日志持久化 | 结构化日志输出到文件 + logrotate 配置 |
-| V2-PROD-07 | 环境配置分离 | `.env.production` 模板 + `harness.production.yaml` |
-
-### 4.2 体验与运营
-
-| 编号 | 事项 | 说明 |
-|------|------|------|
-| V2-EXP-01 | 记忆衰减机制 | 艾宾浩斯遗忘曲线，定时清理低强度记忆（30 天未触发清理） |
-| V2-EXP-02 | 数据分析看板（教师端） | 学生对话统计、知识库热度、学习进度概览 |
-| V2-EXP-03 | 对话导出 | 对话记录导出为 TXT |
-
-### 4.3 上线收尾
-
-| 编号 | 事项 | 说明 |
-|------|------|------|
-| V2-REL-01 | 小程序审核发布 | 域名备案、服务器域名配置、微信提审 |
-| V2-REL-02 | 数据备份策略 | SQLite + Chroma 定时备份（cron）+ 保留策略 |
-| V2-REL-03 | 监控告警 | 健康检查失败告警、磁盘/内存阈值告警 |
-| V2-REL-04 | 全链路回归测试 | 生产环境全流程验证 |
-
-### 4.4 后端模块划分
-
-| 模块编号 | 模块名称 | 优先级 |
-|----------|----------|--------|
-| V2-PROD-M1 | Docker 容器化 + Chroma 持久化 | P0 |
-| V2-PROD-M2 | Nginx + HTTPS | P0 |
-| V2-PROD-M3 | SQLite 加固 + 安全加固 | P0 |
-| V2-PROD-M4 | 日志 + 环境配置 | P0 |
-| V2-EXP-M1 | 记忆衰减机制 | P1 |
-| V2-EXP-M2 | 数据分析看板 | P1 |
-| V2-EXP-M3 | 对话导出 | P2 |
-| V2-REL-M1 | 小程序发布 + 备份 + 监控 | P0 |
-| V2-REL-M2 | 全链路回归测试 | P0 |
-
-**开发顺序**：
-```
-第1层（并行）: V2-PROD-M1 Docker + V2-PROD-M2 Nginx + V2-PROD-M3 安全
-      ↓
-第2层（并行）: V2-PROD-M4 日志配置 + V2-EXP-M1 记忆衰减 + V2-EXP-M2 看板
-      ↓
-第3层（并行）: V2-EXP-M3 导出 + V2-REL-M1 发布
-      ↓
-第4层: V2-REL-M2 全链路回归
-```
-
-### 4.5 前端模块划分
-
-| 模块编号 | 模块名称 | 优先级 |
-|----------|----------|--------|
-| V2-FE-PROD-M1 | 数据看板页（教师端） | P1 |
-| V2-FE-PROD-M2 | 对话导出功能 | P2 |
-| V2-FE-PROD-M3 | CustomTabBar 完善（角色动态切换） | P1 |
-
-### 4.6 迭代2 交付标准
-
-| 编号 | 验收项 |
-|------|--------|
-| AC-11 | `docker-compose up -d` 一键启动全部服务 |
-| AC-12 | HTTPS 可访问、API 限流生效 |
-| AC-13 | 向量数据和 SQLite 数据持久化到宿主机 |
-| AC-14 | 记忆自动衰减，30 天未触发的记忆清理 |
-| AC-15 | 教师可查看数据分析看板 |
-| AC-16 | 小程序通过微信审核，可正式使用 |
-| AC-17 | 备份策略生效，可验证恢复 |
-| AC-18 | 监控告警可触发通知 |
-
----
-
-## 5. 技术架构（单机部署）
-
-```
-┌──────────────────────────────────────────────────┐
-│                   服务器（单机）                    │
-│                                                  │
-│  ┌──────────┐  ┌───────────┐  ┌──────────────┐  │
-│  │  Nginx    │  │  Go 后端   │  │  Chroma DB   │  │
-│  │ (HTTPS)   │→ │  (:8080)  │→ │  (:8000)     │  │
-│  │ (:443)    │  │           │  │              │  │
-│  └──────────┘  └───────────┘  └──────────────┘  │
-│       ↑             ↑               ↑            │
-│  静态文件       SQLite.db       向量数据          │
-│  (前端dist)    (挂载到宿主机)   (挂载到宿主机)     │
-│                     ↑                            │
-│              uploads/ (文件存储)                   │
-│              (作业文件 + 知识库文件)                │
-│                                                  │
-│  docker-compose 统一编排                          │
-└──────────────────────────────────────────────────┘
-         ↑
-    微信小程序 ←→ 微信服务器
-```
-
----
-
-## 6. 前端页面总览（V2.0 完成后）
-
-| 编号 | 页面 | 角色 | 来源 |
-|------|------|------|------|
-| P1 | 登录页 | 所有 | V1.0 已有 |
-| P2 | 角色选择页（增强：学校+描述） | 新用户 | V1.0 → 迭代1 改造 |
-| P3 | 学生首页（增强：授权状态） | student | V1.0 → 迭代1 改造 |
-| P4 | 对话页（增强：SSE 流式） | student | V1.0 → 迭代1 改造 |
-| P5 | 对话历史页 | student | V1.0 已有 |
-| P6 | 知识库管理页 | teacher | V1.0 已有 |
-| P7 | 添加文档页（增强：文件上传+URL） | teacher | V1.0 → 迭代1 改造 |
-| P8 | 个人中心页 | 所有 | V1.0 已有 |
-| P9 | 记忆查看页 | student | V1.0 已有 |
-| P10 | 🆕 师生管理页 | teacher | 迭代1 新增 |
-| P11 | 🆕 我的教师页 | student | 迭代1 新增 |
-| P12 | 🆕 学生详情页（评语+风格设置） | teacher | 迭代1 新增 |
-| P13 | 🆕 我的评语页 | student | 迭代1 新增 |
-| P14 | 🆕 提交作业页 | student | 迭代1 新增 |
-| P15 | 🆕 作业列表页 | teacher | 迭代1 新增 |
-| P16 | 🆕 作业详情页（含点评） | 所有 | 迭代1 新增 |
-| P17 | 🆕 我的作业页 | student | 迭代1 新增 |
-| P18 | 🆕 数据看板页 | teacher | 迭代2 新增 |
-
----
-
-## 7. 接口总览（V2.0 新增/改造）
-
-### 7.1 迭代1 新增接口
-
-| 编号 | 方法 | 路径 | 说明 | 鉴权 |
-|------|------|------|------|------|
-| API-01 | POST | `/api/relations/invite` | 教师邀请学生 | teacher |
-| API-02 | POST | `/api/relations/apply` | 学生申请使用分身 | student |
-| API-03 | PUT | `/api/relations/:id/approve` | 教师审批同意 | teacher |
-| API-04 | PUT | `/api/relations/:id/reject` | 教师审批拒绝 | teacher |
-| API-05 | GET | `/api/relations` | 获取师生关系列表 | 所有 |
-| API-06 | POST | `/api/comments` | 教师写评语 | teacher |
-| API-07 | GET | `/api/comments` | 获取评语列表 | 所有 |
-| API-08 | PUT | `/api/students/:id/dialogue-style` | 设置学生问答风格 | teacher |
-| API-09 | GET | `/api/students/:id/dialogue-style` | 获取学生问答风格 | teacher/student |
-| API-10 | POST | `/api/assignments` | 学生提交作业 | student |
-| API-11 | GET | `/api/assignments` | 获取作业列表 | 所有 |
-| API-12 | GET | `/api/assignments/:id` | 获取作业详情 | 所有 |
-| API-13 | POST | `/api/assignments/:id/review` | 教师点评作业 | teacher |
-| API-14 | POST | `/api/assignments/:id/ai-review` | AI 自动点评 | student/teacher |
-| API-15 | POST | `/api/documents/upload` | 文件上传 | teacher |
-| API-16 | POST | `/api/documents/import-url` | URL 导入 | teacher |
-| API-17 | POST | `/api/chat/stream` | SSE 流式对话 | student |
-
-### 7.2 迭代1 改造接口
-
-| 接口 | 改造内容 |
-|------|----------|
-| `POST /api/auth/complete-profile` | 教师必填 school + description，nickname+school 唯一校验 |
-| `POST /api/chat` | 师生授权鉴权 + 个性化问答风格注入 |
-
-### 7.3 迭代2 新增接口
-
-| 编号 | 方法 | 路径 | 说明 | 鉴权 |
-|------|------|------|------|------|
-| API-18 | GET | `/api/analytics/dashboard` | 教师数据看板 | teacher |
-| API-19 | GET | `/api/conversations/export` | 对话导出（TXT） | 所有 |
-
----
-
-## 8. 新增错误码
-
-| 错误码 | 说明 | HTTP Status |
-|--------|------|-------------|
-| 40007 | 未获得该教师授权 | 403 |
-| 40008 | 该学校已有同名教师 | 409 |
-| 40009 | 师生关系已存在 | 409 |
-| 40010 | 文件格式不支持 | 400 |
-| 40011 | 文件大小超限 | 400 |
-| 40012 | URL 不可达或解析失败 | 400 |
-
----
-
-## 9. 新增环境变量
-
-| 变量名 | 必填 | 默认值 | 说明 | 迭代 |
-|--------|------|--------|------|------|
-| `WX_APPID` | 生产必填 | - | 微信小程序 AppID | 迭代2 |
-| `WX_SECRET` | 生产必填 | - | 微信小程序 AppSecret | 迭代2 |
-| `UPLOAD_DIR` | ❌ | `./uploads` | 文件上传存储目录 | 迭代1 |
-| `MAX_UPLOAD_SIZE` | ❌ | `52428800` | 最大上传文件大小（字节，默认 50MB） | 迭代1 |
-
----
-
-## 10. 需求追溯
-
-| 需求来源 | 事项 | V2.0 迭代 |
-|----------|------|-----------|
-| 🆕 用户需求 | 师生授权机制 | 迭代1 |
-| 🆕 用户需求 | 教师注册增强（名称+学校唯一） | 迭代1 |
-| 🆕 用户需求 | 教师评语系统 | 迭代1 |
-| 🆕 用户需求 | 个性化问答风格 | 迭代1 |
-| 🆕 用户需求 | 学生作业/成果上传 + AI/教师点评 | 迭代1 |
-| 全局需求 3.2 | 文档上传 PDF/DOCX | 迭代1 |
-| V3.0 BL-001 | URL 导入 | 迭代1 |
-| 全局需求 3.3 | 流式输出 | 迭代1 |
-| 生产必备 | Docker + HTTPS + 安全 | 迭代2 |
-| 全局需求 3.5 | 记忆衰减 | 迭代2 |
-| 全局需求 3.5 | 数据分析看板 | 迭代2 |
-| 全局需求 3.5 | 导出功能 | 迭代2 |
-| 生产必备 | 小程序发布 | 迭代2 |
-
----
-
-## 11. 时间线
-
-```
-Week 1~4:   迭代1 - 核心功能开发（师生授权 + 作业 + 文件上传 + URL + SSE）
-Week 5~7:   迭代2 - 生产就绪与上线（Docker + 安全 + 看板 + 发布）
-
-总计: ~7 周
-```
-
----
-
-## 12. 风险与应对
-
-| 风险 | 影响 | 应对方案 |
+| 微信小程序登录 | wx.login → code换token → JWT | V1.0 |
+| 微信H5网页授权 | OAuth 2.0 snsapi_userinfo → JWT | 迭代10 |
+| 角色选择 | 新用户选择教师/学生角色 | V1.0 |
+| 教师注册增强 | 微信昵称自动获取，首次登录引导创建班级 | 迭代1→迭代8简化 |
+| JWT令牌管理 | 签发/刷新/过期/黑名单 | V1.0+迭代10 |
+| 用户禁用/启用 | 管理员可禁用用户，token立即失效，所有请求返回403 | 迭代10 |
+| 管理员角色 | 通过数据库脚本设置，不通过前端注册 | 迭代10 |
+
+### 3.2 多角色多分身体系
+
+| 功能 | 说明 | 来源迭代 |
 |------|------|----------|
-| PDF/DOCX 解析库兼容性 | 文件上传功能不可用 | 优先支持 TXT/MD，PDF/DOCX 使用成熟 Go 库 |
-| 网页抓取被反爬 | URL 导入失败 | 设置合理 User-Agent + 超时 + 错误提示 |
-| SSE 小程序兼容性 | 流式输出不可用 | 小程序使用 wx.request + 轮询降级方案 |
-| 微信小程序审核不通过 | 无法正式发布 | 提前了解审核规则，准备备案材料 |
-| SQLite 并发写入瓶颈 | 高并发下性能下降 | WAL 模式 + 写入队列 + 连接池优化 |
-| 师生授权改造影响现有对话 | 已有用户无法对话 | 数据迁移脚本：为已有对话关系自动创建 approved 记录 |
+| 班级绑定分身 | **每个班级一个专属分身**，创建班级时自动创建，无主分身概念 | 迭代2→**迭代11重构** |
+| 分身概览 | 分身详情页（基本信息+统计+设置），按班级展示 | 迭代4→迭代11简化 |
+| 分身广场 | 公开班级展示（is_public=true），学生可浏览和申请 | 迭代4→迭代5独立化→迭代11适配 |
+| 分身分享 | 分享链接/二维码/定向邀请 | 迭代2+迭代4+迭代6 |
+| 教师禁止独立创建分身 | `POST /api/personas` 对教师返回引导错误 | 迭代11 |
+| 删除的功能 | ~~分身切换~~ / ~~分身启停~~ —— 统一通过班级管理 | ~~迭代2/3~~ |
+
+### 3.3 师生关系与班级管理
+
+| 功能 | 说明 | 来源迭代 |
+|------|------|----------|
+| 班级创建 | 教师昵称+学校+分身描述+班级名称+简介+**is_public**（公开/私密）；自动创建班级专属分身 | 迭代2→迭代8增强→**迭代11重构** |
+| 班级分享链接 | 创建后自动生成专属分享链接和二维码 | 迭代2+迭代6 |
+| 学生审批流程 | 学生申请加入→教师填写学生信息→审批通过/拒绝 | 迭代8 |
+| 审批信息 | 评价/特点、年龄、性别、家庭情况（用于Prompt注入） | 迭代8 |
+| 学生管理（合并页） | 全部学生/按班级/待审批/班级设置 四Tab合一 | 迭代5合并 |
+| 批量添加学生 | LLM智能解析文本+分享码加入+信息丰富化引导 | 迭代7 |
+| 班级 is_public | 公开班级展示在发现页；私密班级仅通过分享链接加入 | 迭代11 |
+| 老师自测学生角色 | 教师注册时自动创建测试学生账号，用于自测对话；创建班级后自测学生自动加入 | 迭代11 |
+
+### 3.4 对话系统
+
+| 功能 | 说明 | 来源迭代 |
+|------|------|----------|
+| SSE流式输出 | 大模型流式调用→SSE推送→前端逐字渲染 | 迭代1 |
+| 师生授权鉴权 | 未授权学生对话返回403 | 迭代1 |
+| 个性化问答风格 | 教师可针对每个学生设置对话风格 | 迭代1 |
+| 教师真人介入 | 教师可接管AI对话，发送真人消息 | 迭代4 |
+| 对话附件支持 | 学生可在对话中发送文件，AI自动识别并点评 | 迭代5 |
+| 6种对话风格模板 | 苏格拉底式/直接讲解/鼓励引导/严格训练/游戏化/自适应 | 迭代6 |
+| 思考过程展示 | RAG检索/记忆检索/工具调用/LLM思考 实时展示 | 迭代9 |
+| 语音输入 | 长按录音→语音转文字→填入输入框 | 迭代7→迭代9恢复 |
+| Emoji表情 | 表情面板，支持常用表情分类 | 迭代7 |
+| +号多功能按钮 | 文件/相册/拍摄 功能面板 | 迭代9 |
+| 新会话指令触发 | 用户发送"新话题"等关键词创建新session | 迭代9 |
+| 会话列表优化 | 按老师→会话二级结构，历史会话LLM总结标题 | 迭代9 |
+| 仿微信聊天UI | 底部输入栏：语音→输入框→Emoji→+号 | 迭代8 |
+
+### 3.5 知识库系统
+
+| 功能 | 说明 | 来源迭代 |
+|------|------|----------|
+| 文本录入 | 直接输入文本内容 | V1.0 |
+| 文件上传 | PDF/DOCX/TXT/MD，单文件≤20MB | 迭代1 |
+| URL导入 | 网页抓取→HTML解析→正文提取 | 迭代1 |
+| 聊天记录导入 | JSON格式对话记录导入 | 迭代6 |
+| 批量上传 | 最多20个文件，总大小≤100MB，异步处理 | 迭代7 |
+| 统一输入框 | 智能识别URL/文字/文件，拖拽上传 | 迭代8 |
+| LlamaIndex语义检索 | Python服务，DashScope Embedding向量化+语义检索；召回100条→置信度阈值(0.3)→scope过滤→返回≤5条 | 迭代5→**迭代11优化** |
+| Scope精细化 | 全局/班级/学生 三级scope控制 | 迭代2+迭代3多选 |
+| 知识库预览 | 点击文档可预览内容 | 迭代3 |
+| 搜索与筛选 | 按标题关键词搜索，按类型筛选 | 迭代8 |
+| 课程类型 | item_type='course'，课程信息存入知识库 | 迭代9 |
+
+### 3.6 记忆系统
+
+| 功能 | 说明 | 来源迭代 |
+|------|------|----------|
+| 记忆自动提取 | 对话后自动提取关键记忆 | V1.0 |
+| 三层分层存储 | core(核心)/episodic(情景)/archived(归档) | 迭代6 |
+| 记忆摘要合并 | 定时合并相似记忆，LLM生成摘要 | 迭代6 |
+| 用户画像持久化 | 记忆合并时提炼学生/教师画像，存入profile_snapshot | 迭代7 |
+| 画像隐私保护 | 画像仅内部使用，API不返回profile_snapshot | 迭代9 |
+| 记忆管理API | 查看/编辑/删除记忆 | 迭代6 |
+
+### 3.7 教学管理
+
+| 功能 | 说明 | 来源迭代 |
+|------|------|----------|
+| 学生备注 | 教师私密备注（原评语），学生不可见，用于AI个性化 | 迭代1→迭代5改名 |
+| 教材配置体系 | 8档学段 + 教材版本 + 学科 + 进度配置 | 迭代7 |
+| 学段Prompt模板 | 每个学段独立模板，约束语言风格和回答深度 | 迭代7 |
+| 课程信息发布 | 教师发布课程→存入知识库→可推送给学生 | 迭代9 |
+| 班级消息推送 | 教师向班级/指定学生推送消息，显示在聊天页 | 迭代7 |
+| 微信订阅消息 | 课程更新/消息推送通过微信订阅消息触达 | 迭代9 |
+| 用户反馈系统 | 功能建议/Bug报告/内容问题/其他 | 迭代7 |
+| ~~作业系统~~ | ~~学生提交作业+AI/教师点评~~ **（迭代7已移除）** | ~~迭代1~~ |
+
+### 3.8 前端UI/UX（小程序端）
+
+#### 教师端 TabBar（最新）
+
+| Tab | 图标 | 页面 | 功能 |
+|-----|------|------|------|
+| 聊天列表 | 💬 | chat-list | 按班级分组的学生聊天列表 + 置顶 + 未读消息 |
+| 学生管理 | 👥 | teacher-students | 全部学生/按班级/待审批/班级设置 |
+| 知识库 | 📚 | knowledge | 知识库管理（统一输入框 + 搜索筛选） |
+| 我的 | 👤 | profile | 分身概览 + 课程管理 + 设置 + 退出 |
+
+> **变更说明**：原"工作台"Tab已移除，替换为"聊天列表"Tab（按班级划分学生）。
+
+#### 学生端 TabBar
+
+| Tab | 图标 | 页面 | 功能 |
+|-----|------|------|------|
+| 对话 | 💬 | home | 我的老师列表 + 开始对话 |
+| 发现 | 🌐 | discover | 教师广场 + 分享码加入 |
+| 我的 | 👤 | profile | 个人信息 + 设置 + 退出 |
+
+#### 聊天列表页（教师端）
+
+- 按班级分组展示学生
+- 每个班级可展开/收起
+- 支持班级置顶和学生置顶（📌标识）
+- 显示未读消息数量角标
+- 默认每班显示前5个学生，可展开查看更多
+- 点击学生进入聊天详情
+
+#### 聊天列表页（学生端）
+
+- 按老师→会话二级结构展示
+- 最新会话显示最后一条消息摘要
+- 历史会话显示LLM总结的标题
+- 支持老师置顶
+- 底部仿微信输入栏 + 新会话按钮
+
+### 3.9 H5多端支持（迭代10）
+
+#### 管理员H5后台
+
+| 页面 | 功能 |
+|------|------|
+| 仪表盘 | 系统总览（用户数/对话数/消息数等）+ 趋势图（7/30/90天）+ 用户统计 + 对话统计 + 知识库统计 + 活跃排行 |
+| 用户管理 | 用户列表 + 搜索 + 修改角色 + 启用/禁用 |
+| 反馈管理 | 反馈列表 + 状态筛选 + 状态更新 |
+| 日志查询 | 操作日志列表 + 多条件筛选 + 统计 + CSV导出 |
+
+- 技术栈：Vue 3 + Element Plus
+- 布局：左侧导航栏 + 顶部标题栏
+
+#### 教师H5页面
+
+功能对齐小程序教师端，UI独立设计。核心页面：
+- 聊天列表（按班级组织）、对话页、班级管理、知识库、课程管理、分身管理、分享管理、记忆管理、审批管理、学生详情、教材配置、反馈、个人中心
+
+侧边栏导航顺序：聊天列表 → 学生管理 → 知识库 → 我的 → 课程管理 → 分身管理
+
+- 技术栈：Vue 3 + Element Plus
+- 默认进入聊天列表页
+
+#### 学生H5页面
+
+功能对齐小程序学生端，UI独立设计。核心页面：
+- 聊天列表、对话页、发现页、分享加入、历史记录、我的教师、我的评语、反馈、个人中心
+
+底部TabBar：对话 / 发现 / 我的
+
+- 技术栈：Vue 3 + Vant 4（移动端组件库）
+
+### 3.10 管理员后台功能
+
+#### 操作日志流水（迭代10）
+
+| 功能 | 说明 |
+|------|------|
+| 全局中间件采集 | 自动记录所有API请求（方法/路径/状态码/耗时/用户/IP/平台） |
+| 语义增强 | 关键操作补充业务语义（action/resource/resource_id/detail） |
+| 独立存储 | 独立SQLite数据库文件，与业务数据库分离 |
+| 保留策略 | 90天自动清理（每日凌晨定时任务） |
+| 日志查询 | 多条件筛选（用户/操作类型/资源/时间/平台） |
+| 日志统计 | 操作频次/平台分布/时段热力图/活跃用户 |
+| 日志导出 | CSV格式导出（应用当前筛选条件） |
+
+操作类型枚举：`user.login` / `user.register` / `chat.send_message` / `chat.create_session` / `class.create` / `knowledge.upload` / `persona.create` / `share.create` / `course.push` / `admin.update_role` / `admin.toggle_user` 等 30+ 种。
+
+### 3.11 运维与部署
+
+| 功能 | 说明 | 来源迭代 |
+|------|------|----------|
+| Docker Compose | Go后端 + Python LlamaIndex + Nginx 三容器编排 | 迭代6 |
+| Nginx + HTTPS | Let's Encrypt证书、反向代理、静态文件托管 | 迭代6 |
+| SQLite生产加固 | WAL模式、数据目录挂载、定时备份 | 迭代6 |
+| API限流 | 全局请求限流 + 对话接口单独限流 | 迭代7 |
+| Prompt Injection防御 | System Prompt安全指令 + 记忆注入脱敏 | 迭代7 |
+| 日志持久化 | 结构化日志输出到文件 + logrotate | 迭代6 |
+| 环境配置分离 | `.env.production` + `harness.production.yaml` | 迭代6 |
+| Adaptive RAG | LLM自主决策是否需要外部搜索 | 迭代7 |
 
 ---
 
-**文档版本**: v1.0.0
+## 4. 技术架构（最新版）
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│                      服务器（单机部署）                         │
+│                                                                │
+│  ┌──────────┐  ┌───────────────┐  ┌────────────────────┐     │
+│  │  Nginx    │  │   Go 后端      │  │  Python LlamaIndex │     │
+│  │ (HTTPS)   │→ │   (:8080)     │→ │  服务 (:8100)      │     │
+│  │ (:443)    │  │               │  │                    │     │
+│  └──────────┘  └───────────────┘  └────────────────────┘     │
+│       ↑              ↑                     ↑                  │
+│  静态文件        SQLite.db           SimpleVectorStore        │
+│  (前端dist)     (业务数据)           (本地JSON文件持久化)       │
+│  (H5 dist)          ↑                     ↑                  │
+│              operation_logs.db      DashScope Embedding       │
+│              (操作日志-独立)        (text-embedding-v3)        │
+│                     ↑                                         │
+│              uploads/ (文件存储)                               │
+│              (知识库文件 + 对话附件)                            │
+│                                                                │
+│  docker-compose 统一编排                                       │
+└──────────────────────────────────────────────────────────────┘
+         ↑                    ↑
+    微信小程序            H5页面（微信内浏览器）
+    (Taro)               ├── 管理员后台 (Vue3+ElementPlus)
+                         ├── 教师端 (Vue3+ElementPlus)
+                         └── 学生端 (Vue3+Vant4)
+```
+
+### 4.1 技术栈
+
+| 组件 | 技术选型 |
+|------|---------|
+| 后端 | Go + Gin |
+| 小程序前端 | Taro 3 + React + TypeScript |
+| 管理员H5 | Vue 3 + Element Plus |
+| 教师H5 | Vue 3 + Element Plus |
+| 学生H5 | Vue 3 + Vant 4 |
+| 语义检索 | Python + FastAPI + LlamaIndex |
+| Embedding | 通义千问 text-embedding-v3 (DashScope) |
+| LLM | 通义千问 (DashScope) |
+| 向量存储 | LlamaIndex SimpleVectorStore (本地JSON) |
+| 业务数据库 | SQLite (WAL模式) |
+| 日志数据库 | SQLite (独立文件) |
+| 容器化 | Docker Compose |
+| 反向代理 | Nginx + HTTPS |
+
+---
+
+## 5. 数据库设计（完整表清单）
+
+### 5.1 业务数据库表
+
+| 表名 | 说明 | 来源迭代 |
+|------|------|----------|
+| `users` | 用户表（含role/openid/wx_unionid/status/profile_snapshot/**is_test_account**/**created_by_teacher_id**） | V1.0+多次扩展+**迭代11** |
+| `personas` | 分身表（含**bound_class_id** 绑定班级）；每班一个专属分身 | 迭代2→**迭代11重构** |
+| `classes` | 班级表（含teacher_display_name/subject/age_group/share_link/invite_code/qr_code_url/**is_public**） | 迭代2+迭代8增强+**迭代11** |
+| `class_members` | 班级成员表（含approval_status/teacher_evaluation/age/gender/family_info） | 迭代2+迭代8增强 |
+| `class_join_requests` | 班级加入申请表 | 迭代8 |
+| `conversations` | 对话记录表 | V1.0 |
+| `knowledge_items` | 知识库条目表（含item_type: text/url/file/course） | 迭代2+迭代9扩展 |
+| `memories` | 记忆表（三层分层: core/episodic/archived） | V1.0+迭代6增强 |
+| `teacher_student_relations` | 师生授权关系表 | 迭代1 |
+| `teacher_comments` | 教师评语/学生备注表 | 迭代1 |
+| `student_dialogue_styles` | 学生问答风格配置表 | 迭代1 |
+| `persona_shares` | 分身分享码表 | 迭代2 |
+| `teacher_curriculum_configs` | 教材配置表（学段/年级/教材版本/学科/进度） | 迭代7 |
+| `feedbacks` | 用户反馈表 | 迭代7 |
+| `batch_tasks` | 批量任务表（批量上传进度跟踪） | 迭代7 |
+| `teacher_messages` | 教师推送消息表 | 迭代7 |
+| `chat_pins` | 聊天置顶记录表 | 迭代8 |
+| `course_notifications` | 课程推送通知记录表 | 迭代9 |
+| `wx_subscriptions` | 微信订阅状态记录表 | 迭代9 |
+| `session_titles` | 会话标题表（LLM总结） | 迭代9 |
+
+### 5.2 日志数据库表（独立文件）
+
+| 表名 | 说明 | 来源迭代 |
+|------|------|----------|
+| `operation_logs` | 操作日志表（user_id/action/resource/ip/platform/duration_ms等） | 迭代10 |
+
+---
+
+## 6. 前端页面总览
+
+### 6.1 小程序页面
+
+| 页面 | 路径 | 角色 | 来源 |
+|------|------|------|------|
+| 登录页 | pages/login | 所有 | V1.0 |
+| 角色选择页 | pages/role-select | 新用户 | V1.0→迭代8简化 |
+| 分身选择页 | pages/persona-select | 所有 | 迭代2 |
+| 首页 | pages/home | 所有 | V1.0→多次重构 |
+| 对话页 | pages/chat | 所有 | V1.0→迭代9增强 |
+| 聊天列表页 | pages/chat-list | 所有 | 迭代8 |
+| 对话历史页 | pages/history | student | V1.0 |
+| 知识库管理页 | pages/knowledge | teacher | V1.0→迭代8增强 |
+| 添加知识页 | pages/knowledge/add | teacher | V1.0→迭代8统一输入框 |
+| 知识库预览页 | pages/knowledge/preview | teacher | 迭代3 |
+| 个人中心页 | pages/profile | 所有 | V1.0 |
+| 记忆查看页 | pages/memories | student | V1.0 |
+| 记忆管理页 | pages/memory-manage | teacher | 迭代6 |
+| 学生管理页 | pages/teacher-students | teacher | 迭代1→迭代5合并 |
+| 我的教师页 | pages/my-teachers | student | 迭代1 |
+| 学生详情页 | pages/student-detail | teacher | 迭代1 |
+| 学生档案页 | pages/student-profile | teacher | 迭代8 |
+| 分享加入页 | pages/share-join | student | 迭代2 |
+| 分享管理页 | pages/share-manage | teacher | 迭代2→迭代5移入分身管理 |
+| 班级创建页 | pages/class-create | teacher | 迭代2 |
+| 班级详情页 | pages/class-detail | teacher | 迭代3 |
+| 分身概览页 | pages/persona-overview | teacher | 迭代4 |
+| 学生聊天历史页 | pages/student-chat-history | teacher | 迭代4 |
+| 发现页 | pages/discover | student | 迭代5独立化→迭代8增强 |
+| 教师消息页 | pages/teacher-message | teacher | 迭代7 |
+| 教材配置页 | pages/curriculum-config | teacher | 迭代7 |
+| 反馈页 | pages/feedback | 所有 | 迭代7 |
+| 反馈管理页 | pages/feedback-manage | teacher | 迭代7 |
+| 批量添加学生页 | pages/student-batch | teacher | 迭代7 |
+| 审批管理页 | pages/approval-manage | teacher | 迭代8 |
+| 审批详情页 | pages/approval-detail | teacher | 迭代8 |
+| 我的评语页 | pages/my-comments | student | 迭代1（学生端入口已移除） |
+| 课程发布页 | pages/course-publish | teacher | 迭代9 |
+| 课程列表页 | pages/course-list | teacher | 迭代9 |
+
+### 6.2 H5页面
+
+#### 管理员后台（src/h5-admin/）
+- 登录页、仪表盘、用户管理、反馈管理、日志查询、日志统计
+
+#### 教师H5页面（src/h5-teacher/）
+- 登录页、角色选择、聊天列表、对话页、班级管理（含分身信息）、班级创建（含分身信息+is_public）、班级详情、知识库、知识库添加、知识库预览、课程管理、课程发布、分身管理（按班级展示）、分享管理、记忆管理、审批管理、学生详情、教材配置、反馈、个人中心
+- **迭代11调整**：分身管理简化为按班级展示分身列表；班级管理中显示对应分身信息
+
+#### 学生H5页面（src/h5-student/）
+- 登录页、角色选择、首页、聊天列表、对话页、发现页、分享加入、历史记录、我的教师、我的评语、分身管理、反馈、个人中心
+
+---
+
+## 7. 接口清单
+
+> 接口完整清单已拆分为独立文件：**`docs/iterations/v2.0/api_spec_full.md`**
+>
+> 当前版本共 **136 个接口**（Go 后端 132 个 + Python 服务 4 个），含迭代11变更（3个删除、1个重构、1个增强、2个新增）。
+>
+> 按分组快速导航：
+> - 认证（7）、用户（3）、分身管理（6，迭代11重构）、班级管理（12，迭代11重构）
+> - 班级加入申请（4）、师生关系（6）、对话（7）、教师介入（4）、聊天列表（5）
+> - 知识库旧版（12）、知识库V8（5）、记忆（4）、评语与问答风格（4）、对话风格（2）
+> - 学生管理（5）、教材配置（5）、课程（5）、教师消息（2）、分享码（5）
+> - 反馈（3）、发现页（3）、通用上传（2）、平台配置（1）、管理员（12）、系统（3）
+> - 自测学生（2，迭代11新增）、Python服务（4）
+
+---
+
+## 8. 环境变量清单
+
+| 变量名 | 必填 | 说明 | 来源迭代 |
+|--------|------|------|----------|
+| `JWT_SECRET` | ✅ | JWT签名密钥 | V1.0 |
+| `DASHSCOPE_API_KEY` | ✅ | 通义千问API密钥 | V1.0 |
+| `WX_APPID` | 生产必填 | 微信小程序AppID | 迭代2 |
+| `WX_SECRET` | 生产必填 | 微信小程序AppSecret | 迭代2 |
+| `WX_H5_APP_ID` | H5必填 | 微信公众号AppID | 迭代10 |
+| `WX_H5_APP_SECRET` | H5必填 | 微信公众号AppSecret | 迭代10 |
+| `WX_H5_REDIRECT_URI` | H5必填 | H5授权回调URL | 迭代10 |
+| `WX_H5_MOCK_ENABLED` | ❌ | H5 Mock模式（开发环境） | 迭代10 |
+| `UPLOAD_DIR` | ❌ | 文件上传目录（默认./uploads） | 迭代1 |
+| `MAX_UPLOAD_SIZE` | ❌ | 最大上传大小（默认50MB） | 迭代1 |
+| `LLAMAINDEX_URL` | ❌ | LlamaIndex服务地址（默认http://localhost:8100） | 迭代5 |
+| `LOG_DB_PATH` | ❌ | 日志数据库路径 | 迭代10 |
+| `LOG_RETENTION_DAYS` | ❌ | 日志保留天数（默认90） | 迭代10 |
+| `LOG_CLEANUP_ENABLED` | ❌ | 是否启用日志清理 | 迭代10 |
+| `LOG_CLEANUP_HOUR` | ❌ | 日志清理执行时间（默认凌晨3点） | 迭代10 |
+
+---
+
+## 9. Prompt体系
+
+### 9.1 Prompt组装优先级（从高到低）
+
+1. **安全规则** ← 最高优先级，不可覆盖（隐私防护+Injection防御）
+2. **学段基础模板** ← 硬约束，决定语言风格和回答深度（8档学段）
+3. **教学风格模板** ← 软约束，决定教学方法（6种风格）
+4. **个性化教学要求** ← 教师自定义补充
+5. **教学背景** ← 教材版本、学科、进度
+6. **学生个人信息** ← 用于个性化服务（审批时填写的信息）
+7. **用户画像** ← 记忆合并时提炼的画像
+8. **行为约束** ← 知识库为空时的行为规则
+9. **相关知识 + 学生记忆** ← 动态内容（RAG检索+记忆检索）
+
+### 9.2 学段划分（8档）
+
+| 学段标识 | 名称 | 年级范围 |
+|---------|------|---------|
+| `preschool` | 学前班 | 幼儿园大班~学前 |
+| `primary_lower` | 小学低年级 | 1-3年级 |
+| `primary_upper` | 小学高年级 | 4-6年级 |
+| `junior` | 初中 | 7-9年级 |
+| `senior` | 高中 | 10-12年级 |
+| `university` | 大学及以上 | 大学/研究生/博士 |
+| `adult_life` | 成人生活技能 | 烹饪/健身/手工等 |
+| `adult_professional` | 成人职业培训 | 职业技能/考证等 |
+
+### 9.3 对话风格模板（6种）
+
+| 风格 | 说明 |
+|------|------|
+| 苏格拉底式 | 通过提问引导学生自主思考 |
+| 直接讲解 | 直接给出清晰的解释和答案 |
+| 鼓励引导 | 多用鼓励性语言，注重正向反馈 |
+| 严格训练 | 高标准要求，注重准确性 |
+| 游戏化 | 趣味互动，适合低龄学生 |
+| 自适应 | 根据学生表现自动调整风格 |
+
+---
+
+## 10. 已移除的功能
+
+| 功能 | 原迭代 | 移除迭代 | 原因 |
+|------|--------|----------|------|
+| 作业系统（提交/列表/点评） | 迭代1 | 迭代7 | 功能优先级低，改为对话中附件提交 |
+| 记忆衰减机制 | 原规划迭代2 | — | 改为三层分层存储+摘要合并 |
+| 数据分析看板（教师端独立页） | 原规划迭代2 | — | 改为Dashboard概览+管理员后台统计 |
+| 对话导出TXT | 原规划迭代2 | — | 优先级低，未实现 |
+
+---
+
+## 11. 技术债务与已知问题
+
+| 问题 | 说明 | 优先级 |
+|------|------|--------|
+| InMemoryVectorStore残留 | 已被LlamaIndex替代，代码保留作降级方案 | 低 |
+| 教师端工作台页面 | TabBar已移除工作台入口，但home页面代码仍存在 | 低 |
+| 微信订阅消息 | 需要微信后台配置消息模板，当前为Mock | 中 |
+| 小程序审核发布 | 域名备案、服务器域名配置、微信提审 | 高 |
+| H5端语音输入 | H5不支持微信语音SDK，暂不可用 | 低 |
+| 发现页公开班级过滤 | 迭代11新增 is_public 字段，发现页需适配仅展示 is_public=true 的班级 | 中 |
+
+---
+
+## 12. 需求追溯
+
+| 需求来源 | 事项 | 实现迭代 |
+|----------|------|----------|
+| 用户需求 | 师生授权机制 | 迭代1 |
+| 用户需求 | 教师注册增强 | 迭代1→迭代8简化 |
+| 用户需求 | 教师评语/学生备注 | 迭代1→迭代5改名 |
+| 用户需求 | 个性化问答风格 | 迭代1 |
+| 全局需求 | 文档上传PDF/DOCX | 迭代1 |
+| 全局需求 | URL导入 | 迭代1 |
+| 全局需求 | SSE流式输出 | 迭代1 |
+| 架构需求 | 多角色多分身体系 | 迭代2 |
+| 架构需求 | 班级管理 | 迭代2→迭代8增强 |
+| UX需求 | 教师Dashboard | 迭代3→迭代5重构 |
+| UX需求 | 启停管理 | 迭代3 |
+| 用户需求 | 分身广场 | 迭代4→迭代5独立化 |
+| 用户需求 | 教师真人介入 | 迭代4 |
+| 架构需求 | LlamaIndex语义检索 | 迭代5 |
+| UX需求 | 学生管理合并 | 迭代5 |
+| 全局需求 | 记忆三层分层 | 迭代6 |
+| 全局需求 | 对话风格模板 | 迭代6 |
+| 生产必备 | Docker部署 | 迭代6 |
+| 用户需求 | 教材配置体系 | 迭代7 |
+| 安全需求 | API限流+隐私防护 | 迭代7 |
+| 用户需求 | 批量添加学生 | 迭代7 |
+| UX需求 | 知识库统一输入框 | 迭代8 |
+| UX需求 | 仿微信聊天改版 | 迭代8 |
+| 用户需求 | 思考过程展示 | 迭代9 |
+| 用户需求 | 会话列表优化 | 迭代9 |
+| 用户需求 | 课程发布 | 迭代9 |
+| 运营需求 | 管理员H5后台 | 迭代10 |
+| 多端需求 | 教师/学生H5页面 | 迭代10 |
+| 运营需求 | 操作日志流水 | 迭代10 |
+| 用户需求 | 教师端TabBar调整（聊天列表替换工作台） | 迭代后变更 |
+| 架构需求 | 班级绑定分身（无主分身）+ 教师禁止独立创建分身 | 迭代11 |
+| 运营需求 | 老师自测学生角色 | 迭代11 |
+| 技术优化 | 向量召回100条+置信度阈值过滤 | 迭代11 |
+| 架构需求 | 班级 is_public 公开/私密控制 | 迭代11 |
+
+---
+
+**文档版本**: v2.1.0
 **创建日期**: 2026-03-28
-**最后更新**: 2026-03-28
+**最后更新**: 2026-04-05
+**维护说明**: 本文档为 V2.0 全量需求汇总，各迭代详细需求见 `iteration{N}_requirements.md`，API 完整规范见 `api_spec_full.md`

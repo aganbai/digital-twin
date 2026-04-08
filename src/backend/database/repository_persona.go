@@ -20,10 +20,31 @@ func NewPersonaRepository(db *sql.DB) *PersonaRepository {
 func (r *PersonaRepository) Create(persona *Persona) (int64, error) {
 	now := time.Now()
 	result, err := r.db.Exec(
-		`INSERT INTO personas (user_id, role, nickname, school, description, avatar, is_active, created_at, updated_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		`INSERT INTO personas (user_id, role, nickname, school, description, avatar, is_active, is_public, bound_class_id, created_at, updated_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		persona.UserID, persona.Role, persona.Nickname, persona.School, persona.Description,
-		persona.Avatar, 1, now, now,
+		persona.Avatar, 1, persona.IsPublic, persona.BoundClassID, now, now,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("创建分身失败: %w", err)
+	}
+
+	id, err := result.LastInsertId()
+	if err != nil {
+		return 0, fmt.Errorf("获取分身ID失败: %w", err)
+	}
+
+	return id, nil
+}
+
+// CreateWithTx 在事务中创建分身
+func (r *PersonaRepository) CreateWithTx(tx *sql.Tx, persona *Persona) (int64, error) {
+	now := time.Now()
+	result, err := tx.Exec(
+		`INSERT INTO personas (user_id, role, nickname, school, description, avatar, is_active, is_public, bound_class_id, created_at, updated_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		persona.UserID, persona.Role, persona.Nickname, persona.School, persona.Description,
+		persona.Avatar, 1, persona.IsPublic, persona.BoundClassID, now, now,
 	)
 	if err != nil {
 		return 0, fmt.Errorf("创建分身失败: %w", err)
@@ -41,11 +62,11 @@ func (r *PersonaRepository) Create(persona *Persona) (int64, error) {
 func (r *PersonaRepository) GetByID(id int64) (*Persona, error) {
 	persona := &Persona{}
 	err := r.db.QueryRow(
-		`SELECT id, user_id, role, nickname, school, description, avatar, is_active, created_at, updated_at
+		`SELECT id, user_id, role, nickname, school, description, avatar, is_active, COALESCE(is_public, 0), bound_class_id, created_at, updated_at
 		 FROM personas WHERE id = ?`,
 		id,
 	).Scan(&persona.ID, &persona.UserID, &persona.Role, &persona.Nickname, &persona.School,
-		&persona.Description, &persona.Avatar, &persona.IsActive, &persona.CreatedAt, &persona.UpdatedAt)
+		&persona.Description, &persona.Avatar, &persona.IsActive, &persona.IsPublic, &persona.BoundClassID, &persona.CreatedAt, &persona.UpdatedAt)
 
 	if err == sql.ErrNoRows {
 		return nil, nil
@@ -59,7 +80,7 @@ func (r *PersonaRepository) GetByID(id int64) (*Persona, error) {
 
 // ListByUserID 获取用户的所有分身列表（含统计信息）
 func (r *PersonaRepository) ListByUserID(userID int64, roleFilter string) ([]PersonaListItem, error) {
-	query := `SELECT p.id, p.role, p.nickname, p.school, p.description, p.is_active, COALESCE(p.is_public, 0), p.created_at
+	query := `SELECT p.id, p.role, p.nickname, p.school, p.description, p.is_active, COALESCE(p.is_public, 0), p.bound_class_id, p.created_at
 		 FROM personas p WHERE p.user_id = ?`
 	args := []interface{}{userID}
 
@@ -81,12 +102,24 @@ func (r *PersonaRepository) ListByUserID(userID int64, roleFilter string) ([]Per
 		var item PersonaListItem
 		var isActiveInt int
 		var isPublicInt int
+		var boundClassID sql.NullInt64
 		if err := rows.Scan(&item.ID, &item.Role, &item.Nickname, &item.School, &item.Description,
-			&isActiveInt, &isPublicInt, &item.CreatedAt); err != nil {
+			&isActiveInt, &isPublicInt, &boundClassID, &item.CreatedAt); err != nil {
 			return nil, fmt.Errorf("扫描分身记录失败: %w", err)
 		}
 		item.IsActive = isActiveInt == 1
 		item.IsPublic = isPublicInt == 1
+
+		// 处理bound_class_id
+		if boundClassID.Valid {
+			item.BoundClassID = &boundClassID.Int64
+			// 查询班级名称
+			var className string
+			err := r.db.QueryRow(`SELECT name FROM classes WHERE id = ?`, boundClassID.Int64).Scan(&className)
+			if err == nil {
+				item.BoundClassName = className
+			}
+		}
 
 		// 查询统计信息
 		if item.Role == "teacher" {
@@ -397,24 +430,31 @@ func (r *PersonaRepository) UpdateVisibility(personaID int64, isPublic int) erro
 }
 
 // SearchStudentPersonas 搜索已注册的学生分身（教师定向邀请用）
+// V2.0 迭代11 M4：排除自测学生
 func (r *PersonaRepository) SearchStudentPersonas(keyword string, offset, limit int) ([]Persona, int, error) {
 	kw := "%" + keyword + "%"
 
-	// 查询总数
+	// 查询总数（排除自测学生）
 	var total int
 	err := r.db.QueryRow(
-		`SELECT COUNT(*) FROM personas WHERE role = 'student' AND is_active = 1 AND nickname LIKE ?`,
+		`SELECT COUNT(*) FROM personas p
+		 JOIN users u ON p.user_id = u.id
+		 WHERE p.role = 'student' AND p.is_active = 1 AND p.nickname LIKE ?
+		 AND COALESCE(u.is_test_student, 0) = 0`,
 		kw,
 	).Scan(&total)
 	if err != nil {
 		return nil, 0, fmt.Errorf("查询学生分身总数失败: %w", err)
 	}
 
-	// 查询列表
+	// 查询列表（排除自测学生）
 	rows, err := r.db.Query(
-		`SELECT id, user_id, role, nickname, school, description, avatar, is_active, created_at, updated_at
-		 FROM personas WHERE role = 'student' AND is_active = 1 AND nickname LIKE ?
-		 ORDER BY created_at DESC LIMIT ? OFFSET ?`,
+		`SELECT p.id, p.user_id, p.role, p.nickname, p.school, p.description, p.avatar, p.is_active, p.created_at, p.updated_at
+		 FROM personas p
+		 JOIN users u ON p.user_id = u.id
+		 WHERE p.role = 'student' AND p.is_active = 1 AND p.nickname LIKE ?
+		 AND COALESCE(u.is_test_student, 0) = 0
+		 ORDER BY p.created_at DESC LIMIT ? OFFSET ?`,
 		kw, limit, offset,
 	)
 	if err != nil {
@@ -433,4 +473,26 @@ func (r *PersonaRepository) SearchStudentPersonas(keyword string, offset, limit 
 	}
 
 	return personas, total, nil
+}
+
+// ======================== V2.0 迭代11 M4 自测学生方法 ========================
+
+// GetStudentPersonaByUserID 根据用户ID获取学生分身
+func (r *PersonaRepository) GetStudentPersonaByUserID(userID int64) (*Persona, error) {
+	persona := &Persona{}
+	err := r.db.QueryRow(
+		`SELECT id, user_id, role, nickname, school, description, avatar, is_active, created_at, updated_at
+		 FROM personas WHERE user_id = ? AND role = 'student'`,
+		userID,
+	).Scan(&persona.ID, &persona.UserID, &persona.Role, &persona.Nickname, &persona.School,
+		&persona.Description, &persona.Avatar, &persona.IsActive, &persona.CreatedAt, &persona.UpdatedAt)
+
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("查询学生分身失败: %w", err)
+	}
+
+	return persona, nil
 }

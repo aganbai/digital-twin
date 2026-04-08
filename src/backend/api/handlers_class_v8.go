@@ -43,6 +43,14 @@ type CreateClassResponseV8 struct {
 
 // HandleCreateClassV8 创建班级（迭代8增强版）
 func (h *Handler) HandleCreateClassV8(c *gin.Context) {
+	// 角色校验：仅教师可创建班级（防御深度）
+	role, _ := c.Get("role")
+	roleStr, _ := role.(string)
+	if roleStr != "teacher" && roleStr != "admin" {
+		c.JSON(http.StatusForbidden, ErrorResponse{Code: 40301, Message: "仅教师角色可创建班级"})
+		return
+	}
+
 	userID, _ := c.Get("user_id")
 	teacherID := userID.(int64)
 

@@ -2,13 +2,16 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { View, Text, ScrollView, Input } from '@tarojs/components'
 import Taro, { useRouter, useDidShow, useUnload } from '@tarojs/taro'
 import { sendMessage, getConversations, chatStream, getTakeoverStatus } from '@/api/chat'
-import type { Conversation, TakeoverStatusResponse } from '@/api/chat'
+import type { Conversation, TakeoverStatusResponse, ThinkingStepEvent } from '@/api/chat'
 import { uploadFile } from '@/api/upload'
 import { useChatStore } from '@/store'
 import { formatTime } from '@/utils/format'
+import { getUserInfo } from '@/utils/storage'
 import EmojiPanel from '@/components/EmojiPanel'
-// 语音功能暂停使用，待认证完成后开放
-// import { useVoiceInput } from '@/hooks/useVoiceInput'
+import ThinkingPanel, { ThinkingStep } from '@/components/ThinkingPanel'
+import VoiceInput, { VoiceButton } from '@/components/VoiceInput'
+import PlusPanel from '@/components/PlusPanel'
+import AvatarPopup from '@/components/AvatarPopup'
 import './index.scss'
 
 /** 判断两条消息之间是否需要显示时间戳（间隔超过 5 分钟） */
@@ -22,10 +25,14 @@ function shouldShowTimestamp(prev?: string, curr?: string): boolean {
 
 export default function Chat() {
   const router = useRouter()
-  const teacherId = Number(router.params.teacher_id) || 0
+  const teacherId = Number(router.params.teacher_id) || Number(router.params.teacher_persona_id) || 0
   const teacherName = decodeURIComponent(router.params.teacher_name || '教师')
   // V2.0 中 teacher_id 实际就是 teacher_persona_id
   const teacherPersonaId = teacherId
+  // 老师视角：学生分身 ID
+  const studentPersonaId = Number(router.params.student_persona_id) || 0
+  // 班级 ID（用于学生查看班级信息）
+  const classId = Number(router.params.class_id) || 0
 
   const {
     messages,
@@ -68,27 +75,24 @@ export default function Chat() {
   /** 是否显示 Emoji 面板 */
   const [showEmoji, setShowEmoji] = useState(false)
   /** 是否处于语音输入模式 */
-  // 语音功能暂停使用，待认证完成后开放
-  // const [voiceMode, setVoiceMode] = useState(false)
+  const [voiceMode, setVoiceMode] = useState(false)
+  /** 是否显示+号面板 */
+  const [showPlusPanel, setShowPlusPanel] = useState(false)
+  /** 思考步骤列表 */
+  const [thinkingSteps, setThinkingSteps] = useState<ThinkingStep[]>([])
+  /** 是否显示头像弹窗 */
+  const [showAvatarPopup, setShowAvatarPopup] = useState(false)
+  /** 当前用户角色 */
+  const currentUserRole = getUserInfo()?.role || 'student'
+  /** 头像弹窗参数 */
+  const [avatarPopupTargetId, setAvatarPopupTargetId] = useState<number>(0)
+  const [avatarPopupClassId, setAvatarPopupClassId] = useState<number | undefined>(undefined)
 
-  // 语音功能暂停使用，待认证完成后开放
-  // const {
-  //   voiceState,
-  //   recognizedText,
-  //   duration,
-  //   startRecording,
-  //   stopRecording,
-  //   cancelRecording,
-  // } = useVoiceInput()
-
-  // 语音功能暂停使用，待认证完成后开放
-  // // 语音识别结果填充到输入框
-  // useEffect(() => {
-  //   if (voiceState === 'idle' && recognizedText) {
-  //     setInputValue((prev) => prev + recognizedText)
-  //     setVoiceMode(false) // 识别完成后切回文字模式
-  //   }
-  // }, [voiceState, recognizedText])
+  /** 语音识别结果填充到输入框 */
+  const handleVoiceResult = useCallback((text: string) => {
+    setInputValue((prev) => prev + text)
+    setVoiceMode(false) // 识别完成后切回文字模式
+  }, [])
 
   /** 设置导航栏标题 */
   useDidShow(() => {
@@ -200,6 +204,8 @@ export default function Chat() {
       setIsStreaming(true)
       setStreamingContent('')
       setLoading(true)
+      // 清空思考步骤
+      setThinkingSteps([])
 
       let accumulatedContent = ''
 
@@ -267,6 +273,16 @@ export default function Chat() {
               if (!accumulatedContent) {
                 handleFallbackSend(text, userMsgIndex, attachment)
               }
+            },
+            onThinkingStep: (event: ThinkingStepEvent) => {
+              setThinkingSteps((prev) => [...prev, {
+                step: event.step,
+                status: event.status,
+                message: event.message,
+                detail: event.detail,
+                duration_ms: event.duration_ms,
+                timestamp: event.timestamp,
+              }])
             },
           },
           sessionId || undefined,
@@ -372,6 +388,42 @@ export default function Chat() {
     })
   }, [])
 
+  /** 头像点击处理 */
+  const handleAvatarClick = useCallback((msg: any) => {
+    const senderType = msg.sender_type || (msg.role === 'user' ? 'student' : 'ai')
+    const isCurrentUser = senderType === 'student' || msg.role === 'user'
+
+    // 如果当前用户是学生
+    if (currentUserRole === 'student') {
+      // 学生点击自己的头像不触发
+      if (isCurrentUser) return
+      // 学生点击老师头像 → 显示班级信息
+      // targetId 为 teacher_persona_id
+      setAvatarPopupTargetId(teacherPersonaId)
+      // classId 从路由参数获取
+      setAvatarPopupClassId(classId || undefined)
+      setShowAvatarPopup(true)
+    } else if (currentUserRole === 'teacher') {
+      // 老师点击学生头像 → 显示学生信息
+      // 只有学生消息才有学生信息
+      if (!isCurrentUser) return
+      // targetId 为 student_persona_id（从路由参数获取）
+      if (studentPersonaId === 0) {
+        // 如果路由参数没有 student_persona_id，尝试从消息中获取
+        const msgStudentId = msg.student_persona_id || msg.sender_id || 0
+        if (msgStudentId === 0) {
+          Taro.showToast({ title: '无法获取学生信息', icon: 'none' })
+          return
+        }
+        setAvatarPopupTargetId(msgStudentId)
+      } else {
+        setAvatarPopupTargetId(studentPersonaId)
+      }
+      setAvatarPopupClassId(undefined)
+      setShowAvatarPopup(true)
+    }
+  }, [currentUserRole, teacherPersonaId, studentPersonaId, classId])
+
   /** 获取消息气泡样式类 */
   const getBubbleClass = (msg: any) => {
     const senderType = msg.sender_type || (msg.role === 'user' ? 'student' : 'ai')
@@ -413,6 +465,21 @@ export default function Chat() {
         }}>
           <Text className='chat-page__navbar-back-icon'>←</Text>
         </View>
+        {/* 老师头像（学生点击可查看班级信息） */}
+        {currentUserRole === 'student' && (
+          <View 
+            className='chat-page__teacher-avatar'
+            onClick={() => {
+              setAvatarPopupTargetId(teacherPersonaId)
+              setAvatarPopupClassId(classId || undefined)
+              setShowAvatarPopup(true)
+            }}
+          >
+            <Text className='chat-page__teacher-avatar-text'>
+              {teacherName.charAt(0).toUpperCase()}
+            </Text>
+          </View>
+        )}
         <Text className='chat-page__navbar-title'>{teacherName}</Text>
         <View className='chat-page__navbar-action' onClick={() => {
           Taro.navigateTo({ url: '/pages/history/index' })
@@ -482,7 +549,10 @@ export default function Chat() {
               <View className={`chat-bubble ${getBubbleClass(msg)}`}>
                 {/* 非用户消息：左侧头像 */}
                 {!isUser && (
-                  <View className={`chat-bubble__avatar ${isTeacher ? 'chat-bubble__avatar--teacher' : ''}`}>
+                  <View 
+                    className={`chat-bubble__avatar ${isTeacher ? 'chat-bubble__avatar--teacher' : ''}`}
+                    onClick={() => handleAvatarClick(msg)}
+                  >
                     <Text className='chat-bubble__avatar-text'>
                       {isTeacher ? '师' : teacherName.charAt(0).toUpperCase()}
                     </Text>
@@ -515,6 +585,16 @@ export default function Chat() {
                     </Text>
                   </View>
                 </View>
+
+                {/* 用户消息：右侧头像（仅老师查看学生消息时显示） */}
+                {isUser && currentUserRole === 'teacher' && (
+                  <View 
+                    className='chat-bubble__avatar chat-bubble__avatar--student'
+                    onClick={() => handleAvatarClick(msg)}
+                  >
+                    <Text className='chat-bubble__avatar-text'>生</Text>
+                  </View>
+                )}
               </View>
               )}
 
@@ -527,6 +607,11 @@ export default function Chat() {
             </View>
           )
         })}
+
+        {/* 思考过程展示 */}
+        {isStreaming && thinkingSteps.length > 0 && (
+          <ThinkingPanel steps={thinkingSteps} teacherName={teacherName} />
+        )}
 
         {/* 流式回复气泡 */}
         {isStreaming && (
@@ -609,100 +694,116 @@ export default function Chat() {
           </View>
         )}
         <View className='chat-page__input-wrapper'>
-          {/* M4: 附件按钮 */}
-          <View
-            className={`chat-page__attach-btn ${uploading ? 'chat-page__attach-btn--disabled' : ''}`}
-            onClick={() => {
-              if (uploading) return
-              setShowEmoji(false)
-              Taro.chooseMessageFile({
-                count: 1,
-                type: 'file',
-                extension: ['pdf', 'docx', 'txt', 'md', 'jpg', 'jpeg', 'png'],
-                success: async (res) => {
-                  const file = res.tempFiles[0]
-                  if (file.size > 10 * 1024 * 1024) {
-                    Taro.showToast({ title: '文件不能超过10MB', icon: 'none' })
-                    return
-                  }
-                  setUploading(true)
-                  try {
-                    const uploadRes = await uploadFile(file.path, 'general')
-                    const ext = file.name.split('.').pop()?.toLowerCase() || ''
-                    const typeMap: Record<string, string> = {
-                      pdf: 'pdf', docx: 'docx', txt: 'txt', md: 'txt',
-                      jpg: 'image', jpeg: 'image', png: 'image',
-                    }
-                    setAttachmentInfo({
-                      url: uploadRes.data.url,
-                      type: typeMap[ext] || 'general',
-                      name: file.name,
-                    })
-                  } catch (err) {
-                    console.error('上传文件失败:', err)
-                    Taro.showToast({ title: '上传失败', icon: 'none' })
-                  } finally {
-                    setUploading(false)
-                  }
-                },
-              })
-            }}
-          >
-            <Text className='chat-page__attach-btn-text'>{uploading ? '...' : '+'}</Text>
-          </View>
-          {/* 语音/键盘切换按钮 - 暂停使用，待认证完成后开放 */}
-          {/*
+          {/* 语音按钮 */}
           <View
             className='chat-page__voice-btn'
             onClick={() => {
               setVoiceMode(!voiceMode)
               setShowEmoji(false)
-              if (voiceState === 'recording') {
-                cancelRecording()
-              }
+              setShowPlusPanel(false)
             }}
           >
-            <Text className='chat-page__voice-btn-text'>{voiceMode ? '⌨️' : '🎤'}</Text>
-          </View>
-          */}
-
-          {/* 输入框 - 暂时始终显示输入框，不显示语音按钮 */}
-          <Input
-            className='chat-page__input'
-            value={inputValue}
-            placeholder='输入你的问题...'
-            placeholderClass='chat-page__input-placeholder'
-            confirmType='send'
-            onInput={handleInput}
-            onConfirm={handleConfirm}
-            onFocus={() => setShowEmoji(false)}
-            adjustPosition={!showEmoji}
-          />
-
-          {/* Emoji 按钮 */}
-          <View
-            className='chat-page__emoji-btn'
-            onClick={() => {
-              setShowEmoji(!showEmoji)
-              // 语音功能暂停使用: setVoiceMode(false)
-            }}
-          >
-            <Text className='chat-page__emoji-btn-text'>{showEmoji ? '⌨️' : '😊'}</Text>
+            <Text className='chat-page__voice-btn-text'>{voiceMode ? '⌨️' : '🔊'}</Text>
           </View>
 
-          <View
-            className={`chat-page__send-btn ${
-              (!inputValue.trim() && !attachmentInfo) || loading ? 'chat-page__send-btn--disabled' : ''
-            }`}
-            onClick={handleSend}
-          >
-            <Text className='chat-page__send-btn-text'>发送</Text>
-          </View>
+          {/* 语音模式：显示按住说话按钮 */}
+          {voiceMode ? (
+            <VoiceButton
+              onPress={() => {
+                Taro.showToast({ title: '开始录音', icon: 'none' })
+              }}
+              onRelease={() => {
+                Taro.showToast({ title: '结束录音', icon: 'none' })
+              }}
+              onCancel={() => {
+                Taro.showToast({ title: '取消录音', icon: 'none' })
+              }}
+            />
+          ) : (
+            <>
+              {/* 文字输入框 */}
+              <Input
+                className='chat-page__input'
+                value={inputValue}
+                placeholder='输入你的问题...'
+                placeholderClass='chat-page__input-placeholder'
+                confirmType='send'
+                onInput={handleInput}
+                onConfirm={handleConfirm}
+                onFocus={() => {
+                  setShowEmoji(false)
+                  setShowPlusPanel(false)
+                }}
+                adjustPosition={!showEmoji}
+              />
+
+              {/* Emoji 按钮 */}
+              <View
+                className='chat-page__emoji-btn'
+                onClick={() => {
+                  setShowEmoji(!showEmoji)
+                  setShowPlusPanel(false)
+                }}
+              >
+                <Text className='chat-page__emoji-btn-text'>{showEmoji ? '⌨️' : '😊'}</Text>
+              </View>
+
+              {/* +号按钮 */}
+              <View
+                className='chat-page__plus-btn'
+                onClick={() => {
+                  setShowPlusPanel(!showPlusPanel)
+                  setShowEmoji(false)
+                }}
+              >
+                <Text className='chat-page__plus-btn-text'>{showPlusPanel ? '✕' : '+'}</Text>
+              </View>
+            </>
+          )}
+
+          {/* 发送按钮（仅非语音模式显示） */}
+          {!voiceMode && (
+            <View
+              className={`chat-page__send-btn ${
+                (!inputValue.trim() && !attachmentInfo) || loading ? 'chat-page__send-btn--disabled' : ''
+              }`}
+              onClick={handleSend}
+            >
+              <Text className='chat-page__send-btn-text'>发送</Text>
+            </View>
+          )}
         </View>
 
         {/* Emoji 面板 */}
         <EmojiPanel visible={showEmoji} onSelect={handleEmojiSelect} />
       </View>
+
+      {/* +号多功能面板 */}
+      <PlusPanel
+        visible={showPlusPanel}
+        onClose={() => setShowPlusPanel(false)}
+        onFileSelect={(files) => {
+          console.log('选择文件:', files)
+          setShowPlusPanel(false)
+        }}
+        onImageSelect={(images) => {
+          console.log('选择图片:', images)
+          setShowPlusPanel(false)
+        }}
+        onCameraCapture={(image) => {
+          console.log('拍摄图片:', image)
+          setShowPlusPanel(false)
+        }}
+      />
+
+      {/* 头像点击弹窗 */}
+      <AvatarPopup
+        visible={showAvatarPopup}
+        onClose={() => setShowAvatarPopup(false)}
+        userRole={currentUserRole as 'student' | 'teacher'}
+        targetId={avatarPopupTargetId}
+        classId={avatarPopupClassId}
+      />
     </View>
   )
 }

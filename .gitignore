@@ -60,6 +60,17 @@ src/frontend/.swc/
 dt-server
 echo
 main
+src/server
+
+# 测试结果
+test_results/
+outputs/
+
+# 任务跟踪文件
+task_tracking_*.json
+
+# Go 快照
+*.snapshot
 
 # 测试结果文件
 result.txt

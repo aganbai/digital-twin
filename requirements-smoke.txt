@@ -1,0 +1,44 @@
+# 冒烟测试依赖
+# 安装命令: pip install -r requirements-smoke.txt
+
+# ==================== Minium 框架 ====================
+# 微信小程序自动化测试框架
+minium>=1.0.0
+
+# Minium 依赖
+requests>=2.28.0
+pytest>=7.0.0
+allure-pytest>=2.13.0
+
+# ==================== Playwright 框架 ====================
+# H5 自动化测试框架
+playwright>=1.40.0
+
+# Playwright 依赖
+greenlet>=3.0.0
+pyee>=11.0.0
+
+# ==================== 测试工具 ====================
+# 测试报告生成
+pytest-html>=4.0.0
+pytest-json-report>=1.5.0
+
+# 测试覆盖率
+pytest-cov>=4.1.0
+
+# 数据处理
+jsonschema>=4.0.0
+python-dotenv>=1.0.0
+
+# HTTP 请求
+httpx>=0.25.0
+
+# ==================== 开发工具 ====================
+# 代码格式化
+black>=23.0.0
+
+# 类型检查
+mypy>=1.0.0
+
+# Linting
+pylint>=3.0.0

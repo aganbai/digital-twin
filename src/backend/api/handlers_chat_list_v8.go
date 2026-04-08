@@ -3,6 +3,7 @@ package api
 import (
 	"digital-twin/src/backend/database"
 	"fmt"
+	"log"
 	"net/http"
 	"strconv"
 	"time"
@@ -43,10 +44,21 @@ func (h *Handler) HandleGetTeacherChatList(c *gin.Context) {
 	userID, _ := c.Get("user_id")
 	teacherID := userID.(int64)
 
-	personaID, err := h.getDefaultPersonaID(teacherID)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, ErrorResponse{Code: 50001, Message: "获取分身失败"})
-		return
+	// V2.0 迭代9修复：直接使用token中的persona_id，保证与班级查询API的一致性
+	personaIDInterface, exists := c.Get("persona_id")
+	var personaID int64
+	if exists {
+		personaID, _ = personaIDInterface.(int64)
+	}
+
+	// 如果token中没有persona_id，则查询默认分身（兼容旧逻辑）
+	if personaID == 0 {
+		var err error
+		personaID, err = h.getDefaultPersonaID(teacherID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, ErrorResponse{Code: 50001, Message: "获取分身失败"})
+			return
+		}
 	}
 
 	// 获取置顶记录
@@ -128,7 +140,7 @@ func (h *Handler) HandleGetTeacherChatList(c *gin.Context) {
 		classes = append(classes, classItem)
 	}
 
-	c.JSON(http.StatusOK, GetTeacherChatListResponse{
+	Success(c, GetTeacherChatListResponse{
 		Classes: classes,
 		Total:   len(classes),
 	})
@@ -218,7 +230,7 @@ func (h *Handler) HandleGetStudentTeacherList(c *gin.Context) {
 		teachers = append(teachers, t)
 	}
 
-	c.JSON(http.StatusOK, GetStudentTeacherListResponse{
+	Success(c, GetStudentTeacherListResponse{
 		Teachers: teachers,
 		Total:    len(teachers),
 	})
@@ -407,6 +419,9 @@ func (h *Handler) HandleNewSession(c *gin.Context) {
 		return
 	}
 
+	// V2.0 迭代9 M5：异步为上一个活跃会话生成标题
+	go h.generateTitleForLastSession(studentPersonaID, req.TeacherPersonaID)
+
 	// 生成新的 session_id
 	sessionID := fmt.Sprintf("sess_%s", uuid.New().String()[:12])
 	createdAt := time.Now().Format("2006-01-02T15:04:05Z")
@@ -415,6 +430,46 @@ func (h *Handler) HandleNewSession(c *gin.Context) {
 		SessionID: sessionID,
 		CreatedAt: createdAt,
 	})
+}
+
+// generateTitleForLastSession 为上一个活跃会话生成标题
+func (h *Handler) generateTitleForLastSession(studentPersonaID, teacherPersonaID int64) {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("[标题生成] generateTitleForLastSession panic recovered: %v\n", r)
+		}
+	}()
+
+	db := h.manager.GetDB()
+	if db == nil {
+		return
+	}
+
+	// 查询上一个活跃会话（该教师分身与学生分身之间的最新会话）
+	convRepo := database.NewConversationRepository(db)
+	var lastSessionID string
+	var queryErr error
+
+	if teacherPersonaID > 0 && studentPersonaID > 0 {
+		// 分身维度查询最新会话
+		lastSessionID, queryErr = convRepo.GetLatestSessionByPersonas(teacherPersonaID, studentPersonaID)
+	} else if studentPersonaID > 0 {
+		// 仅学生分身维度
+		err := db.QueryRow(
+			`SELECT session_id FROM conversations WHERE student_persona_id = ? ORDER BY created_at DESC LIMIT 1`,
+			studentPersonaID,
+		).Scan(&lastSessionID)
+		if err != nil {
+			queryErr = err
+		}
+	}
+
+	if queryErr != nil || lastSessionID == "" {
+		return
+	}
+
+	// 调用标题生成逻辑
+	h.generateSessionTitle(lastSessionID, studentPersonaID)
 }
 
 // QuickActionItem 快捷指令项

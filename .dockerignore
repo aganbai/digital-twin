@@ -1,0 +1,60 @@
+# Git
+.git
+.gitignore
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+
+# Node modules and frontend build
+node_modules
+dist
+.webpack
+
+# Python
+__pycache__
+*.py[cod]
+*$py.class
+.Python
+.venv
+venv
+ENV
+
+# Go
+bin
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Data and logs (保持数据持久化)
+data/chroma
+data/*.db-shm
+data/*.db-wal
+logs
+*.log
+
+# Test and coverage
+coverage
+*.out
+*.test
+testdata
+
+# Documentation
+*.md
+docs
+
+# Docker
+docker-compose*.yml
+.docker
+
+# Misc
+.DS_Store
+Thumbs.db
+*.bak
+*.tmp
+.env.local
+.env.*.local
