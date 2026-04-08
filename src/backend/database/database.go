@@ -109,6 +109,8 @@ func (d *Database) autoMigrate() error {
 		createSessionTitlesTable,
 		createSessionTitlesPersonasIndex,
 		// V2.0 迭代10 新增表（操作日志表在独立数据库，不在此创建）
+		// V2.0 迭代12 新增表
+		createStudentMessagesTable,
 		// 性能优化索引 - 注意：这些索引依赖ALTER TABLE新增的列，在后面创建
 	}
 
@@ -175,6 +177,9 @@ func (d *Database) autoMigrate() error {
 		alterUsersAddTestTeacherID,
 		alterClassesAddIsPublic,
 		alterPersonasAddBoundClassID,
+		// V2.0 迭代12 ALTER TABLE
+		alterSessionTitlesAddIsHidden,
+		alterSessionTitlesAddHiddenAt,
 	}
 	for _, stmt := range alterStatements {
 		if _, err := d.DB.Exec(stmt); err != nil {
@@ -345,6 +350,18 @@ func (d *Database) autoMigrate() error {
 	if _, err := d.DB.Exec(createPersonasBoundClassIDIndex); err != nil {
 		if !strings.Contains(err.Error(), "already exists") {
 			return fmt.Errorf("创建分身绑定班级索引失败: %w", err)
+		}
+	}
+
+	// V2.0 迭代12 索引
+	if _, err := d.DB.Exec(createStudentMessagesTeacherIndex); err != nil {
+		if !strings.Contains(err.Error(), "already exists") {
+			return fmt.Errorf("创建学生留言教师索引失败: %w", err)
+		}
+	}
+	if _, err := d.DB.Exec(createStudentMessagesStudentIndex); err != nil {
+		if !strings.Contains(err.Error(), "already exists") {
+			return fmt.Errorf("创建学生留言学生索引失败: %w", err)
 		}
 	}
 
@@ -812,3 +829,29 @@ const createPersonasBoundClassIDIndex = `CREATE INDEX IF NOT EXISTS idx_personas
 const createRelationsTeacherPersonaIndex = `CREATE INDEX IF NOT EXISTS idx_relations_teacher_persona ON teacher_student_relations(teacher_persona_id, student_persona_id);`
 const createRelationsStudentPersonaIndex = `CREATE INDEX IF NOT EXISTS idx_relations_student_persona ON teacher_student_relations(student_persona_id);`
 const createPersonasUserIDIndex = `CREATE INDEX IF NOT EXISTS idx_personas_user_id ON personas(user_id);`
+
+// ======================== V2.0 迭代12 DDL ========================
+
+// session_titles 表新增字段：隐藏状态
+const alterSessionTitlesAddIsHidden = `ALTER TABLE session_titles ADD COLUMN is_hidden INTEGER NOT NULL DEFAULT 0;`
+const alterSessionTitlesAddHiddenAt = `ALTER TABLE session_titles ADD COLUMN hidden_at DATETIME DEFAULT NULL;`
+
+// 学生留言表
+const createStudentMessagesTable = `
+CREATE TABLE IF NOT EXISTS student_messages (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    student_persona_id INTEGER NOT NULL,
+    teacher_persona_id INTEGER NOT NULL,
+    session_id TEXT NOT NULL,
+    message_type TEXT NOT NULL DEFAULT 'note',
+    content TEXT NOT NULL,
+    is_read INTEGER NOT NULL DEFAULT 0,
+    is_pinned INTEGER NOT NULL DEFAULT 1,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    read_at DATETIME DEFAULT NULL,
+    FOREIGN KEY (student_persona_id) REFERENCES personas(id),
+    FOREIGN KEY (teacher_persona_id) REFERENCES personas(id)
+);`
+
+const createStudentMessagesTeacherIndex = `CREATE INDEX IF NOT EXISTS idx_student_messages_teacher ON student_messages(teacher_persona_id, is_pinned, created_at DESC);`
+const createStudentMessagesStudentIndex = `CREATE INDEX IF NOT EXISTS idx_student_messages_student ON student_messages(student_persona_id, created_at DESC);`

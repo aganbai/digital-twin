@@ -611,3 +611,47 @@ type StudentProfileDetail struct {
 	TeacherEvaluation string `json:"teacher_evaluation"` // 教师评语
 	ClassName         string `json:"class_name"`         // 所在班级名称
 }
+
+// ======================== V2.0 迭代12 新增模型 ========================
+
+// StudentMessage 学生留言（V2.0 迭代12）
+type StudentMessage struct {
+	ID               int64      `json:"id"`
+	StudentPersonaID int64      `json:"student_persona_id"`
+	TeacherPersonaID int64      `json:"teacher_persona_id"`
+	SessionID        string     `json:"session_id"`
+	MessageType      string     `json:"message_type"` // note / question
+	Content          string     `json:"content"`
+	IsRead           bool       `json:"is_read"`
+	IsPinned         bool       `json:"is_pinned"`
+	CreatedAt        time.Time  `json:"created_at"`
+	ReadAt           *time.Time `json:"read_at,omitempty"`
+}
+
+// StudentMessageItem 学生留言列表项（教师视角）
+type StudentMessageItem struct {
+	ID               int64      `json:"id"`
+	StudentPersonaID int64      `json:"student_persona_id"`
+	StudentNickname  string     `json:"student_nickname"`
+	StudentAvatar    string     `json:"student_avatar,omitempty"`
+	SessionID        string     `json:"session_id"`
+	MessageType      string     `json:"message_type"`
+	Content          string     `json:"content"`
+	IsRead           bool       `json:"is_read"`
+	IsPinned         bool       `json:"is_pinned"`
+	CreatedAt        time.Time  `json:"created_at"`
+	ReadAt           *time.Time `json:"read_at,omitempty"`
+}
+
+// SessionTitleWithHidden 会话标题（含隐藏状态，V2.0 迭代12）
+type SessionTitleWithHidden struct {
+	ID               int64      `json:"id"`
+	SessionID        string     `json:"session_id"`
+	StudentPersonaID int64      `json:"student_persona_id"`
+	TeacherPersonaID int64      `json:"teacher_persona_id"`
+	Title            string     `json:"title"`
+	IsHidden         bool       `json:"is_hidden"`
+	HiddenAt         *time.Time `json:"hidden_at,omitempty"`
+	CreatedAt        time.Time  `json:"created_at"`
+	UpdatedAt        time.Time  `json:"updated_at"`
+}

@@ -1,0 +1,541 @@
+# V2.0 迭代12 集成测试用例
+
+> 本文档定义迭代12的集成测试用例，覆盖前后端交互和端到端流程
+
+---
+
+## 1. 测试环境配置
+
+### 1.1 测试数据准备
+
+```yaml
+setup_data:
+  teacher_persona_id: 1
+  test_user_token: "test-token-123"
+  base_url: "http://localhost:8080"
+
+  # 预置会话数据
+  sessions:
+    - session_id: "session-001"
+      title: "数学问题讨论"
+      message_count: 5
+    - session_id: "session-002"
+      title: "物理学习"
+      message_count: 3
+    - session_id: "session-003"
+      title: "化学实验"
+      message_count: 8
+```
+
+### 1.2 测试前置条件
+
+```yaml
+prerequisites:
+  - 后端服务正常运行
+  - 数据库连接正常
+  - 测试用户已登录
+  - 预置测试数据已加载
+```
+
+---
+
+## 2. 核心功能测试用例
+
+### 2.1 流式中断功能测试
+
+```yaml
+- test_id: "IT12-INT-001"
+  name: "流式回复中断功能集成测试"
+  description: "测试前端中断按钮与后端中断接口的完整交互流程"
+  module: "IT12-FE-001 + IT12-BE-001"
+
+  steps:
+    - step: 1
+      action: "用户发送消息"
+      frontend: "点击发送按钮，触发流式回复"
+      backend: "接收消息并开始流式生成"
+
+    - step: 2
+      action: "流式回复进行中"
+      frontend: "显示'停止生成'按钮，隐藏发送按钮"
+      backend: "持续发送流式数据"
+
+    - step: 3
+      action: "用户点击停止按钮"
+      frontend: "调用 /api/chat/stream/:session_id/abort 接口"
+      backend: "接收中断请求，停止流式生成"
+
+    - step: 4
+      action: "中断响应处理"
+      frontend: "接收中断成功响应，重置流式状态"
+      backend: "返回中断成功结果"
+
+    - step: 5
+      action: "状态恢复"
+      frontend: "显示发送按钮，隐藏停止按钮，保留已接收内容"
+      backend: "清理流式会话状态"
+
+  expected_results:
+    - "流式进行中正确显示停止按钮"
+    - "中断接口调用成功"
+    - "已接收内容保留在聊天记录"
+    - "中断后状态正确重置"
+    - "可继续发送新消息"
+
+  data_requirements:
+    - "需要有效的session_id"
+    - "需要流式回复进行中的状态"
+
+  cleanup:
+    - "清理测试会话"
+    - "重置流式状态"
+
+- test_id: "IT12-INT-002"
+  name: "中断接口异常场景测试"
+  description: "测试中断接口的各种异常情况处理"
+  module: "IT12-BE-001"
+
+  scenarios:
+    - scenario: "中断不存在的会话"
+      request:
+        session_id: "non-existent-session"
+      expected:
+        status: 404
+        code: 40004
+        message: "会话不存在"
+
+    - scenario: "无权限中断会话"
+      request:
+        session_id: "other-user-session"
+      expected:
+        status: 403
+        code: 40001
+        message: "无权限操作该会话"
+
+    - scenario: "重复中断请求"
+      request:
+        session_id: "valid-session"
+      expected:
+        status: 200
+        code: 0
+        message: "success"
+```
+
+### 2.2 会话列表功能测试
+
+```yaml
+- test_id: "IT12-INT-003"
+  name: "会话列表侧边栏集成测试"
+  description: "测试会话列表的完整加载和交互流程"
+  module: "IT12-FE-002 + IT12-FE-003"
+
+  steps:
+    - step: 1
+      action: "用户点击会话入口"
+      frontend: "显示遮罩层，侧边栏滑入动画"
+      backend: "无直接交互"
+
+    - step: 2
+      action: "加载会话列表"
+      frontend: "调用 GET /api/sessions 接口"
+      backend: "查询并返回会话列表数据"
+
+    - step: 3
+      action: "渲染会话列表"
+      frontend: "显示会话标题、最后消息、时间等信息"
+      backend: "无直接交互"
+
+    - step: 4
+      action: "用户点击历史会话"
+      frontend: "调用消息列表接口，切换会话"
+      backend: "返回对应会话的历史消息"
+
+    - step: 5
+      action: "关闭侧边栏"
+      frontend: "侧边栏滑出，遮罩层淡出"
+      backend: "无直接交互"
+
+  expected_results:
+    - "侧边栏动画流畅"
+    - "会话列表数据正确加载"
+    - "当前会话正确高亮"
+    - "点击会话后消息列表更新"
+    - "侧边栏可正常关闭"
+
+  data_requirements:
+    - "需要多个测试会话数据"
+    - "需要当前会话标识"
+
+- test_id: "IT12-INT-004"
+  name: "会话列表分页和空状态测试"
+  description: "测试会话列表的分页功能和空状态显示"
+  module: "IT12-FE-002"
+
+  scenarios:
+    - scenario: "分页加载测试"
+      request:
+        page: 2
+        page_size: 5
+      expected:
+        total: 10
+        items_count: 5
+        has_next: true
+
+    - scenario: "空状态测试"
+      setup: "清空用户会话数据"
+      expected:
+        total: 0
+        items_count: 0
+        show_empty_state: true
+```
+
+### 2.3 新会话功能测试
+
+```yaml
+- test_id: "IT12-INT-005"
+  name: "新会话按钮功能集成测试"
+  description: "测试新会话按钮的创建和状态重置流程"
+  module: "IT12-FE-004"
+
+  steps:
+    - step: 1
+      action: "用户点击新会话按钮"
+      frontend: "关闭侧边栏，清空消息列表"
+      backend: "无直接交互"
+
+    - step: 2
+      action: "状态重置"
+      frontend: "重置session_id为空，显示创建提示"
+      backend: "无直接交互"
+
+    - step: 3
+      action: "发送第一条消息"
+      frontend: "调用创建会话接口"
+      backend: "创建新会话并返回session_id"
+
+    - step: 4
+      action: "继续对话"
+      frontend: "使用新session_id发送消息"
+      backend: "正常处理消息"
+
+  expected_results:
+    - "点击新会话按钮后侧边栏关闭"
+    - "消息列表正确清空"
+    - "session_id正确重置"
+    - "新会话创建成功"
+    - "可正常继续对话"
+
+- test_id: "IT12-INT-006"
+  name: "新会话创建异常处理测试"
+  description: "测试新会话创建过程中的异常情况"
+  module: "IT12-FE-004"
+
+  scenarios:
+    - scenario: "网络异常创建失败"
+      setup: "模拟网络错误"
+      expected:
+        show_error: true
+        retain_current_state: true
+
+    - scenario: "服务端创建失败"
+      setup: "模拟服务端错误"
+      expected:
+        show_error: true
+        error_message: "创建会话失败"
+```
+
+### 2.4 指令系统功能测试
+
+```yaml
+- test_id: "IT12-INT-007"
+  name: "指令系统集成测试"
+  description: "测试指令识别、处理和消息发送的完整流程"
+  module: "IT12-FE-005 + IT12-BE-002"
+
+  steps:
+    - step: 1
+      action: "用户输入指令"
+      frontend: "检测#开头的指令内容"
+      backend: "无直接交互"
+
+    - step: 2
+      action: "指令识别"
+      frontend: "使用正则匹配指令类型"
+      backend: "无直接交互"
+
+    - step: 3
+      action: "指令处理"
+      frontend: "执行对应指令逻辑"
+      backend: "无直接交互"
+
+    - step: 4
+      action: "消息发送（留言模式）"
+      frontend: "设置message_type为teacher_message_direct"
+      backend: "接收并处理特殊消息类型"
+
+    - step: 5
+      action: "状态反馈"
+      frontend: "显示指令执行结果提示"
+      backend: "无直接交互"
+
+  expected_results:
+    - "指令正确识别和匹配"
+    - "指令执行逻辑正确"
+    - "留言消息类型正确设置"
+    - "指令不作为普通消息发送"
+    - "用户收到执行反馈"
+
+  test_cases:
+    - input: "#新会话"
+      expected_action: "清空消息列表，重置session_id"
+    - input: "#新对话"
+      expected_action: "清空消息列表，重置session_id"
+    - input: "#新话题"
+      expected_action: "清空消息列表，重置session_id"
+    - input: "#给老师留言"
+      expected_action: "进入留言模式，修改输入框提示"
+    - input: "#留言"
+      expected_action: "进入留言模式，修改输入框提示"
+
+- test_id: "IT12-INT-008"
+  name: "指令边界情况测试"
+  description: "测试指令识别的各种边界情况"
+  module: "IT12-FE-005"
+
+  scenarios:
+    - scenario: "指令前后有空格"
+      input: "  #新会话  "
+      expected: "正确识别并执行"
+
+    - scenario: "大小写混合"
+      input: "#新会话"
+      expected: "正确识别（不区分大小写）"
+
+    - scenario: "非指令内容"
+      input: "普通消息内容"
+      expected: "作为普通消息发送"
+
+    - scenario: "无效指令"
+      input: "#无效指令"
+      expected: "作为普通消息发送"
+```
+
+---
+
+## 3. 端到端流程测试
+
+### 3.1 完整用户流程测试
+
+```yaml
+- test_id: "IT12-INT-009"
+  name: "完整会话管理流程测试"
+  description: "测试用户从进入聊天到管理会话的完整流程"
+  modules: "ALL"
+
+  workflow:
+    - phase: "初始状态"
+      actions:
+        - "用户进入聊天页"
+        - "显示当前会话消息"
+
+    - phase: "流式交互"
+      actions:
+        - "用户发送问题"
+        - "AI开始流式回复"
+        - "用户中途中断回复"
+        - "中断成功，保留内容"
+
+    - phase: "会话管理"
+      actions:
+        - "用户打开会话列表"
+        - "查看历史会话"
+        - "切换到其他会话"
+        - "查看历史消息"
+
+    - phase: "新会话创建"
+      actions:
+        - "用户点击新会话按钮"
+        - "创建新会话"
+        - "使用指令创建新会话"
+
+    - phase: "指令使用"
+      actions:
+        - "用户输入#给老师留言"
+        - "进入留言模式"
+        - "发送留言消息"
+
+  success_criteria:
+    - "所有功能模块正常工作"
+    - "数据一致性保持"
+    - "用户体验流畅"
+    - "无错误或异常"
+```
+
+### 3.2 性能与并发测试
+
+```yaml
+- test_id: "IT12-INT-010"
+  name: "并发操作性能测试"
+  description: "测试多用户同时使用会话管理功能的性能"
+  modules: "ALL"
+
+  test_scenarios:
+    - scenario: "多用户同时中断"
+      concurrent_users: 10
+      actions_per_user: 5
+      expected:
+        avg_response_time: "< 100ms"
+        error_rate: "< 1%"
+
+    - scenario: "高频会话切换"
+      actions: "快速切换不同会话"
+      frequency: "10次/分钟"
+      expected:
+        ui_responsiveness: "流畅"
+        memory_usage: "稳定"
+
+    - scenario: "大量会话数据"
+      setup: "创建100+会话"
+      actions: "加载会话列表"
+      expected:
+        load_time: "< 2s"
+        scroll_performance: "流畅"
+```
+
+---
+
+## 4. 数据验证测试
+
+### 4.1 数据一致性验证
+
+```yaml
+- test_id: "IT12-INT-011"
+  name: "会话数据一致性测试"
+  description: "验证前端显示与后端数据的一致性"
+
+  validation_points:
+    - point: "会话列表数据"
+      frontend_field: "sessionList"
+      backend_source: "/api/sessions"
+      validation: "数据完全一致"
+
+    - point: "当前会话状态"
+      frontend_field: "currentSessionId"
+      backend_source: "会话服务"
+      validation: "状态同步"
+
+    - point: "消息类型存储"
+      frontend_action: "发送留言指令"
+      backend_check: "messages表message_type字段"
+      expected_value: "teacher_message_direct"
+```
+
+### 4.2 状态同步验证
+
+```yaml
+- test_id: "IT12-INT-012"
+  name: "多端状态同步测试"
+  description: "验证不同操作后状态的正确同步"
+
+  test_cases:
+    - case: "中断后状态同步"
+      action: "中断流式回复"
+      check_points:
+        - "isStreaming: false"
+        - "streamingContent: ''"
+        - "显示发送按钮"
+
+    - case: "会话切换状态同步"
+      action: "切换历史会话"
+      check_points:
+        - "currentSessionId 更新"
+        - "messageList 更新"
+        - "输入框状态重置"
+
+    - case: "新会话状态同步"
+      action: "创建新会话"
+      check_points:
+        - "currentSessionId: ''"
+        - "messageList: []"
+        - "显示创建提示"
+```
+
+---
+
+## 5. 错误处理测试
+
+### 5.1 网络异常处理
+
+```yaml
+- test_id: "IT12-INT-013"
+  name: "网络异常场景测试"
+  description: "测试网络异常情况下的用户体验"
+
+  scenarios:
+    - scenario: "中断接口网络超时"
+      simulation: "网络延迟5s"
+      expected: "显示超时提示，允许重试"
+
+    - scenario: "会话列表加载失败"
+      simulation: "模拟404错误"
+      expected: "显示错误状态，提供重试按钮"
+
+    - scenario: "指令发送失败"
+      simulation: "网络断开"
+      expected: "保留指令状态，网络恢复后重试"
+```
+
+### 5.2 服务端异常处理
+
+```yaml
+- test_id: "IT12-INT-014"
+  name: "服务端异常场景测试"
+  description: "测试服务端返回错误时的处理"
+
+  scenarios:
+    - scenario: "中断接口服务错误"
+      mock_response: "500 Internal Server Error"
+      expected: "显示服务异常提示"
+
+    - scenario: "会话列表数据异常"
+      mock_response: "数据格式错误"
+      expected: "显示数据加载失败"
+
+    - scenario: "消息发送限流"
+      mock_response: "429 Too Many Requests"
+      expected: "显示限流提示，延迟重试"
+```
+
+---
+
+## 6. 测试执行计划
+
+### 6.1 测试优先级
+
+| 优先级 | 测试用例 | 执行顺序 | 自动化程度 |
+|--------|---------|---------|-----------|
+| P0 | IT12-INT-001, IT12-INT-003 | 第一批 | 自动化 + 手动 |
+| P1 | IT12-INT-005, IT12-INT-007 | 第二批 | 自动化 |
+| P2 | IT12-INT-009, IT12-INT-010 | 第三批 | 手动 |
+| P3 | IT12-INT-013, IT12-INT-014 | 第四批 | 手动 |
+
+### 6.2 测试环境要求
+
+```yaml
+test_environment:
+  - 后端服务: "版本 >= v2.0.0"
+  - 前端应用: "版本 >= v2.0.0"
+  - 数据库: "测试数据库实例"
+  - 网络: "稳定网络环境"
+  - 测试工具: "Postman, Jest, Cypress"
+```
+
+---
+
+**文档版本**: v1.0
+**创建日期**: 2026-04-07
+**适用迭代**: V2.0 迭代12
+**关联文档**:
+- [架构设计文档](./architecture.md)
+- [API规范文档](./api_spec.md)
+- [模块配置文档](./modules.yaml)

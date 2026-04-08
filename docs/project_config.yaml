@@ -69,3 +69,33 @@ agents:
   backend: "dev_backend_agent"
   frontend: "dev_frontent_agent"
   ci_test: "ci_test_agent"
+
+# 测试配置（支持多项目扩展）
+testing:
+  # 沙箱部署配置
+  sandbox_deploy:
+    # 沙箱部署脚本路径（相对于项目根目录或绝对路径）
+    # 如果配置，Phase 3b 集成测试前会先执行此脚本进行沙箱部署
+    # script: "deployments/scripts/deploy_sandbox.py"
+    script: null  # 设为 null 表示不使用预部署脚本，使用 Agent 内置逻辑
+    
+    # 沙箱服务器配置（可选，脚本可通过环境变量 SANDBOX_HOST 等获取）
+    host: "${SANDBOX_HOST:-localhost}"
+    user: "${SANDBOX_USER:-}"
+    deploy_dir: "${SANDBOX_DEPLOY_DIR:-/opt/sandbox}"
+    
+    # 额外参数（可选，传递给脚本）
+    args: []
+  
+  # 冒烟测试环境检查配置
+  smoke_env_check:
+    # 环境检查脚本路径（相对于项目根目录或绝对路径）
+    # 如果配置，Phase 3c 冒烟测试前会先执行此脚本进行环境检查
+    script: "deployments/scripts/check_smoke_env.py"
+    # script: null  # 设为 null 表示不使用预检查脚本，使用 Agent 环境检查
+    
+    # 额外参数（可选，传递给脚本）
+    args: []
+    
+    # 是否使用 JSON 输出格式（脚本支持 --json 参数时设为 true）
+    json_output: false

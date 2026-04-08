@@ -1,0 +1,26 @@
+{
+  "start_time": "2026-04-08T16:19:25.645503",
+  "end_time": "2026-04-08T16:19:25.733448",
+  "summary": {
+    "total": 0,
+    "passed": 0,
+    "failed": 0,
+    "blocked": 0
+  },
+  "cases": [],
+  "env": {
+    "minium": "已安装 (1.6.0)",
+    "devtools": "已安装",
+    "cli": "CLI 工具存在",
+    "project_path": "项目路径不存在",
+    "dist": "编译产物缺失",
+    "backend": "后端正常 (http://localhost:8080)"
+  },
+  "duration_seconds": 0.087945,
+  "config": {
+    "backend_url": "http://localhost:8080",
+    "project_path": "/Users/aganbai/Desktop/WorkSpace/digital-twin/src/src/frontend",
+    "framework": "Minium (Python)",
+    "version": "V2.0 IT12"
+  }
+}

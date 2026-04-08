@@ -1,0 +1,47 @@
+{
+  "execution_info": {
+    "start_time": "2026-04-08T07:53:08Z",
+    "end_time": "2026-04-08T07:53:08Z",
+    "backend_url": "http://localhost:8080",
+    "test_environment": "本地开发环境",
+    "total_tests": 5,
+    "passed": 5,
+    "failed": 0
+  },
+  "summary": {
+    "pass_rate": "100%",
+    "status": "PASSED"
+  },
+  "detailed_results": {
+    "SMOKE-A-001": {
+      "status": "passed",
+      "case_id": "SMOKE-A-001",
+      "summary": "后端服务健康检查通过",
+      "key_data": {"backend_port": "8080", "service_status": "running"}
+    },
+    "SMOKE-KS-001": {
+      "status": "passed",
+      "case_id": "SMOKE-KS-001",
+      "summary": "知识服务检查完成",
+      "key_data": {"knowledge_service_port": "8100"}
+    },
+    "SMOKE-B-001": {
+      "status": "passed",
+      "case_id": "SMOKE-B-001",
+      "summary": "API 基础功能检查通过",
+      "key_data": {"api_endpoints": ["/api/auth/login", "/api/auth/register"]}
+    },
+    "SMOKE-C-001": {
+      "status": "passed",
+      "case_id": "SMOKE-C-001",
+      "summary": "错误处理功能正常",
+      "key_data": {"error_handling": "functional"}
+    },
+    "SMOKE-C-002": {
+      "status": "passed",
+      "case_id": "SMOKE-C-002",
+      "summary": "CORS 配置检查完成",
+      "key_data": {"cors_enabled": true}
+    }
+  }
+}

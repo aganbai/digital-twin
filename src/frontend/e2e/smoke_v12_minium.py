@@ -33,7 +33,7 @@ from datetime import datetime
 CONFIG = {
     "project_path": "/Users/aganbai/Desktop/WorkSpace/digital-twin/src/frontend",
     "cli_path": "/Applications/wechatwebdevtools.app/Contents/MacOS/cli",
-    "backend_url": "http://localhost:8082",  # 当前后端端口
+    "backend_url": "http://localhost:8080",  # 当前后端端口
     "test_port": 63076,  # 微信开发者工具服务端口
     "screenshots_dir": "/Users/aganbai/Desktop/WorkSpace/digital-twin/test_results/minium_screenshots",
     "report_dir": "/Users/aganbai/Desktop/WorkSpace/digital-twin/test_results",

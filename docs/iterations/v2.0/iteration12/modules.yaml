@@ -1,0 +1,144 @@
+# V2.0 迭代12 模块配置
+# 由 Phase 0 自动生成，可在执行前手动微调
+
+version: "2.0"
+iteration: 12
+generated_at: "2026-04-07T20:15:00"
+status: "draft"  # draft | confirmed | completed
+
+# 后端模块
+backend_modules:
+  - module_id: "IT12-BE-001"
+    name: "SSE流式中断接口"
+    priority: "P0"
+    layer: 0
+    dependencies: []
+    description: "实现流式回复的用户中断功能，提供中断接口供前端调用"
+    api_endpoints:
+      - method: "GET"
+        path: "/api/chat/stream/:session_id/abort"
+    test_cases:
+      - "正常中断流式回复"
+      - "中断不存在的会话返回404"
+      - "无权中断返回403"
+      - "中断后连接正确关闭"
+      - "中断日志正确记录"
+
+  - module_id: "IT12-BE-002"
+    name: "指令消息类型支持"
+    priority: "P1"
+    layer: 0
+    dependencies: []
+    description: "后端支持识别和处理前端发送的留言类型消息"
+    api_endpoints:
+      - method: "POST"
+        path: "/api/chat/stream"
+      - method: "POST"
+        path: "/api/chat"
+    test_cases:
+      - "正常处理 teacher_message_direct 类型消息"
+      - "留言消息正确标记为教师直接回复类型"
+      - "留言消息正确存储到数据库"
+
+# 前端模块
+frontend_modules:
+  - module_id: "IT12-FE-001"
+    name: "聊天页流式中断能力"
+    priority: "P0"
+    layer: 1
+    dependencies: ["IT12-BE-001"]
+    description: "在聊天页实现流式回复的中断功能，包括按钮状态切换和中断逻辑"
+    components:
+      - "src/frontend/src/pages/chat/index.tsx"
+    test_cases:
+      - "流式进行中显示停止生成按钮"
+      - "点击后调用中断方法"
+      - "已接收内容转为完整消息"
+      - "状态正确重置（isStreaming=false）"
+      - "思考过程面板隐藏"
+      - "光标动画隐藏"
+
+  - module_id: "IT12-FE-002"
+    name: "会话列表侧边栏组件"
+    priority: "P1"
+    layer: 0
+    dependencies: []
+    description: "新建会话列表侧边栏组件，展示当前分身下的所有历史会话"
+    components:
+      - "src/frontend/src/components/SessionSidebar/index.tsx"
+      - "src/frontend/src/components/SessionSidebar/index.scss"
+      - "src/frontend/src/components/SessionSidebar/SessionItem.tsx"
+    test_cases:
+      - "侧边栏显示/隐藏"
+      - "滑入/滑出动画流畅"
+      - "点击遮罩层关闭"
+      - "点击关闭按钮关闭"
+      - "渲染会话列表"
+      - "当前会话高亮"
+      - "点击会话触发onSessionSelect"
+
+  - module_id: "IT12-FE-003"
+    name: "聊天页会话列表入口集成"
+    priority: "P1"
+    layer: 1
+    dependencies: ["IT12-FE-002"]
+    description: "在聊天页导航栏左上角添加会话列表入口图标，集成会话侧边栏组件"
+    components:
+      - "src/frontend/src/pages/chat/index.tsx"
+    test_cases:
+      - "左上角显示会话入口图标"
+      - "点击图标显示侧边栏"
+      - "侧边栏数据正确加载"
+      - "点击会话切换到对应会话"
+      - "切换会话后消息列表更新"
+      - "切换会话后侧边栏关闭"
+
+  - module_id: "IT12-FE-004"
+    name: "新会话按钮移动与创建逻辑"
+    priority: "P1"
+    layer: 2
+    dependencies: ["IT12-FE-003"]
+    description: "将新会话按钮从聊天列表页底部移动到会话列表侧边栏顶部，并实现创建新会话逻辑"
+    components:
+      - "src/frontend/src/components/SessionSidebar/index.tsx"
+      - "src/frontend/src/pages/chat/index.tsx"
+    test_cases:
+      - "侧边栏顶部显示+新会话按钮"
+      - "点击按钮关闭侧边栏"
+      - "消息列表清空"
+      - "session_id 重置为空"
+      - "显示已创建新会话提示"
+      - "可正常发送消息创建新session"
+
+  - module_id: "IT12-FE-005"
+    name: "指令系统实现"
+    priority: "P1"
+    layer: 2
+    dependencies: ["IT12-FE-001"]
+    description: "在输入框中支持#开头的指令，实现指令识别和处理逻辑"
+    components:
+      - "src/frontend/src/pages/chat/index.tsx"
+    test_cases:
+      - "输入 #新会话 创建新会话"
+      - "输入 #新对话 创建新会话"
+      - "输入 #新话题 创建新会话"
+      - "输入 #给老师留言 进入留言模式"
+      - "输入 #留言 进入留言模式"
+      - "指令不作为普通消息发送"
+      - "指令执行后输入框清空"
+      - "非指令内容正常发送"
+
+# 集成测试用例（Phase 1 生成）
+integration_tests: []
+
+# 开发顺序建议
+# Phase 1: 基础功能（并行开发）
+#   - IT12-BE-001: 后端 SSE流中断接口
+#   - IT12-FE-002: 前端会话列表侧边栏组件（UI先行）
+#   - IT12-BE-002: 后端指令消息类型支持
+# Phase 2: 聊天页集成
+#   - IT12-FE-001: 前端聊天页中断能力（依赖IT12-BE-001）
+#   - IT12-FE-003: 前端聊天页会话入口集成（依赖IT12-FE-002）
+# Phase 3: 功能完善
+#   - IT12-FE-004: 前端新会话按钮移动（依赖IT12-FE-003）
+#   - IT12-FE-005: 前端指令系统（依赖IT12-FE-001）
