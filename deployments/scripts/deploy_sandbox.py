@@ -38,6 +38,11 @@ class SandboxConfig:
     skip_tests: bool = False
     dry_run: bool = False
     
+    @property
+    def is_local(self) -> bool:
+        """判断是否为本地部署模式（host 为空、localhost 或 127.0.0.1）"""
+        return not self.host or self.host in ('localhost', '127.0.0.1', '::1')
+    
 
 class SandboxDeployer:
     """沙盒一键部署器"""
@@ -94,8 +99,8 @@ class SandboxDeployer:
         
         dependencies = ["docker"]
         
-        # 如果需要远程部署，检查 SSH 工具
-        if self.config.host:
+        # 仅远程部署时才需要 SSH 工具
+        if not self.config.is_local:
             dependencies.extend(["ssh", "scp"])
         
         missing = []
@@ -114,6 +119,21 @@ class SandboxDeployer:
     
     def check_connection(self) -> bool:
         """测试沙盒服务器连接"""
+        if self.config.is_local:
+            logger.info("本地部署模式，跳过远程连接测试")
+            # 检查 Docker 是否可用
+            try:
+                result = self.run_command(["docker", "info"], check=False)
+                if result.returncode == 0:
+                    logger.info("✅ 本地 Docker 环境就绪")
+                    return True
+                else:
+                    logger.error("❌ Docker 未运行或不可用")
+                    return False
+            except Exception as e:
+                logger.error(f"❌ Docker 检查失败: {e}")
+                return False
+        
         logger.info(f"测试连接: {self.config.host}:{self.config.port}")
         
         try:
@@ -158,7 +178,12 @@ class SandboxDeployer:
             return True
     
     def upload_to_sandbox(self) -> bool:
-        """上传到沙盒"""
+        """上传到沙盒（本地模式跳过）"""
+        if self.config.is_local:
+            logger.info("========== 本地部署模式，跳过上传 ==========")
+            logger.info("✅ 本地模式无需上传，直接使用本地镜像")
+            return True
+        
         logger.info("========== 上传到沙盒 ==========")
         
         try:
@@ -214,13 +239,27 @@ class SandboxDeployer:
         logger.info("========== 重启服务 ==========")
         
         try:
-            # 停止旧服务
-            logger.info("停止旧服务...")
-            self.ssh_command(f"cd {self.config.deploy_dir} && docker compose down || true", check=False)
-            
-            # 启动新服务
-            logger.info("启动新服务...")
-            self.ssh_command(f"cd {self.config.deploy_dir} && docker compose up -d")
+            if self.config.is_local:
+                # 本地模式：直接在项目目录执行 docker compose
+                logger.info("停止旧服务（本地模式）...")
+                self.run_command(
+                    ["docker", "compose", "down"],
+                    cwd=self.project_root,
+                    check=False
+                )
+                
+                logger.info("启动新服务（本地模式）...")
+                self.run_command(
+                    ["docker", "compose", "up", "-d"],
+                    cwd=self.project_root
+                )
+            else:
+                # 远程模式：通过 SSH 执行
+                logger.info("停止旧服务...")
+                self.ssh_command(f"cd {self.config.deploy_dir} && docker compose down || true", check=False)
+                
+                logger.info("启动新服务...")
+                self.ssh_command(f"cd {self.config.deploy_dir} && docker compose up -d")
             
             # 等待服务就绪
             logger.info("等待服务就绪...")
@@ -254,22 +293,36 @@ class SandboxDeployer:
         logger.info("目标：去掉 WX_MODE=mock，切换回真实微信登录")
         
         try:
-            # 1. 停止当前服务（带 Mock 登录态的）
-            logger.info("停止当前服务（Mock 环境）...")
-            self.ssh_command(f"cd {self.config.deploy_dir} && docker compose down || true", check=False)
+            if self.config.is_local:
+                # 本地模式
+                logger.info("停止当前服务（本地 Mock 环境）...")
+                self.run_command(
+                    ["docker", "compose", "down"],
+                    cwd=self.project_root,
+                    check=False
+                )
+                
+                logger.info("使用 .env.production 配置重启服务（真实微信登录）...")
+                self.run_command(
+                    ["docker", "compose", "--env-file", ".env.production", "up", "-d"],
+                    cwd=self.project_root
+                )
+            else:
+                # 远程模式
+                logger.info("停止当前服务（Mock 环境）...")
+                self.ssh_command(f"cd {self.config.deploy_dir} && docker compose down || true", check=False)
+                
+                logger.info("使用 .env.production 配置重启服务（真实微信登录）...")
+                self.ssh_command(
+                    f"cd {self.config.deploy_dir} && "
+                    f"docker compose --env-file .env.production up -d"
+                )
             
-            # 2. 使用 .env.production 配置重启（不含 WX_MODE=mock）
-            logger.info("使用 .env.production 配置重启服务（真实微信登录）...")
-            self.ssh_command(
-                f"cd {self.config.deploy_dir} && "
-                f"docker compose --env-file .env.production up -d"
-            )
-            
-            # 3. 等待服务就绪
+            # 等待服务就绪
             logger.info("等待服务就绪...")
             time.sleep(15)
             
-            # 4. 健康检查
+            # 健康检查
             if self.health_check():
                 logger.info("✅ 真实环境恢复完成")
                 logger.info("   - WX_MODE: 未设置（使用真实微信 API）")
@@ -297,7 +350,11 @@ class SandboxDeployer:
             
             results = {}
             for name, url in endpoints:
-                result = self.ssh_command(f"curl -sf {url}", check=False)
+                if self.config.is_local:
+                    # 本地模式：直接 curl
+                    result = self.run_command(["curl", "-sf", url], check=False)
+                else:
+                    result = self.ssh_command(f"curl -sf {url}", check=False)
                 results[name] = result.returncode == 0
             
             if all(results.values()):
@@ -311,17 +368,31 @@ class SandboxDeployer:
         
         # 输出日志帮助调试
         logger.error("健康检查超时")
-        self.ssh_command(f"cd {self.config.deploy_dir} && docker compose logs --tail=50", check=False)
+        if self.config.is_local:
+            self.run_command(
+                ["docker", "compose", "logs", "--tail=50"],
+                cwd=self.project_root,
+                check=False
+            )
+        else:
+            self.ssh_command(f"cd {self.config.deploy_dir} && docker compose logs --tail=50", check=False)
         return False
     
     def get_status(self) -> Dict[str, Any]:
         """获取服务状态"""
         logger.info("获取服务状态...")
         
-        result = self.ssh_command(
-            f"cd {self.config.deploy_dir} && docker compose ps",
-            check=False
-        )
+        if self.config.is_local:
+            result = self.run_command(
+                ["docker", "compose", "ps"],
+                cwd=self.project_root,
+                check=False
+            )
+        else:
+            result = self.ssh_command(
+                f"cd {self.config.deploy_dir} && docker compose ps",
+                check=False
+            )
         
         return {
             "success": result.returncode == 0,
@@ -330,23 +401,31 @@ class SandboxDeployer:
     
     def get_logs(self, tail: int = 100) -> str:
         """获取服务日志"""
-        result = self.ssh_command(
-            f"cd {self.config.deploy_dir} && docker compose logs --tail={tail}",
-            check=False
-        )
+        if self.config.is_local:
+            result = self.run_command(
+                ["docker", "compose", "logs", f"--tail={tail}"],
+                cwd=self.project_root,
+                check=False
+            )
+        else:
+            result = self.ssh_command(
+                f"cd {self.config.deploy_dir} && docker compose logs --tail={tail}",
+                check=False
+            )
         return result.stdout
     
     def deploy_full(self) -> bool:
         """完整部署流程"""
         logger.info("=" * 50)
-        logger.info("开始一键部署流程")
+        mode = "本地" if self.config.is_local else "远程"
+        logger.info(f"开始一键部署流程（{mode}模式）")
         logger.info("=" * 50)
         
         # 前置检查
         if not self.check_dependencies():
             return False
         
-        if self.config.host and not self.check_connection():
+        if not self.check_connection():
             return False
         
         # 执行流程
@@ -362,9 +441,10 @@ class SandboxDeployer:
                 logger.error(f"❌ {step_name}失败")
                 return False
         
+        host = self.config.host or "localhost"
         logger.info("=" * 50)
         logger.info("✅ 部署完成")
-        logger.info(f"访问地址: http://{self.config.host}")
+        logger.info(f"访问地址: http://{host}")
         logger.info("=" * 50)
         return True
 
@@ -434,20 +514,15 @@ def main():
     elif args.command == "build":
         success = deployer.build_images() and deployer.run_tests()
     elif args.command == "upload":
-        if not config.host:
-            logger.error("未指定沙盒服务器地址")
-            sys.exit(1)
-        success = deployer.upload_to_sandbox()
+        if config.is_local:
+            logger.info("本地模式，跳过上传")
+            success = True
+        else:
+            success = deployer.upload_to_sandbox()
     elif args.command == "restart":
-        if not config.host:
-            logger.error("未指定沙盒服务器地址")
-            sys.exit(1)
         success = deployer.restart_services()
     elif args.command == "restore":
         # 冒烟测试后恢复真实环境：去掉 WX_MODE=mock，使用 .env.production 重启
-        if not config.host:
-            logger.error("未指定沙盒服务器地址")
-            sys.exit(1)
         success = deployer.restore_real_env()
     elif args.command == "status":
         result = deployer.get_status()

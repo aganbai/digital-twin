@@ -73,9 +73,11 @@ agents:
 
 # 测试配置（支持多项目扩展）
 testing:
-  # 沙箱部署配置 - 本地环境无 ssh/scp，跳过
+  # 沙箱部署配置 - 本地沙盒模式（localhost，无需 SSH）
   sandbox_deploy:
-    script: null
+    script: "deployments/scripts/deploy_sandbox.py"
+    host: "localhost"
+    args: ["full"]
   
   # 测试数据清理配置（Phase 3b/3c 执行前自动清理脏数据）
   data_cleanup:
@@ -86,6 +88,7 @@ testing:
   smoke_env_check:
     script: null
   
-  # 冒烟测试后环境恢复配置 - 跳过
+  # 冒烟测试后环境恢复配置 - 本地沙盒模式
   env_restore:
-    script: null
+    script: "deployments/scripts/deploy_sandbox.py"
+    args: ["restore"]

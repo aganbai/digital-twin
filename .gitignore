@@ -91,3 +91,6 @@ src/frontend/tests/e2e/*.txt
 deployments/nginx/ssl/*.pem
 deployments/nginx/ssl/*.key
 !deployments/nginx/ssl/.gitkeep
+
+# 迭代数据
+docs/iterations/
