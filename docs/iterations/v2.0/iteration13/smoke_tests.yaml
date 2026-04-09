@@ -1,0 +1,231 @@
+# V2.0 IT13 冒烟测试用例
+
+# 迭代信息
+iteration: 13
+version: "2.0"
+description: |
+  冒烟测试覆盖核心UI路径，验证教材配置整合到班级流程的基本功能
+  用例总数: 8条 (Part A: 2条, Part B: 6条)
+
+generated_at: "2026-04-09"
+
+# 冒烟测试用例
+cases:
+  # ==================== Part A: 新用户引导流程 ====================
+
+  - case_id: SM-A01
+    name: 新用户班级创建与教材配置设置流程
+    type: part_a
+    mock_token_type: new_user
+    steps:
+      - 使用新用户 Token 进入小程序登录页
+      - 完成微信登录授权
+      - 选择"我是教师"角色
+      - 填写分身基本信息（昵称、学校、描述）
+      - 进入班级创建页面
+      - 填写班级基本信息（名称、描述、选择公开）
+      - 点击展开"教材配置（可选）"折叠区域
+      - 选择学段为"小学"
+      - 验证年级选项联动显示为"一年级"至"六年级"
+      - 选择年级为"三年级"
+      - 选择学科为"数学"、"语文"（多选）
+      - 选择教材版本为"人教版"
+      - 填写教学进度为"第三单元"
+      - 点击创建班级按钮
+    expected:
+      - 登录成功跳转角色选择页
+      - 班级创建页面正确展示教材配置折叠区域
+      - 学段选择后年级选项正确联动更新
+      - 学科和教材版本多选功能正常
+      - 班级创建成功Toast提示"创建成功"
+      - 创建成功后显示班级信息卡片（含分享码和链接）
+    dependencies: []
+    platforms:
+      - miniprogram
+      - h5_teacher
+
+  - case_id: SM-A02
+    name: 新用户班级创建跳过教材配置
+    type: part_a
+    mock_token_type: new_user
+    steps:
+      - 使用新用户 Token 进入小程序
+      - 完成登录和角色选择
+      - 进入班级创建页面
+      - 填写班级基本信息
+      - 不展开教材配置折叠区域
+      - 直接点击创建班级按钮
+    expected:
+      - 班级创建成功
+      - 创建后查看班级详情，教材配置显示为空或不存在
+      - 后续可编辑班级时补充教材配置
+    dependencies: []
+    platforms:
+      - miniprogram
+      - h5_teacher
+
+  # ==================== Part B: 老用户核心操作 ====================
+
+  - case_id: SM-B01
+    name: 老用户编辑班级补充教材配置
+    type: part_b
+    mock_token_type: registered_user
+    steps:
+      - 使用已有班级的教师 Token 登录小程序
+      - 进入班级列表页面
+      - 选择一个无教材配置的班级
+      - 点击进入编辑页面
+      - 验证教材配置区域默认为折叠状态
+      - 点击展开教材配置区域
+      - 选择学段为"初中"
+      - 验证年级选项联动显示为"七年级"至"九年级"
+      - 选择学科为"英语"
+      - 选择教材版本为"外研版"
+      - 点击保存按钮
+    expected:
+      - 班级编辑页面正确加载并显示班级信息
+      - 教材配置区域可正常折叠和展开
+      - 学段选择后年级选项正确联动
+      - 保存成功后返回班级列表
+      - 再次进入编辑页面，教材配置已正确保存并显示
+    dependencies: [SM-A01]
+    platforms:
+      - miniprogram
+      - h5_teacher
+
+  - case_id: SM-B02
+    name: 老用户修改已有教材配置
+    type: part_b
+    mock_token_type: registered_user
+    steps:
+      - 使用已有教材配置的班级教师 Token 登录
+      - 进入班级列表
+      - 选择已有教材配置的班级进入编辑页面
+      - 验证教材配置区域自动展开并显示已有配置
+      - 修改学段为"高中"
+      - 验证年级选项更新为"高一"、"高二"、"高三"
+      - 选择年级为"高一"
+      - 修改学科为"物理"、"化学"
+      - 修改教学进度为"第一单元 力学基础"
+      - 点击保存
+    expected:
+      - 编辑页面加载时正确显示已有的教材配置信息
+      - 学段修改后年级选项正确更新
+      - 修改后的配置正确保存
+      - 保存成功后显示更新确认
+    dependencies: [SM-A01]
+    platforms:
+      - miniprogram
+      - h5_teacher
+
+  - case_id: SM-B03
+    name: 大学学段自定义教材配置
+    type: part_b
+    mock_token_type: registered_user
+    steps:
+      - 使用教师 Token 登录 H5 教师端
+      - 进入班级管理页面
+      - 点击创建班级按钮
+      - 填写班级基本信息
+      - 展开教材配置折叠面板（Element Plus ElCollapse）
+      - 选择学段为"大学及以上"
+      - 验证不显示年级选择器
+      - 验证显示自定义教材输入框
+      - 输入自定义教材名称为"《大学英语四级词汇》"
+      - 点击添加按钮
+      - 再次输入"《托福核心词汇》"并添加
+      - 选择学科为"英语"
+      - 点击确认创建
+    expected:
+      - H5 端班级管理弹窗正常显示
+      - Element Plus Collapse 组件正确折叠/展开
+      - 大学及以上学段正确显示自定义教材输入
+      - 多个自定义教材正确添加并显示为标签
+      - 班级创建成功
+    dependencies: [SM-A01]
+    platforms:
+      - h5_teacher
+
+  - case_id: SM-B04
+    name: 个人中心教材配置入口已移除
+    type: part_b
+    mock_token_type: registered_user
+    steps:
+      - 使用教师 Token 登录小程序
+      - 点击底部 TabBar "我的" 进入个人中心
+      - 滚动功能菜单列表
+      - 验证菜单项中不包含"教材配置"
+      - 验证其他菜单项（分身概览、分享管理等）正常显示
+      - 确认"班级管理"或"我的班级"菜单存在（如果应用支持）
+    expected:
+      - 个人中心页面正常加载
+      - 教材配置菜单项已完全移除
+      - 其他功能菜单不受影响正常显示
+      - 页面布局无异常
+    dependencies: []
+    platforms:
+      - miniprogram
+
+  - case_id: SM-B05
+    name: 多端数据同步验证
+    type: part_b
+    mock_token_type: mixed
+    platforms:
+      - miniprogram
+      - h5_teacher
+    mock_accounts:
+      - alias: teacher_main
+        role: teacher
+        code: smoke_teacher_main
+        description: 主测试教师账号
+    steps:
+      - "数据准备：[teacher_main] 在小程序创建带教材配置的班级（小学三年级数学）"
+      - "[teacher_main] 切换到 H5 教师端，使用同一账号登录"
+      - "[teacher_main] 进入班级管理页面，验证刚创建的班级显示"
+      - "[teacher_main] 点击查看班级详情，验证教材配置正确显示"
+      - "[teacher_main] 在 H5 端修改教材配置（将年级改为四年级）"
+      - "[teacher_main] 切换回小程序，进入班级编辑页面"
+      - "[teacher_main] 验证修改后的教材配置已同步"
+    expected:
+      - 小程序创建的班级在 H5 端正确显示
+      - 教材配置信息跨端一致
+      - H5 修改后小程序正确同步
+      - 数据一致性和实时性符合预期
+    dependencies: [SM-A01]
+
+  - case_id: SM-B06
+    name: H5教师端班级管理完整流程
+    type: part_b
+    mock_token_type: registered_user
+    steps:
+      - 使用教师 Token 登录 H5 教师端
+      - 从侧边栏导航进入"班级管理"
+      - 验证班级列表表格正常显示
+      - 点击"创建班级"按钮
+      - 填写分身信息（昵称、学校、描述）
+      - 填写班级信息（名称、描述）
+      - 展开"教材配置"折叠面板
+      - 使用 Element Plus Cascader 选择学段和年级
+      - 使用 ElSelect(multiple) 选择学科和教材版本
+      - 填写教学进度
+      - 点击创建
+      - 验证创建成功弹窗（含分享链接和分享码）
+      - 在列表中点击"编辑"按钮
+      - 验证编辑弹窗预填了创建时的教材配置
+      - 修改教材配置后保存
+    expected:
+      - 班级管理页面布局正常（侧边栏 + 主内容区）
+      - Element Plus 组件（Collapse、Cascader、Select）正常交互
+      - 创建和编辑流程完整可用
+      - 数据正确保存和回显
+    dependencies: [SM-A01]
+    platforms:
+      - h5_teacher
+
+# 补充说明
+notes:
+  - "All test cases must be executed on both miniprogram and h5_teacher platforms unless specified otherwise"
+  - "Part A cases use new_user token to simulate fresh user registration flow"
+  - "Part B cases use registered_user token with existing test data"
+  - "Mixed token type cases require multiple mock accounts for cross-user scenarios"
+  - "Each case should complete within 5-8 minutes when executed serially"

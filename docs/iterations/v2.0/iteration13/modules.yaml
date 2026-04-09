@@ -1,0 +1,212 @@
+version: '2.0'
+iteration: 13
+generated_at: '2026-04-09T10:00:00+08:00'
+status: confirmed
+description: 'V2.0 迭代13 - UI优化调整和教材配置流程重构
+
+  1. 将教材配置整合到班级创建/编辑流程中
+
+  2. 废弃独立的教材配置页面入口
+
+  3. UI优化调整
+
+  '
+backend_modules:
+- module_id: BE-IT13-001
+  name: 班级API扩展-支持教材配置
+  priority: P0
+  layer: 0
+  dependencies: []
+  description: '扩展班级创建和更新API，支持同时传入curriculum_config字段
+
+    - POST /api/classes 支持curriculum_config参数
+
+    - PUT /api/classes/:id 支持curriculum_config参数
+
+    - GET /api/classes/:id 返回curriculum_config数据
+
+    '
+  test_cases:
+  - 创建班级时同时传入教材配置，验证两者同时创建成功
+  - 创建班级时不传教材配置，验证班级正常创建
+  - 编辑班级时更新教材配置，验证配置正确更新
+  - 编辑班级时删除教材配置，验证配置正确删除
+- module_id: BE-IT13-002
+  name: 教材配置服务层调整
+  priority: P0
+  layer: 0
+  dependencies: []
+  description: '调整教材配置Service层，支持通过班级ID关联查询
+
+    - 根据班级关联的persona_id查询/创建教材配置
+
+    - 保持现有数据模型不变
+
+    '
+  test_cases:
+  - 验证通过persona_id创建教材配置正常
+  - 验证通过persona_id查询教材配置正常
+  - 验证班级删除时教材配置处理逻辑
+frontend_modules:
+- module_id: FE-IT13-001
+  name: 小程序-班级创建页教材配置区域
+  priority: P0
+  layer: 1
+  dependencies:
+  - BE-IT13-001
+  description: '在班级创建页面(class-create/index.tsx)中新增教材配置折叠区域
+
+    - 可折叠/展开的教材配置面板
+
+    - 学段选择器（Picker）
+
+    - 年级选择器（根据学段联动）
+
+    - 教材版本多选标签
+
+    - 自定义教材输入（大学及以上）
+
+    - 学科多选标签
+
+    - 教学进度输入框
+
+    - 表单验证逻辑
+
+    '
+  test_cases:
+  - 点击教材配置区域正确展开/折叠
+  - 选择不同学段显示对应年级选项
+  - 大学及以上学段显示自定义教材输入
+  - 提交时教材配置正确传递给API
+- module_id: FE-IT13-002
+  name: 小程序-班级编辑页教材配置区域
+  priority: P0
+  layer: 1
+  dependencies:
+  - BE-IT13-001
+  - FE-IT13-001
+  description: '在班级编辑页面(class-edit/index.tsx)中新增教材配置折叠区域
+
+    - 加载时获取并显示已有教材配置
+
+    - 支持修改所有配置字段
+
+    - 支持删除教材配置
+
+    - 无配置时支持新增
+
+    '
+  test_cases:
+  - 编辑页面加载时正确显示已有教材配置
+  - 修改教材配置后保存成功
+  - 删除教材配置后保存成功
+  - 无配置时新增配置并保存成功
+- module_id: FE-IT13-003
+  name: 小程序-个人中心移除教材配置入口
+  priority: P0
+  layer: 0
+  dependencies: []
+  description: '在个人中心页面(profile/index.tsx)中移除"教材配置"菜单项
+
+    - 从menuItems数组中删除教材配置项
+
+    - 保留curriculum-config页面代码（废弃不再维护）
+
+    '
+  test_cases:
+  - 个人中心页面不再显示教材配置菜单
+  - ' curriculum-config页面代码保留'
+- module_id: FE-IT13-004
+  name: H5教师端-班级管理教材配置弹窗
+  priority: P1
+  layer: 1
+  dependencies:
+  - BE-IT13-001
+  description: '在H5教师端Classes.vue的创建/编辑弹窗中新增教材配置表单
+
+    - 使用Element Plus Collapse组件
+
+    - 学段、年级级联选择
+
+    - 学科、版本多选
+
+    - 进度输入框
+
+    '
+  test_cases:
+  - 创建班级弹窗显示教材配置折叠面板
+  - 编辑班级弹窗显示已有教材配置
+  - 表单验证正确
+- module_id: FE-IT13-005
+  name: H5教师端-班级管理API适配
+  priority: P1
+  layer: 2
+  dependencies:
+  - BE-IT13-001
+  - FE-IT13-004
+  description: '适配H5教师端班级管理API调用，支持curriculum_config参数
+
+    - 创建班级时传入教材配置
+
+    - 编辑班级时更新教材配置
+
+    - 班级详情显示教材配置
+
+    '
+  test_cases:
+  - 创建班级时教材配置参数正确传递
+  - 编辑班级时教材配置更新正确
+- module_id: FE-IT13-006
+  name: 小程序-教材配置Hook封装
+  priority: P1
+  layer: 0
+  dependencies: []
+  description: '封装通用的教材配置状态管理和表单处理Hook
+
+    - useCurriculumConfig: 管理配置状态
+
+    - 学段年级联动逻辑
+
+    - 表单验证逻辑
+
+    '
+  test_cases:
+  - Hook在各组件中正确复用
+  - 状态管理正确
+qa_modules:
+- module_id: QA-IT13-001
+  name: 教材配置整合测试
+  priority: P0
+  layer: 3
+  dependencies:
+  - FE-IT13-001
+  - FE-IT13-002
+  - FE-IT13-004
+  description: '验证教材配置整合到班级流程的完整功能
+
+    - 创建班级+教材配置端到端测试
+
+    - 编辑班级+教材配置端到端测试
+
+    '
+  test_cases:
+  - 'E2E: 创建班级时配置教材成功'
+  - 'E2E: 编辑班级时修改教材配置成功'
+  - 'E2E: 编辑班级时删除教材配置成功'
+- module_id: QA-IT13-002
+  name: API兼容性测试
+  priority: P1
+  layer: 3
+  dependencies:
+  - BE-IT13-001
+  description: '验证API扩展的兼容性
+
+    - 不传curriculum_config时API正常
+
+    - 旧版本客户端兼容性
+
+    '
+  test_cases:
+  - 不传递教材配置参数API正常
+  - 传递完整教材配置参数API正常
+  - 传递部分教材配置参数API正常

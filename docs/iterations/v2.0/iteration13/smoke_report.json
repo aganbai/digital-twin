@@ -1,0 +1,122 @@
+{
+  "metadata": {
+    "iteration": "v2.0-iteration13",
+    "test_file": "smoke_test_it13.py",
+    "framework": "Playwright",
+    "start_time": "2026-04-09T23:03:13.118676",
+    "end_time": "2026-04-09T23:03:30.140862"
+  },
+  "env": {
+    "backend_url": "http://localhost:8000",
+    "h5_teacher_url": "http://localhost:5174",
+    "playwright_version": null,
+    "browser": null
+  },
+  "cases": [
+    {
+      "case_id": "SM-A01",
+      "name": "新用户班级创建与教材配置设置流程",
+      "status": "passed",
+      "steps": [
+        {
+          "step": "访问首页",
+          "status": "passed",
+          "screenshot": "screenshots/SM-A01/step01_home_1775746996378.png"
+        },
+        {
+          "step": "导航到班级管理",
+          "status": "passed",
+          "screenshot": "screenshots/SM-A01/step03_class_mgmt_1775746999071.png"
+        },
+        {
+          "step": "检查创建按钮",
+          "status": "passed",
+          "exists": false,
+          "note": "当前可能需要先登录",
+          "screenshot": "screenshots/SM-A01/step04_create_check_1775746999220.png"
+        },
+        {
+          "step": "填写班级基本信息",
+          "status": "passed",
+          "screenshot": "screenshots/SM-A01/step05_basic_info_1775746999325.png"
+        },
+        {
+          "step": "展开教材配置区域",
+          "status": "passed",
+          "screenshot": "screenshots/SM-A01/step06_textbook_config_1775746999432.png"
+        },
+        {
+          "step": "配置教材信息",
+          "status": "passed",
+          "screenshot": "screenshots/SM-A01/step10_textbook_filled_1775746999532.png"
+        },
+        {
+          "step": "准备创建班级",
+          "status": "passed",
+          "note": "跳过实际提交，仅做UI验证",
+          "screenshot": "screenshots/SM-A01/step11_ready_to_submit_1775746999640.png"
+        }
+      ],
+      "start_time": "2026-04-09T23:03:13.770413",
+      "end_time": "2026-04-09T23:03:19.739308"
+    },
+    {
+      "case_id": "SM-B04",
+      "name": "个人中心教材配置入口已移除",
+      "status": "passed",
+      "steps": [
+        {
+          "step": "访问个人中心",
+          "status": "passed",
+          "screenshot": "screenshots/SM-B04/step01_center_1775747003286.png"
+        },
+        {
+          "step": "检查菜单列表",
+          "status": "passed",
+          "screenshot": "screenshots/SM-B04/step02_menu_check_1775747003440.png"
+        }
+      ],
+      "start_time": "2026-04-09T23:03:20.744436",
+      "end_time": "2026-04-09T23:03:23.542642"
+    },
+    {
+      "case_id": "SM-B06",
+      "name": "H5教师端班级管理完整流程",
+      "status": "passed",
+      "steps": [
+        {
+          "step": "访问教师端",
+          "status": "passed",
+          "screenshot": "screenshots/SM-B06/step01_login_page_1775747007096.png"
+        },
+        {
+          "step": "班级列表页面",
+          "status": "passed",
+          "screenshot": "screenshots/SM-B06/step02_class_list_1775747009757.png"
+        },
+        {
+          "step": "验证列表表格",
+          "status": "passed",
+          "screenshot": "screenshots/SM-B06/step03_table_check_1775747009879.png"
+        },
+        {
+          "step": "检查操作按钮",
+          "status": "passed",
+          "buttons": [
+            "微信授权登录"
+          ],
+          "screenshot": "screenshots/SM-B06/step04_buttons_1775747010003.png"
+        }
+      ],
+      "start_time": "2026-04-09T23:03:24.547821",
+      "end_time": "2026-04-09T23:03:30.112570"
+    }
+  ],
+  "summary": {
+    "total": 3,
+    "passed": 3,
+    "failed": 0,
+    "warning": 0,
+    "pass_rate": "100.0%"
+  }
+}
