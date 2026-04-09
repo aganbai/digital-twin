@@ -55,6 +55,7 @@ protected_files:
   - ".env"
   - ".env.production"
   - "src/harness/core/plugin.go"
+  - "docs/project_config.yaml"
   - "configs/harness.yaml"
 
 # 文档路径配置
@@ -72,40 +73,19 @@ agents:
 
 # 测试配置（支持多项目扩展）
 testing:
-  # 沙箱部署配置
+  # 沙箱部署配置 - 本地环境无 ssh/scp，跳过
   sandbox_deploy:
-    # 沙箱部署脚本路径（使用分身项目自带的部署脚本）
-    script: "deployments/scripts/deploy_sandbox.py"
-    
-    # 沙箱服务器配置（可选，脚本可通过环境变量 SANDBOX_HOST 等获取）
-    host: "${SANDBOX_HOST:-localhost}"
-    user: "${SANDBOX_USER:-}"
-    deploy_dir: "${SANDBOX_DEPLOY_DIR:-/opt/sandbox}"
-    
-    # 额外参数（可选，传递给脚本）
-    args: []
+    script: null
   
   # 测试数据清理配置（Phase 3b/3c 执行前自动清理脏数据）
   data_cleanup:
-    # 数据清理脚本路径（使用分身项目自带的测试数据管理脚本）
     script: "scripts/manage_test_data.sh"
-    # 传递 reset 参数：先清理再重建测试数据
     args: ["reset"]
   
-  # 冒烟测试环境检查配置
+  # 冒烟测试环境检查配置 - 本地环境无模拟器，跳过
   smoke_env_check:
-    # 环境检查脚本路径（使用分身项目自带的环境检查脚本）
-    script: "deployments/scripts/check_smoke_env.py"
-    
-    # 额外参数（可选，传递给脚本）
-    args: []
-    
-    # 是否使用 JSON 输出格式（脚本支持 --json 参数时设为 true）
-    json_output: false
+    script: null
   
-  # 冒烟测试后环境恢复配置（Phase 3c 完成后切换回真实环境，方便人工体验）
+  # 冒烟测试后环境恢复配置 - 跳过
   env_restore:
-    # 环境恢复脚本路径（使用分身项目自带的部署脚本）
-    script: "deployments/scripts/deploy_sandbox.py"
-    # 传递 restore 参数：去掉 WX_MODE=mock，使用 .env.production 重启服务（真实微信登录）
-    args: ["restore"]
+    script: null

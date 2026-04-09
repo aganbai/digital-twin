@@ -385,8 +385,8 @@ def main():
     """主函数"""
     parser = argparse.ArgumentParser(description="沙盒一键部署工具")
     
-    parser.add_argument("command", choices=["full", "build", "upload", "restart", "restore", "status", "logs"],
-                        default="full", help="部署命令（restore: 冒烟测试后恢复真实环境，去掉 Mock 登录态）")
+    parser.add_argument("command", nargs='?', choices=["full", "build", "upload", "restart", "restore", "status", "logs"],
+                        default="full", help="部署命令（默认 full；restore: 冒烟测试后恢复真实环境，去掉 Mock 登录态）")
     parser.add_argument("--host", help="沙盒服务器地址")
     parser.add_argument("--user", default="root", help="SSH 用户名")
     parser.add_argument("--port", type=int, default=22, help="SSH 端口")
