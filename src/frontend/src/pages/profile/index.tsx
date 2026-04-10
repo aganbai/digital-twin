@@ -136,12 +136,8 @@ export default function Profile() {
       roles: ['teacher'],
       action: () => Taro.navigateTo({ url: '/pages/test-student/index' }),
     },
-    {
-      key: 'curriculum-config',
-      label: '教材配置',
-      roles: ['teacher'],
-      action: () => Taro.navigateTo({ url: '/pages/curriculum-config/index' }),
-    },
+    // 注意：教材配置入口已移除（IT13需求），教师可在班级创建/编辑时配置教材
+    // 原 curriculum-config 页面保留但不再维护
     {
       key: 'share-manage',
       label: '分享管理',

@@ -155,6 +155,7 @@ func SetupRouter(mgr *manager.HarnessManager) *gin.Engine {
 			{
 				classes.POST("", auth.RoleRequired("teacher"), handler.HandleCreateClass)
 				classes.GET("", auth.RoleRequired("teacher"), handler.HandleGetClasses)
+				classes.GET("/:id/detail", auth.RoleRequired("teacher"), handler.HandleGetClass)
 				classes.PUT("/:id", auth.RoleRequired("teacher"), handler.HandleUpdateClass)
 				classes.DELETE("/:id", auth.RoleRequired("teacher"), handler.HandleDeleteClass)
 				classes.GET("/:id/members", auth.RoleRequired("teacher"), handler.HandleGetClassMembers)

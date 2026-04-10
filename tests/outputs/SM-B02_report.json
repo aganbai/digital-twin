@@ -1,0 +1,110 @@
+{
+  "case_id": "SM-B02",
+  "name": "老用户修改已有教材配置",
+  "status": "passed",
+  "platforms": {
+    "h5_teacher": {
+      "platform": "h5_teacher",
+      "status": "passed",
+      "steps": [
+        {
+          "step": "注入 Token 登录",
+          "status": "passed",
+          "screenshot": "outputs/SM-B02/SM-B02_h5_step01_login_1775810745917.png",
+          "url": "http://localhost:5174/classes"
+        },
+        {
+          "step": "进入班级列表",
+          "status": "passed",
+          "screenshot": "outputs/SM-B02/SM-B02_h5_step02_class_list_1775810749535.png"
+        },
+        {
+          "step": "验证班级列表加载",
+          "status": "passed",
+          "screenshot": "outputs/SM-B02/SM-B02_h5_step03_classes_loaded_1775810749590.png"
+        },
+        {
+          "step": "点击编辑按钮打开弹窗",
+          "status": "passed",
+          "screenshot": "outputs/SM-B02/SM-B02_h5_step04_edit_dialog_opened_1775810750685.png"
+        },
+        {
+          "step": "验证编辑弹窗加载",
+          "status": "passed",
+          "screenshot": "outputs/SM-B02/SM-B02_h5_step05_edit_dialog_loaded_1775810750730.png"
+        },
+        {
+          "step": "展开教材配置区域",
+          "status": "passed",
+          "screenshot": "outputs/SM-B02/SM-B02_h5_step06_curriculum_expanded_1775810751789.png"
+        },
+        {
+          "step": "验证已有配置显示",
+          "status": "passed",
+          "screenshot": "outputs/SM-B02/SM-B02_h5_step07_verify_existing_config_1775810751838.png",
+          "config_verified": {
+            "grade_level": false,
+            "grade": false,
+            "subjects": false
+          }
+        },
+        {
+          "step": "修改学段为初中",
+          "status": "passed",
+          "screenshot": "outputs/SM-B02/SM-B02_h5_step08_grade_level_changed_1775810752965.png"
+        },
+        {
+          "step": "验证年级选项更新",
+          "status": "warning",
+          "screenshot": "outputs/SM-B02/SM-B02_h5_step09_grade_options_verified_1775810754578.png",
+          "grade_options_verified": false
+        },
+        {
+          "step": "修改学科",
+          "status": "passed",
+          "screenshot": "outputs/SM-B02/SM-B02_h5_step10_subjects_modified_1775810754618.png"
+        },
+        {
+          "step": "修改教学进度",
+          "status": "passed",
+          "screenshot": "outputs/SM-B02/SM-B02_h5_step11_progress_modified_1775810755166.png"
+        },
+        {
+          "step": "点击保存按钮",
+          "status": "passed",
+          "screenshot": "outputs/SM-B02/SM-B02_h5_step12_save_clicked_1775810757256.png",
+          "save_success": true
+        },
+        {
+          "step": "验证保存结果",
+          "status": "passed",
+          "screenshot": "outputs/SM-B02/SM-B02_h5_step13_verify_saved_1775810761459.png"
+        },
+        {
+          "step": "关闭弹窗完成测试",
+          "status": "passed",
+          "screenshot": "outputs/SM-B02/SM-B02_h5_step14_completed_1775810762530.png"
+        }
+      ],
+      "screenshots": [
+        "outputs/SM-B02/SM-B02_h5_step01_login_1775810745917.png",
+        "outputs/SM-B02/SM-B02_h5_step02_class_list_1775810749535.png",
+        "outputs/SM-B02/SM-B02_h5_step03_classes_loaded_1775810749590.png",
+        "outputs/SM-B02/SM-B02_h5_step04_edit_dialog_opened_1775810750685.png",
+        "outputs/SM-B02/SM-B02_h5_step05_edit_dialog_loaded_1775810750730.png",
+        "outputs/SM-B02/SM-B02_h5_step06_curriculum_expanded_1775810751789.png",
+        "outputs/SM-B02/SM-B02_h5_step07_verify_existing_config_1775810751838.png",
+        "outputs/SM-B02/SM-B02_h5_step08_grade_level_changed_1775810752965.png",
+        "outputs/SM-B02/SM-B02_h5_step09_grade_options_verified_1775810754578.png",
+        "outputs/SM-B02/SM-B02_h5_step10_subjects_modified_1775810754618.png",
+        "outputs/SM-B02/SM-B02_h5_step11_progress_modified_1775810755166.png",
+        "outputs/SM-B02/SM-B02_h5_step12_save_clicked_1775810757256.png",
+        "outputs/SM-B02/SM-B02_h5_step13_verify_saved_1775810761459.png"
+      ],
+      "start_time": "2026-04-10T16:45:41.333956",
+      "end_time": "2026-04-10T16:46:02.572370"
+    }
+  },
+  "start_time": "2026-04-10T16:45:41.313050",
+  "end_time": "2026-04-10T16:46:02.595871"
+}

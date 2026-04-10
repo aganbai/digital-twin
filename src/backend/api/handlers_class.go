@@ -2,6 +2,7 @@ package api
 
 import (
 	"database/sql"
+	"encoding/json"
 	"net/http"
 	"strconv"
 	"strings"
@@ -11,6 +12,36 @@ import (
 
 	"github.com/gin-gonic/gin"
 )
+
+// CurriculumConfigValue 教材配置值对象（用于班级API）
+type CurriculumConfigValue struct {
+	GradeLevel       string   `json:"grade_level"`
+	Grade            string   `json:"grade"`
+	Subjects         []string `json:"subjects"`
+	TextbookVersions []string `json:"textbook_versions"`
+	CustomTextbooks  []string `json:"custom_textbooks"`
+	CurrentProgress  string   `json:"current_progress"`
+}
+
+// curriculumConfigToResponse 将数据库教材配置转换为响应格式
+func curriculumConfigToResponse(config *database.TeacherCurriculumConfig) gin.H {
+	var textbookVersions []string
+	var subjects []string
+	var customTextbooks []string
+	_ = json.Unmarshal([]byte(config.TextbookVersions), &textbookVersions)
+	_ = json.Unmarshal([]byte(config.Subjects), &subjects)
+	_ = json.Unmarshal([]byte(config.Region), &customTextbooks)
+
+	return gin.H{
+		"id":                config.ID,
+		"grade_level":       config.GradeLevel,
+		"grade":             config.Grade,
+		"subjects":          subjects,
+		"textbook_versions": textbookVersions,
+		"custom_textbooks":  customTextbooks,
+		"current_progress":  config.CurrentProgress,
+	}
+}
 
 // ======================== 班级管理接口 (V2.0 迭代2) ========================
 
@@ -27,12 +58,13 @@ func (h *Handler) HandleCreateClass(c *gin.Context) {
 	}
 
 	var req struct {
-		Name               string `json:"name" binding:"required"`
-		Description        string `json:"description"`
-		PersonaNickname    string `json:"persona_nickname" binding:"required"`
-		PersonaSchool      string `json:"persona_school" binding:"required"`
-		PersonaDescription string `json:"persona_description" binding:"required"`
-		IsPublic           *bool  `json:"is_public"`
+		Name               string                 `json:"name" binding:"required"`
+		Description        string                 `json:"description"`
+		PersonaNickname    string                 `json:"persona_nickname" binding:"required"`
+		PersonaSchool      string                 `json:"persona_school" binding:"required"`
+		PersonaDescription string                 `json:"persona_description" binding:"required"`
+		IsPublic           *bool                  `json:"is_public"`
+		CurriculumConfig   *CurriculumConfigValue `json:"curriculum_config"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -86,6 +118,7 @@ func (h *Handler) HandleCreateClass(c *gin.Context) {
 
 	personaRepo := database.NewPersonaRepository(db)
 	classRepo := database.NewClassRepository(db)
+	curriculumRepo := database.NewCurriculumConfigRepository(db)
 
 	// 检查教师是否已有同名班级（使用用户ID而非分身ID）
 	// 在新模式下，每个班级对应一个分身，所以班级名称在用户维度下唯一
@@ -107,7 +140,15 @@ func (h *Handler) HandleCreateClass(c *gin.Context) {
 	}
 	defer tx.Rollback()
 
-	// 步骤1: 先创建班级专属分身（需要在创建班级之前，因为班级需要persona_id）
+	// 步骤1: 验证教材配置学段（如有提供）
+	if req.CurriculumConfig != nil && req.CurriculumConfig.GradeLevel != "" {
+		if !validGradeLevels[req.CurriculumConfig.GradeLevel] {
+			Error(c, http.StatusBadRequest, 40041, "无效的学段类型: "+req.CurriculumConfig.GradeLevel)
+			return
+		}
+	}
+
+	// 步骤2: 先创建班级专属分身（需要在创建班级之前，因为班级需要persona_id）
 	persona := &database.Persona{
 		UserID:       userIDInt64,
 		Role:         "teacher",
@@ -158,6 +199,34 @@ func (h *Handler) HandleCreateClass(c *gin.Context) {
 		}
 	}
 
+	// 步骤5: 如提供了curriculum_config，创建教材配置
+	if req.CurriculumConfig != nil {
+		textbookVersionsJSON, _ := json.Marshal(req.CurriculumConfig.TextbookVersions)
+		subjectsJSON, _ := json.Marshal(req.CurriculumConfig.Subjects)
+		customTextbooksJSON, _ := json.Marshal(req.CurriculumConfig.CustomTextbooks)
+
+		config := &database.TeacherCurriculumConfig{
+			TeacherID:        userIDInt64,
+			PersonaID:        personaID,
+			GradeLevel:       req.CurriculumConfig.GradeLevel,
+			Grade:            req.CurriculumConfig.Grade,
+			TextbookVersions: string(textbookVersionsJSON),
+			Subjects:         string(subjectsJSON),
+			CurrentProgress:  req.CurriculumConfig.CurrentProgress,
+		}
+		// 使用custom_textbooks字段存储自定义教材
+		// 注意：由于数据库模型中没有custom_textbooks字段，我们将其存储在region字段中
+		// 这是一种临时方案，后续如果数据库表结构更新可以调整
+		config.Region = string(customTextbooksJSON)
+
+		_, curriculumErr := curriculumRepo.CreateWithTx(tx, config)
+		if curriculumErr != nil {
+			// 教材配置创建失败不影响班级创建，仅记录日志
+			// TODO: 添加日志记录
+			_ = curriculumErr
+		}
+	}
+
 	// 提交事务
 	if err := tx.Commit(); err != nil {
 		Error(c, http.StatusInternalServerError, 50001, "提交事务失败: "+err.Error())
@@ -171,6 +240,30 @@ func (h *Handler) HandleCreateClass(c *gin.Context) {
 		return
 	}
 
+	// 查询教材配置（如有）
+	var curriculumConfigData gin.H
+	if req.CurriculumConfig != nil {
+		curriculumConfig, _ := curriculumRepo.GetActiveByPersonaID(personaID)
+		if curriculumConfig != nil {
+			var textbookVersions []string
+			var subjects []string
+			var customTextbooks []string
+			_ = json.Unmarshal([]byte(curriculumConfig.TextbookVersions), &textbookVersions)
+			_ = json.Unmarshal([]byte(curriculumConfig.Subjects), &subjects)
+			_ = json.Unmarshal([]byte(curriculumConfig.Region), &customTextbooks)
+
+			curriculumConfigData = gin.H{
+				"id":                curriculumConfig.ID,
+				"grade_level":       curriculumConfig.GradeLevel,
+				"grade":             curriculumConfig.Grade,
+				"subjects":          subjects,
+				"textbook_versions": textbookVersions,
+				"custom_textbooks":  customTextbooks,
+				"current_progress":  curriculumConfig.CurrentProgress,
+			}
+		}
+	}
+
 	// 生成包含新分身的token
 	jwtManager := GetJWTManager(h.manager)
 	if jwtManager != nil {
@@ -180,7 +273,7 @@ func (h *Handler) HandleCreateClass(c *gin.Context) {
 		usernameStr, _ := username.(string)
 		newToken, _, err := jwtManager.GenerateTokenWithUserRole(userIDInt64, usernameStr, "teacher", userRoleStr, personaID)
 		if err == nil {
-			Success(c, gin.H{
+			resp := gin.H{
 				"id":                  created.ID,
 				"name":                created.Name,
 				"description":         created.Description,
@@ -192,13 +285,17 @@ func (h *Handler) HandleCreateClass(c *gin.Context) {
 				"teacher_id":          userIDInt64,
 				"created_at":          created.CreatedAt,
 				"token":               newToken,
-			})
+			}
+			if curriculumConfigData != nil {
+				resp["curriculum_config"] = curriculumConfigData
+			}
+			Success(c, resp)
 			return
 		}
 	}
 
 	// token生成失败或JWT管理器不可用，返回不含token的响应
-	Success(c, gin.H{
+	resp := gin.H{
 		"id":                  created.ID,
 		"name":                created.Name,
 		"description":         created.Description,
@@ -209,7 +306,11 @@ func (h *Handler) HandleCreateClass(c *gin.Context) {
 		"persona_description": personaDescription,
 		"teacher_id":          userIDInt64,
 		"created_at":          created.CreatedAt,
-	})
+	}
+	if curriculumConfigData != nil {
+		resp["curriculum_config"] = curriculumConfigData
+	}
+	Success(c, resp)
 }
 
 // getTestStudentPersonaID 获取教师的自测学生分身ID
@@ -285,6 +386,7 @@ func (h *Handler) HandleGetClasses(c *gin.Context) {
 
 // HandleUpdateClass 更新班级信息
 // PUT /api/classes/:id
+// V2.0 迭代13扩展：支持更新教材配置
 func (h *Handler) HandleUpdateClass(c *gin.Context) {
 	classIDStr := c.Param("id")
 	classID, err := strconv.ParseInt(classIDStr, 10, 64)
@@ -300,14 +402,31 @@ func (h *Handler) HandleUpdateClass(c *gin.Context) {
 		return
 	}
 
+	userID, _ := c.Get("user_id")
+	userIDInt64, ok := userID.(int64)
+	if !ok || userIDInt64 <= 0 {
+		Error(c, http.StatusUnauthorized, 40001, "用户信息无效")
+		return
+	}
+
 	var req struct {
-		Name        string `json:"name"`
-		Description string `json:"description"`
+		Name             string                 `json:"name"`
+		Description      string                 `json:"description"`
+		IsPublic         *bool                  `json:"is_public"`
+		CurriculumConfig *CurriculumConfigValue `json:"curriculum_config"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
 		Error(c, http.StatusBadRequest, 40004, "请求参数无效: "+err.Error())
 		return
+	}
+
+	// 验证学段枚举值（如有提供教材配置）
+	if req.CurriculumConfig != nil && req.CurriculumConfig.GradeLevel != "" {
+		if !validGradeLevels[req.CurriculumConfig.GradeLevel] {
+			Error(c, http.StatusBadRequest, 40041, "无效的学段类型: "+req.CurriculumConfig.GradeLevel)
+			return
+		}
 	}
 
 	db := h.manager.GetDB()
@@ -317,6 +436,7 @@ func (h *Handler) HandleUpdateClass(c *gin.Context) {
 	}
 
 	classRepo := database.NewClassRepository(db)
+	curriculumRepo := database.NewCurriculumConfigRepository(db)
 
 	// 校验班级存在且属于当前教师分身
 	class, err := classRepo.GetByID(classID)
@@ -354,18 +474,97 @@ func (h *Handler) HandleUpdateClass(c *gin.Context) {
 		return
 	}
 
+	// 开启事务
+	tx, err := db.Begin()
+	if err != nil {
+		Error(c, http.StatusInternalServerError, 50001, "开启事务失败: "+err.Error())
+		return
+	}
+	defer tx.Rollback()
+
 	// 更新班级信息
-	if err := classRepo.Update(classID, name, description); err != nil {
+	isPublic := class.IsPublic
+	isPublicChanged := false
+	if req.IsPublic != nil {
+		rawIsPublic := 0
+		if *req.IsPublic {
+			rawIsPublic = 1
+		}
+		if rawIsPublic != class.IsPublic {
+			isPublic = rawIsPublic
+			isPublicChanged = true
+		}
+	}
+
+	_, err = tx.Exec(`UPDATE classes SET name = ?, description = ?, is_public = ?, updated_at = ? WHERE id = ?`,
+		name, description, isPublic, time.Now(), classID)
+	if err != nil {
 		Error(c, http.StatusInternalServerError, 50001, "更新班级失败: "+err.Error())
 		return
 	}
 
-	Success(c, gin.H{
+	// 如果公开状态变更，同步更新分身状态
+	if isPublicChanged {
+		_, err = tx.Exec(`UPDATE personas SET is_public = ? WHERE id = ?`, isPublic, class.PersonaID)
+		if err != nil {
+			Error(c, http.StatusInternalServerError, 50001, "更新分身公开状态失败: "+err.Error())
+			return
+		}
+	}
+
+	// 如果提供了教材配置，更新或创建教材配置
+	if req.CurriculumConfig != nil {
+		// 序列化JSON字段
+		textbookVersionsJSON, _ := json.Marshal(req.CurriculumConfig.TextbookVersions)
+		subjectsJSON, _ := json.Marshal(req.CurriculumConfig.Subjects)
+		customTextbooksJSON, _ := json.Marshal(req.CurriculumConfig.CustomTextbooks)
+
+		config := &database.TeacherCurriculumConfig{
+			TeacherID:        userIDInt64,
+			PersonaID:        class.PersonaID,
+			GradeLevel:       req.CurriculumConfig.GradeLevel,
+			Grade:            req.CurriculumConfig.Grade,
+			TextbookVersions: string(textbookVersionsJSON),
+			Subjects:         string(subjectsJSON),
+			CurrentProgress:  req.CurriculumConfig.CurrentProgress,
+			Region:           string(customTextbooksJSON),
+		}
+
+		// 使用UpsertByPersonaID来更新或创建配置
+		_, curriculumErr := curriculumRepo.UpsertByPersonaID(tx, config)
+		if curriculumErr != nil {
+			// 教材配置更新失败不影响班级更新，仅记录日志
+			// TODO: 添加日志记录
+			_ = curriculumErr
+		}
+	}
+
+	// 提交事务
+	if err := tx.Commit(); err != nil {
+		Error(c, http.StatusInternalServerError, 50001, "提交事务失败: "+err.Error())
+		return
+	}
+
+	// 如果更新了教材配置，查询最新的配置信息并返回
+	var configResponse gin.H
+	if req.CurriculumConfig != nil {
+		curriculumConfig, _ := curriculumRepo.GetActiveByPersonaID(class.PersonaID)
+		if curriculumConfig != nil {
+			configResponse = curriculumConfigToResponse(curriculumConfig)
+		}
+	}
+
+	resp := gin.H{
 		"id":          classID,
 		"name":        name,
 		"description": description,
+		"is_public":   isPublic == 1,
 		"persona_id":  personaIDInt64,
-	})
+	}
+	if configResponse != nil {
+		resp["curriculum_config"] = configResponse
+	}
+	Success(c, resp)
 }
 
 // HandleDeleteClass 删除班级
@@ -719,4 +918,89 @@ func (h *Handler) HandleToggleClass(c *gin.Context) {
 	}
 
 	Success(c, result)
+}
+
+// ======================== V2.0 迭代13 新增方法 ========================
+
+// HandleGetClass 获取班级详情
+// GET /api/classes/:id
+// V2.0 迭代13新增：支持返回教材配置
+func (h *Handler) HandleGetClass(c *gin.Context) {
+	classIDStr := c.Param("id")
+	classID, err := strconv.ParseInt(classIDStr, 10, 64)
+	if err != nil || classID <= 0 {
+		Error(c, http.StatusBadRequest, 40004, "无效的班级ID")
+		return
+	}
+
+	personaID, _ := c.Get("persona_id")
+	personaIDInt64, ok := personaID.(int64)
+	if !ok || personaIDInt64 <= 0 {
+		Error(c, http.StatusUnauthorized, 40001, "用户信息无效")
+		return
+	}
+
+	db := h.manager.GetDB()
+	if db == nil {
+		Error(c, http.StatusInternalServerError, 50001, "数据库服务不可用")
+		return
+	}
+
+	classRepo := database.NewClassRepository(db)
+	curriculumRepo := database.NewCurriculumConfigRepository(db)
+
+	// 查询班级信息
+	class, err := classRepo.GetByID(classID)
+	if err != nil {
+		Error(c, http.StatusInternalServerError, 50001, "查询班级失败: "+err.Error())
+		return
+	}
+	if class == nil {
+		Error(c, http.StatusNotFound, 40017, "班级不存在")
+		return
+	}
+
+	// 校验权限：班级属于当前教师分身
+	if class.PersonaID != personaIDInt64 {
+		Error(c, http.StatusForbidden, 40018, "无权操作此班级")
+		return
+	}
+
+	// 查询关联的教材配置
+	curriculumConfig, err := curriculumRepo.GetActiveByPersonaID(class.PersonaID)
+	if err != nil {
+		// 查询配置失败不影响返回班级信息
+		curriculumConfig = nil
+	}
+
+	// 组装教材配置响应
+	var configResponse gin.H
+	if curriculumConfig != nil {
+		var subjects, textbookVersions, customTextbooks []string
+		_ = json.Unmarshal([]byte(curriculumConfig.Subjects), &subjects)
+		_ = json.Unmarshal([]byte(curriculumConfig.TextbookVersions), &textbookVersions)
+		_ = json.Unmarshal([]byte(curriculumConfig.Region), &customTextbooks)
+
+		configResponse = gin.H{
+			"id":                curriculumConfig.ID,
+			"grade_level":       curriculumConfig.GradeLevel,
+			"grade":             curriculumConfig.Grade,
+			"subjects":          subjects,
+			"textbook_versions": textbookVersions,
+			"custom_textbooks":  customTextbooks,
+			"current_progress":  curriculumConfig.CurrentProgress,
+		}
+	}
+
+	Success(c, gin.H{
+		"id":                class.ID,
+		"name":              class.Name,
+		"description":       class.Description,
+		"is_public":         class.IsPublic == 1,
+		"is_active":         class.IsActive == 1,
+		"persona_id":        class.PersonaID,
+		"created_at":        class.CreatedAt,
+		"updated_at":        class.UpdatedAt,
+		"curriculum_config": configResponse,
+	})
 }

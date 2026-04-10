@@ -1,0 +1,80 @@
+{
+  "case_id": "SM-B04",
+  "name": "多端数据同步验证 - 多账号聊天列表与排版",
+  "status": "failed",
+  "platforms": {
+    "h5_teacher": {
+      "platform": "h5_teacher",
+      "account": "teacher_a",
+      "status": "failed",
+      "steps": [
+        {
+          "step": "H5教师端登录",
+          "status": "passed",
+          "screenshot": "outputs/SM-B04/SM-B04_h5_h5_step01_login_1775812287444.png"
+        },
+        {
+          "step": "验证班级列表加载",
+          "status": "passed",
+          "screenshot": "outputs/SM-B04/SM-B04_h5_h5_step02_class_list_1775812287504.png"
+        }
+      ],
+      "screenshots": [
+        "outputs/SM-B04/SM-B04_h5_h5_step01_login_1775812287444.png",
+        "outputs/SM-B04/SM-B04_h5_h5_step02_class_list_1775812287504.png"
+      ],
+      "start_time": "2026-04-10T17:11:23.951498",
+      "failed_step": "打开编辑弹窗验证教材配置",
+      "expected": "编辑弹窗正确打开并显示教材配置",
+      "actual": "弹窗打开失败: 未找到编辑按钮",
+      "issue_owner": "frontend"
+    },
+    "miniprogram_teacher": {
+      "platform": "miniprogram_teacher",
+      "account": "teacher_a",
+      "status": "failed",
+      "steps": [],
+      "screenshots": [],
+      "start_time": "2026-04-10T17:11:27.543813",
+      "error": "three times try to connect Dev tool has all fail ...",
+      "traceback": "Traceback (most recent call last):\n  File \"/Users/aganbai/Library/Python/3.9/lib/python/site-packages/minium/miniprogram/wx_minium.py\", line 836, in connect_dev_tool\n    self.connection = Connection.create(\n  File \"/Users/aganbai/Library/Python/3.9/lib/python/site-packages/minium/miniprogram/base_driver/connection.py\", line 168, in create\n    instance = cls(uri, *args, **kwargs)\n  File \"/Users/aganbai/Library/Python/3.9/lib/python/site-packages/minium/miniprogram/base_driver/connection.py\", line 209, in __init__\n    self._connect()\n  File \"/Users/aganbai/Library/Python/3.9/lib/python/site-packages/minium/miniprogram/base_driver/connection.py\", line 361, in _connect\n    raise error_callback.result\n  File \"/Users/aganbai/Library/Python/3.9/lib/python/site-packages/websocket/_app.py\", line 327, in run_forever\n    self.sock.connect(\n  File \"/Users/aganbai/Library/Python/3.9/lib/python/site-packages/websocket/_core.py\", line 244, in connect\n    self.sock, addrs = connect(url, self.sock_opt, proxy_info(**options),\n  File \"/Users/aganbai/Library/Python/3.9/lib/python/site-packages/websocket/_http.py\", line 130, in connect\n    sock = _open_socket(addrinfo_list, options.sockopt, options.timeout)\n  File \"/Users/aganbai/Library/Python/3.9/lib/python/site-packages/websocket/_http.py\", line 205, in _open_socket\n    raise err\n  File \"/Users/aganbai/Library/Python/3.9/lib/python/site-packages/websocket/_http.py\", line 185, in _open_socket\n    sock.connect(address)\nConnectionRefusedError: [Errno 61] Connection refused\n\nDuring handling of the above exception, another exception occurred:\n\nTraceback (most recent call last):\n  File \"/Users/aganbai/Desktop/WorkSpace/digital-twin/tests/sm_b04_multi_platform_sync_test.py\", line 554, in run_miniprogram_teacher_test\n    mini_test = minium.Minium()\n  File \"/Users/aganbai/Library/Python/3.9/lib/python/site-packages/minium/__init__.py\", line 32, in Minium\n    return get_minium_driver(conf, *args, **kwargs)\n  File \"/Users/aganbai/Library/Python/3.9/lib/python/site-packages/minium/miniprogram/__init__.py\", line 28, in get_minium_driver\n    return APP[application](conf, *args, **kwargs)\n  File \"/Users/aganbai/Library/Python/3.9/lib/python/site-packages/minium/miniprogram/wx_minium.py\", line 160, in __init__\n    self.launch_weapp()\n  File \"/Users/aganbai/Library/Python/3.9/lib/python/site-packages/minium/miniprogram/base_driver/minium_log.py\", line 148, in wrapper\n    result = func(*args, **kwargs)\n  File \"/Users/aganbai/Library/Python/3.9/lib/python/site-packages/minium/miniprogram/wx_minium.py\", line 635, in launch_weapp\n    self.launch_dev_tool()\n  File \"/Users/aganbai/Library/Python/3.9/lib/python/site-packages/minium/miniprogram/base_driver/minium_log.py\", line 148, in wrapper\n    result = func(*args, **kwargs)\n  File \"/Users/aganbai/Library/Python/3.9/lib/python/site-packages/minium/miniprogram/wx_minium.py\", line 825, in launch_dev_tool\n    raise e\n  File \"/Users/aganbai/Library/Python/3.9/lib/python/site-packages/minium/miniprogram/wx_minium.py\", line 793, in launch_dev_tool\n    self.connect_dev_tool(is_port_in_use)\n  File \"/Users/aganbai/Library/Python/3.9/lib/python/site-packages/minium/miniprogram/base_driver/minium_log.py\", line 148, in wrapper\n    result = func(*args, **kwargs)\n  File \"/Users/aganbai/Library/Python/3.9/lib/python/site-packages/minium/miniprogram/wx_minium.py\", line 851, in connect_dev_tool\n    raise MiniConnectError(\nminium.framework.exception.MiniConnectError: three times try to connect Dev tool has all fail ...\n"
+    },
+    "miniprogram_student_1": {
+      "platform": "miniprogram_student_1",
+      "account": "student_1",
+      "status": "failed",
+      "steps": [],
+      "screenshots": [],
+      "start_time": "2026-04-10T17:11:27.750571",
+      "error": "three times try to connect Dev tool has all fail ..."
+    },
+    "miniprogram_student_2": {
+      "platform": "miniprogram_student_2",
+      "account": "student_2",
+      "status": "failed",
+      "steps": [],
+      "screenshots": [],
+      "start_time": "2026-04-10T17:11:27.877881",
+      "error": "three times try to connect Dev tool has all fail ..."
+    }
+  },
+  "accounts": {
+    "teacher_a": {
+      "status": "logged_in",
+      "user_id": 388,
+      "persona_id": null
+    },
+    "student_1": {
+      "status": "logged_in",
+      "user_id": 389,
+      "persona_id": null
+    },
+    "student_2": {
+      "status": "logged_in",
+      "user_id": 220,
+      "persona_id": null
+    }
+  },
+  "start_time": "2026-04-10T17:11:23.944388",
+  "end_time": "2026-04-10T17:11:28.012968"
+}

@@ -1,0 +1,8 @@
+
+[2026-04-04T21:46:01+08:00] 迭代11集成测试失败
+用例: IT611
+HTTP状态: 500
+错误码: 50001
+错误信息: 创建班级失败: 创建班级失败: constraint failed: FOREIGN KEY constraint failed (787)
+响应体: {"code":50001,"message":"创建班级失败: 创建班级失败: constraint failed: FOREIGN KEY constraint failed (787)","data":null}
+错误: <nil>

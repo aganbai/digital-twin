@@ -342,7 +342,8 @@ class SandboxDeployer:
         endpoints = [
             ("Backend", "http://localhost:8080/api/system/health"),
             ("Knowledge", "http://localhost:8100/api/v1/health"),
-            ("Nginx", "http://localhost:80/health")
+            # Nginx 没有独立的 /health 端点，通过代理路径检测其是否正常工作
+            ("Nginx", "http://localhost:80/api/system/health")
         ]
         
         for retry in range(max_retries):

@@ -2,6 +2,7 @@ package api
 
 import (
 	"database/sql"
+	"encoding/json"
 	"net/http"
 	"strconv"
 	"strings"
@@ -16,6 +17,7 @@ import (
 // HandleGetClassForStudent 学生查看班级详情
 // GET /api/classes/:id
 // 权限：学生必须是班级成员才能查看
+// V2.0 迭代13: 扩展返回教材配置信息
 func (h *Handler) HandleGetClassForStudent(c *gin.Context) {
 	classIDStr := c.Param("id")
 	classID, err := strconv.ParseInt(classIDStr, 10, 64)
@@ -71,7 +73,19 @@ func (h *Handler) HandleGetClassForStudent(c *gin.Context) {
 	// 从班级名称推导科目（简单实现：取第一个关键词）
 	subject := extractSubject(detail.Name)
 
-	Success(c, gin.H{
+	// 查询关联的教师分身ID
+	var teacherPersonaID int64
+	err = db.QueryRow("SELECT persona_id FROM classes WHERE id = ?", classID).Scan(&teacherPersonaID)
+	if err != nil {
+		Error(c, http.StatusInternalServerError, 50001, "查询班级教师信息失败: "+err.Error())
+		return
+	}
+
+	// 查询教材配置
+	curriculumRepo := database.NewCurriculumConfigRepository(db)
+	curriculumConfig, _ := curriculumRepo.GetActiveByPersonaID(teacherPersonaID)
+
+	resp := gin.H{
 		"id":           detail.ID,
 		"name":         detail.Name,
 		"subject":      subject,
@@ -79,7 +93,29 @@ func (h *Handler) HandleGetClassForStudent(c *gin.Context) {
 		"teacher_name": detail.TeacherName,
 		"member_count": detail.MemberCount,
 		"created_at":   detail.CreatedAt,
-	})
+	}
+
+	// 如有教材配置，解析并返回
+	if curriculumConfig != nil {
+		var textbookVersions []string
+		var subjects []string
+		var customTextbooks []string
+		_ = json.Unmarshal([]byte(curriculumConfig.TextbookVersions), &textbookVersions)
+		_ = json.Unmarshal([]byte(curriculumConfig.Subjects), &subjects)
+		_ = json.Unmarshal([]byte(curriculumConfig.Region), &customTextbooks)
+
+		resp["curriculum_config"] = gin.H{
+			"id":                curriculumConfig.ID,
+			"grade_level":       curriculumConfig.GradeLevel,
+			"grade":             curriculumConfig.Grade,
+			"subjects":          subjects,
+			"textbook_versions": textbookVersions,
+			"custom_textbooks":  customTextbooks,
+			"current_progress":  curriculumConfig.CurrentProgress,
+		}
+	}
+
+	Success(c, resp)
 }
 
 // HandleGetStudentProfile 教师查看学生详情

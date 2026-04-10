@@ -1,7 +1,9 @@
 import { useState } from 'react'
-import { View, Text, Input, Textarea, Image, Switch } from '@tarojs/components'
+import { View, Text, Input, Textarea, Switch } from '@tarojs/components'
 import Taro, { useRouter } from '@tarojs/taro'
 import { createClassV11, CreateClassV11Response } from '@/api/class'
+import type { CurriculumConfigFormValue } from '@/components/CurriculumConfigForm'
+import CurriculumConfigForm from '@/components/CurriculumConfigForm'
 import './index.scss'
 
 export default function ClassCreate() {
@@ -17,6 +19,10 @@ export default function ClassCreate() {
   const [personaNickname, setPersonaNickname] = useState('')
   const [personaSchool, setPersonaSchool] = useState('')
   const [personaDescription, setPersonaDescription] = useState('')
+
+  // 教材配置
+  const [curriculumConfig, setCurriculumConfig] = useState<CurriculumConfigFormValue>({})
+  const [curriculumExpanded, setCurriculumExpanded] = useState(false)
 
   const [submitting, setSubmitting] = useState(false)
 
@@ -63,6 +69,10 @@ export default function ClassCreate() {
         persona_school: personaSchool.trim(),
         persona_description: personaDescription.trim(),
         is_public: isPublic,
+        // IT13: 仅当展开并填写了学段时才传递教材配置
+        ...(curriculumExpanded && curriculumConfig.grade_level
+          ? { curriculum_config: curriculumConfig }
+          : {}),
       })
       Taro.showToast({ title: '创建成功', icon: 'success' })
       setClassInfo(res.data)
@@ -275,6 +285,13 @@ export default function ClassCreate() {
           </Text>
         </View>
       </View>
+
+      {/* 教材配置区域（IT13新增） */}
+      <CurriculumConfigForm
+        expanded={curriculumExpanded}
+        onExpandedChange={setCurriculumExpanded}
+        onChange={setCurriculumConfig}
+      />
 
       {/* 创建按钮 */}
       <View

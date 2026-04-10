@@ -1,4 +1,5 @@
 import { request } from './request'
+import type { GradeLevel } from '@/constants/curriculum'
 
 /** 班级信息 */
 export interface ClassInfo {
@@ -8,6 +9,17 @@ export interface ClassInfo {
   member_count: number
   is_active?: boolean
   created_at: string
+}
+
+/** 教材配置类型 */
+export interface CurriculumConfig {
+  id?: number
+  grade_level: GradeLevel
+  grade?: string
+  subjects: string[]
+  textbook_versions?: string[]
+  custom_textbooks?: string[]
+  current_progress?: string
 }
 
 /** 班级成员 */
@@ -137,6 +149,7 @@ export interface CreateClassV11Params {
   persona_school: string
   persona_description: string
   is_public?: boolean
+  curriculum_config?: CurriculumConfig
 }
 
 /** V11 创建班级响应 */
@@ -170,6 +183,7 @@ export interface UpdateClassV11Params {
   name?: string
   description?: string
   is_public?: boolean
+  curriculum_config?: CurriculumConfig
 }
 
 /** V11 班级详情 */
@@ -184,6 +198,7 @@ export interface ClassDetailV11 {
   persona_description?: string
   student_count: number
   created_at: string
+  curriculum_config?: CurriculumConfig | null
 }
 
 /**

@@ -1,6 +1,17 @@
 import { get, post, put, del } from '@/utils/request'
 import type { PaginatedData } from '@/utils/request'
 
+/** 教材配置信息 */
+export interface CurriculumConfig {
+  id?: number
+  grade_level?: string
+  grade?: string
+  subjects?: string[]
+  textbook_versions?: string[]
+  custom_textbooks?: string[]
+  current_progress?: string
+}
+
 /** 班级信息 */
 export interface ClassInfo {
   id: number
@@ -8,25 +19,46 @@ export interface ClassInfo {
   description?: string
   student_count: number
   created_at: string
+  curriculum_config?: CurriculumConfig | null
 }
 
 /** 创建班级参数 */
 export interface CreateClassParams {
   name: string
   description?: string
+  persona_nickname: string
+  persona_school: string
+  persona_description: string
+  is_public?: boolean
+  curriculum_config?: CurriculumConfig
+}
+
+/** 更新班级参数 */
+export interface UpdateClassParams {
+  name?: string
+  description?: string
+  is_public?: boolean
+  curriculum_config?: CurriculumConfig
 }
 
 /**
  * 获取班级列表
  */
 export function getClassList() {
-  return get<ClassInfo[]>('/api/teacher/classes')
+  return get<ClassInfo[]>('/api/classes')
 }
 
 /**
  * 获取班级详情
  */
 export function getClassDetail(classId: number) {
+  return get<ClassInfo>(`/api/classes/${classId}`)
+}
+
+/**
+ * 获取班级详情（H5教师端专用接口）
+ */
+export function getTeacherClassDetail(classId: number) {
   return get<ClassInfo>(`/api/teacher/classes/${classId}`)
 }
 
@@ -34,14 +66,14 @@ export function getClassDetail(classId: number) {
  * 创建班级
  */
 export function createClass(params: CreateClassParams) {
-  return post<ClassInfo>('/api/teacher/classes', params)
+  return post<ClassInfo>('/api/classes', params)
 }
 
 /**
  * 更新班级
  */
-export function updateClass(classId: number, params: CreateClassParams) {
-  return put(`/api/teacher/classes/${classId}`, params)
+export function updateClass(classId: number, params: UpdateClassParams) {
+  return put(`/api/classes/${classId}`, params)
 }
 
 /**

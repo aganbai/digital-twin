@@ -1,13 +1,33 @@
 <template>
   <div class="classes-container">
-    <el-card>
+    <el-card v-loading="loading">
       <template #header>
         <div style="display: flex; justify-content: space-between; align-items: center;">
           <span>班级管理</span>
           <el-button type="primary" size="small" @click="showCreateDialog">创建班级</el-button>
         </div>
       </template>
-      <el-table :data="classes" style="width: 100%">
+
+      <!-- 错误状态 -->
+      <el-alert
+        v-if="error"
+        :title="error"
+        type="error"
+        :closable="true"
+        @close="error = ''"
+        show-icon
+        style="margin-bottom: 16px;"
+      />
+
+      <!-- 空状态 -->
+      <el-empty
+        v-if="!loading && !error && classes.length === 0"
+        description="暂无班级"
+      >
+        <el-button type="primary" @click="showCreateDialog">创建班级</el-button>
+      </el-empty>
+
+      <el-table v-if="classes.length > 0" :data="classes" style="width: 100%">
         <el-table-column prop="name" label="班级名称" />
         <el-table-column prop="persona_nickname" label="分身昵称" width="120" />
         <el-table-column label="公开状态" width="100">
@@ -83,8 +103,136 @@
             </div>
           </div>
         </el-form-item>
+
+        <!-- 教材配置区域（折叠面板） -->
+        <el-divider content-position="left">📚 教材配置（可选）</el-divider>
+
+        <div class="curriculum-config-section">
+          <div
+            class="curriculum-header"
+            @click="createCurriculumExpanded = !createCurriculumExpanded"
+          >
+            <span class="curriculum-title">
+              {{ createCurriculumExpanded ? '📖 教材配置已展开' : '📖 点击展开配置教材信息' }}
+            </span>
+            <el-icon class="curriculum-arrow" :class="{ 'is-expanded': createCurriculumExpanded }">
+              <ArrowDown />
+            </el-icon>
+          </div>
+
+          <el-collapse-transition>
+            <div v-show="createCurriculumExpanded" class="curriculum-content">
+              <!-- 学段选择 -->
+              <el-form-item label="学段">
+                <el-select
+                  v-model="createCurriculumConfig.grade_level"
+                  placeholder="请选择学段"
+                  clearable
+                  style="width: 100%"
+                  @change="onCreateGradeLevelChange"
+                >
+                  <el-option
+                    v-for="opt in GRADE_LEVEL_OPTIONS"
+                    :key="opt.value"
+                    :label="opt.label"
+                    :value="opt.value"
+                  />
+                </el-select>
+              </el-form-item>
+
+              <!-- 年级选择（K12学段显示） -->
+              <el-form-item label="年级" v-if="showCreateGradeSelector">
+                <el-select
+                  v-model="createCurriculumConfig.grade"
+                  placeholder="请选择年级"
+                  clearable
+                  style="width: 100%"
+                  :disabled="!createCurriculumConfig.grade_level"
+                >
+                  <el-option
+                    v-for="grade in createGradeOptions"
+                    :key="grade"
+                    :label="grade"
+                    :value="grade"
+                  />
+                </el-select>
+              </el-form-item>
+
+              <!-- 学科选择 -->
+              <el-form-item label="学科" v-if="createCurriculumConfig.grade_level">
+                <el-select
+                  v-model="createCurriculumConfig.subjects"
+                  multiple
+                  placeholder="请选择学科"
+                  style="width: 100%"
+                >
+                  <el-option
+                    v-for="subject in createSubjectOptions"
+                    :key="subject"
+                    :label="subject"
+                    :value="subject"
+                  />
+                </el-select>
+              </el-form-item>
+
+              <!-- 教材版本（非成人学段显示） -->
+              <el-form-item
+                label="教材版本"
+                v-if="createCurriculumConfig.grade_level && !showCreateCustomTextbooks && createCurriculumConfig.grade_level !== 'adult_life' && createCurriculumConfig.grade_level !== 'adult_professional'"
+              >
+                <el-select
+                  v-model="createCurriculumConfig.textbook_versions"
+                  multiple
+                  placeholder="请选择教材版本"
+                  style="width: 100%"
+                >
+                  <el-option
+                    v-for="version in TEXTBOOK_VERSIONS"
+                    :key="version"
+                    :label="version"
+                    :value="version"
+                  />
+                </el-select>
+              </el-form-item>
+
+              <!-- 自定义教材（大学及以上显示） -->
+              <el-form-item label="自定义教材" v-if="showCreateCustomTextbooks">
+                <div class="custom-textbook-input">
+                  <el-input
+                    v-model="customTextbookInput"
+                    placeholder="请输入教材名称，按回车或点击添加"
+                    maxlength="50"
+                    @keyup.enter="addCreateCustomTextbook"
+                  />
+                  <el-button type="primary" @click="addCreateCustomTextbook">添加</el-button>
+                </div>
+                <div class="custom-textbook-tags" v-if="createCurriculumConfig.custom_textbooks?.length">
+                  <el-tag
+                    v-for="(book, index) in createCurriculumConfig.custom_textbooks"
+                    :key="index"
+                    closable
+                    @close="removeCreateCustomTextbook(index)"
+                    class="custom-textbook-tag"
+                  >
+                    {{ book }}
+                  </el-tag>
+                </div>
+              </el-form-item>
+
+              <!-- 教学进度 -->
+              <el-form-item label="教学进度" v-if="createCurriculumConfig.grade_level">
+                <el-input
+                  v-model="createCurriculumConfig.current_progress"
+                  placeholder="如：第三单元 乘法初步"
+                  maxlength="100"
+                  clearable
+                />
+              </el-form-item>
+            </div>
+          </el-collapse-transition>
+        </div>
       </el-form>
-      
+
       <template #footer>
         <el-button @click="createDialogVisible = false">取消</el-button>
         <el-button type="primary" @click="handleCreate" :loading="createLoading">确定创建</el-button>
@@ -124,8 +272,136 @@
             </div>
           </div>
         </el-form-item>
+
+        <!-- 教材配置区域（折叠面板） -->
+        <el-divider content-position="left">📚 教材配置（可选）</el-divider>
+
+        <div class="curriculum-config-section">
+          <div
+            class="curriculum-header"
+            @click="editCurriculumExpanded = !editCurriculumExpanded"
+          >
+            <span class="curriculum-title">
+              {{ editCurriculumExpanded ? '📖 教材配置已展开' : (editCurriculumConfig.grade_level ? '📖 已配置教材信息，点击修改' : '📖 点击展开配置教材信息') }}
+            </span>
+            <el-icon class="curriculum-arrow" :class="{ 'is-expanded': editCurriculumExpanded }">
+              <ArrowDown />
+            </el-icon>
+          </div>
+
+          <el-collapse-transition>
+            <div v-show="editCurriculumExpanded" class="curriculum-content">
+              <!-- 学段选择 -->
+              <el-form-item label="学段">
+                <el-select
+                  v-model="editCurriculumConfig.grade_level"
+                  placeholder="请选择学段"
+                  clearable
+                  style="width: 100%"
+                  @change="onEditGradeLevelChange"
+                >
+                  <el-option
+                    v-for="opt in GRADE_LEVEL_OPTIONS"
+                    :key="opt.value"
+                    :label="opt.label"
+                    :value="opt.value"
+                  />
+                </el-select>
+              </el-form-item>
+
+              <!-- 年级选择（K12学段显示） -->
+              <el-form-item label="年级" v-if="showEditGradeSelector">
+                <el-select
+                  v-model="editCurriculumConfig.grade"
+                  placeholder="请选择年级"
+                  clearable
+                  style="width: 100%"
+                  :disabled="!editCurriculumConfig.grade_level"
+                >
+                  <el-option
+                    v-for="grade in editGradeOptions"
+                    :key="grade"
+                    :label="grade"
+                    :value="grade"
+                  />
+                </el-select>
+              </el-form-item>
+
+              <!-- 学科选择 -->
+              <el-form-item label="学科" v-if="editCurriculumConfig.grade_level">
+                <el-select
+                  v-model="editCurriculumConfig.subjects"
+                  multiple
+                  placeholder="请选择学科"
+                  style="width: 100%"
+                >
+                  <el-option
+                    v-for="subject in editSubjectOptions"
+                    :key="subject"
+                    :label="subject"
+                    :value="subject"
+                  />
+                </el-select>
+              </el-form-item>
+
+              <!-- 教材版本（非成人学段显示） -->
+              <el-form-item
+                label="教材版本"
+                v-if="editCurriculumConfig.grade_level && !showEditCustomTextbooks && editCurriculumConfig.grade_level !== 'adult_life' && editCurriculumConfig.grade_level !== 'adult_professional'"
+              >
+                <el-select
+                  v-model="editCurriculumConfig.textbook_versions"
+                  multiple
+                  placeholder="请选择教材版本"
+                  style="width: 100%"
+                >
+                  <el-option
+                    v-for="version in TEXTBOOK_VERSIONS"
+                    :key="version"
+                    :label="version"
+                    :value="version"
+                  />
+                </el-select>
+              </el-form-item>
+
+              <!-- 自定义教材（大学及以上显示） -->
+              <el-form-item label="自定义教材" v-if="showEditCustomTextbooks">
+                <div class="custom-textbook-input">
+                  <el-input
+                    v-model="editCustomTextbookInput"
+                    placeholder="请输入教材名称，按回车或点击添加"
+                    maxlength="50"
+                    @keyup.enter="addEditCustomTextbook"
+                  />
+                  <el-button type="primary" @click="addEditCustomTextbook">添加</el-button>
+                </div>
+                <div class="custom-textbook-tags" v-if="editCurriculumConfig.custom_textbooks?.length">
+                  <el-tag
+                    v-for="(book, index) in editCurriculumConfig.custom_textbooks"
+                    :key="index"
+                    closable
+                    @close="removeEditCustomTextbook(index)"
+                    class="custom-textbook-tag"
+                  >
+                    {{ book }}
+                  </el-tag>
+                </div>
+              </el-form-item>
+
+              <!-- 教学进度 -->
+              <el-form-item label="教学进度" v-if="editCurriculumConfig.grade_level">
+                <el-input
+                  v-model="editCurriculumConfig.current_progress"
+                  placeholder="如：第三单元 乘法初步"
+                  maxlength="100"
+                  clearable
+                />
+              </el-form-item>
+            </div>
+          </el-collapse-transition>
+        </div>
       </el-form>
-      
+
       <template #footer>
         <el-button @click="editDialogVisible = false">取消</el-button>
         <el-button type="primary" @click="handleEdit" :loading="editLoading">保存</el-button>
@@ -186,8 +462,46 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, computed } from 'vue'
 import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
+import { ArrowDown } from '@element-plus/icons-vue'
+import type { CurriculumConfig } from '@/api/class'
+import { getClassList, createClass, updateClass, deleteClass } from '@/api/class'
+
+// ===== 常量定义 =====
+// 学段选项
+const GRADE_LEVEL_OPTIONS = [
+  { value: 'preschool', label: '学前班' },
+  { value: 'primary_lower', label: '小学低年级' },
+  { value: 'primary_upper', label: '小学高年级' },
+  { value: 'junior', label: '初中' },
+  { value: 'senior', label: '高中' },
+  { value: 'university', label: '大学及以上' },
+  { value: 'adult_life', label: '成人生活技能' },
+  { value: 'adult_professional', label: '成人职业培训' }
+]
+
+// 年级选项映射
+const GRADE_OPTIONS_MAP: Record<string, string[]> = {
+  preschool: ['幼儿园大班', '学前'],
+  primary_lower: ['一年级', '二年级', '三年级'],
+  primary_upper: ['四年级', '五年级', '六年级'],
+  junior: ['七年级', '八年级', '九年级'],
+  senior: ['高一', '高二', '高三'],
+  university: ['大一', '大二', '大三', '大四', '研究生', '博士']
+}
+
+// K12学科选项
+const K12_SUBJECTS = ['语文', '数学', '英语', '物理', '化学', '生物', '历史', '地理', '政治', '音乐', '美术', '体育', '信息技术']
+
+// 成人生活技能课程
+const ADULT_LIFE_CATEGORIES = ['中餐', '西餐', '烘焙', '力量训练', '有氧运动', '瑜伽', '手工', '园艺', '摄影', '绘画']
+
+// 成人职业培训课程
+const ADULT_PROFESSIONAL_CATEGORIES = ['编程', '设计', '会计', '法律', '医学', '教育', '管理', '营销', '外语', '考证培训']
+
+// 教材版本选项
+const TEXTBOOK_VERSIONS = ['人教版', '北师大版', '苏教版', '沪教版', '部编版', '外研版', '浙教版', '冀教版']
 
 // 班级列表
 const classes = ref<any[]>([])
@@ -214,6 +528,19 @@ const editForm = reactive({
   is_public: true
 })
 
+// 编辑表单教材配置
+const editCurriculumConfig = reactive<CurriculumConfig>({
+  grade_level: undefined,
+  grade: undefined,
+  subjects: [],
+  textbook_versions: [],
+  custom_textbooks: [],
+  current_progress: undefined
+})
+
+// 是否展开编辑教材配置
+const editCurriculumExpanded = ref(false)
+
 // 编辑表单验证规则
 const editRules: FormRules = {
   name: [
@@ -231,6 +558,23 @@ const createForm = reactive({
   persona_description: '',
   is_public: true
 })
+
+// 创建表单教材配置
+const createCurriculumConfig = reactive<CurriculumConfig>({
+  grade_level: undefined,
+  grade: undefined,
+  subjects: [],
+  textbook_versions: [],
+  custom_textbooks: [],
+  current_progress: undefined
+})
+
+// 是否展开创建教材配置
+const createCurriculumExpanded = ref(false)
+
+// 自定义教材输入
+const customTextbookInput = ref('')
+const editCustomTextbookInput = ref('')
 
 // 表单验证规则
 const createRules: FormRules = {
@@ -252,6 +596,60 @@ const createRules: FormRules = {
   ]
 }
 
+// 计算属性：当前年级选项
+const createGradeOptions = computed(() => {
+  if (!createCurriculumConfig.grade_level) return []
+  return GRADE_OPTIONS_MAP[createCurriculumConfig.grade_level] || []
+})
+
+const editGradeOptions = computed(() => {
+  if (!editCurriculumConfig.grade_level) return []
+  return GRADE_OPTIONS_MAP[editCurriculumConfig.grade_level] || []
+})
+
+// 计算属性：当前学科选项
+const createSubjectOptions = computed(() => {
+  if (!createCurriculumConfig.grade_level) return []
+  if (createCurriculumConfig.grade_level === 'adult_life') {
+    return ADULT_LIFE_CATEGORIES
+  }
+  if (createCurriculumConfig.grade_level === 'adult_professional') {
+    return ADULT_PROFESSIONAL_CATEGORIES
+  }
+  return K12_SUBJECTS
+})
+
+const editSubjectOptions = computed(() => {
+  if (!editCurriculumConfig.grade_level) return []
+  if (editCurriculumConfig.grade_level === 'adult_life') {
+    return ADULT_LIFE_CATEGORIES
+  }
+  if (editCurriculumConfig.grade_level === 'adult_professional') {
+    return ADULT_PROFESSIONAL_CATEGORIES
+  }
+  return K12_SUBJECTS
+})
+
+// 计算属性：是否显示年级选择器
+const showCreateGradeSelector = computed(() => {
+  return createCurriculumConfig.grade_level !== 'adult_life' &&
+         createCurriculumConfig.grade_level !== 'adult_professional'
+})
+
+const showEditGradeSelector = computed(() => {
+  return editCurriculumConfig.grade_level !== 'adult_life' &&
+         editCurriculumConfig.grade_level !== 'adult_professional'
+})
+
+// 计算属性：是否显示自定义教材输入（大学及以上）
+const showCreateCustomTextbooks = computed(() => {
+  return createCurriculumConfig.grade_level === 'university'
+})
+
+const showEditCustomTextbooks = computed(() => {
+  return editCurriculumConfig.grade_level === 'university'
+})
+
 // 打开创建弹窗
 function showCreateDialog() {
   createForm.name = ''
@@ -260,6 +658,15 @@ function showCreateDialog() {
   createForm.persona_school = ''
   createForm.persona_description = ''
   createForm.is_public = true
+  // 重置教材配置
+  createCurriculumConfig.grade_level = undefined
+  createCurriculumConfig.grade = undefined
+  createCurriculumConfig.subjects = []
+  createCurriculumConfig.textbook_versions = []
+  createCurriculumConfig.custom_textbooks = []
+  createCurriculumConfig.current_progress = undefined
+  createCurriculumExpanded.value = false
+  customTextbookInput.value = ''
   createDialogVisible.value = true
 }
 
@@ -269,36 +676,124 @@ function showEditDialog(row: any) {
   editForm.name = row.name || ''
   editForm.description = row.description || ''
   editForm.is_public = row.is_public !== undefined ? row.is_public : true
+  // 加载教材配置
+  if (row.curriculum_config) {
+    editCurriculumConfig.grade_level = row.curriculum_config.grade_level
+    editCurriculumConfig.grade = row.curriculum_config.grade
+    editCurriculumConfig.subjects = row.curriculum_config.subjects || []
+    editCurriculumConfig.textbook_versions = row.curriculum_config.textbook_versions || []
+    editCurriculumConfig.custom_textbooks = row.curriculum_config.custom_textbooks || []
+    editCurriculumConfig.current_progress = row.curriculum_config.current_progress
+    editCurriculumExpanded.value = true
+  } else {
+    editCurriculumConfig.grade_level = undefined
+    editCurriculumConfig.grade = undefined
+    editCurriculumConfig.subjects = []
+    editCurriculumConfig.textbook_versions = []
+    editCurriculumConfig.custom_textbooks = []
+    editCurriculumConfig.current_progress = undefined
+    editCurriculumExpanded.value = false
+  }
+  editCustomTextbookInput.value = ''
   editDialogVisible.value = true
+}
+
+// 处理创建时学段变化
+function onCreateGradeLevelChange() {
+  createCurriculumConfig.grade = undefined
+  createCurriculumConfig.subjects = []
+}
+
+// 处理编辑时学段变化
+function onEditGradeLevelChange() {
+  editCurriculumConfig.grade = undefined
+  editCurriculumConfig.subjects = []
+}
+
+// 添加自定义教材（创建）
+function addCreateCustomTextbook() {
+  const value = customTextbookInput.value.trim()
+  if (!value) {
+    ElMessage.warning('请输入教材名称')
+    return
+  }
+  if (!createCurriculumConfig.custom_textbooks) {
+    createCurriculumConfig.custom_textbooks = []
+  }
+  if (createCurriculumConfig.custom_textbooks.includes(value)) {
+    ElMessage.warning('该教材已添加')
+    return
+  }
+  createCurriculumConfig.custom_textbooks.push(value)
+  customTextbookInput.value = ''
+}
+
+// 添加自定义教材（编辑）
+function addEditCustomTextbook() {
+  const value = editCustomTextbookInput.value.trim()
+  if (!value) {
+    ElMessage.warning('请输入教材名称')
+    return
+  }
+  if (!editCurriculumConfig.custom_textbooks) {
+    editCurriculumConfig.custom_textbooks = []
+  }
+  if (editCurriculumConfig.custom_textbooks.includes(value)) {
+    ElMessage.warning('该教材已添加')
+    return
+  }
+  editCurriculumConfig.custom_textbooks.push(value)
+  editCustomTextbookInput.value = ''
+}
+
+// 移除自定义教材（创建）
+function removeCreateCustomTextbook(index: number) {
+  createCurriculumConfig.custom_textbooks?.splice(index, 1)
+}
+
+// 移除自定义教材（编辑）
+function removeEditCustomTextbook(index: number) {
+  editCurriculumConfig.custom_textbooks?.splice(index, 1)
+}
+
+// 获取学段标签
+function getGradeLevelLabel(value: string): string {
+  const option = GRADE_LEVEL_OPTIONS.find(opt => opt.value === value)
+  return option?.label || value
 }
 
 // 编辑班级
 async function handleEdit() {
   if (!editFormRef.value) return
-  
+
   try {
     await editFormRef.value.validate()
   } catch {
     return
   }
-  
+
   editLoading.value = true
   try {
-    const response = await fetch(`/api/classes/${editingClassId.value}`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${localStorage.getItem('token')}`
-      },
-      body: JSON.stringify({
-        name: editForm.name,
-        description: editForm.description || undefined,
-        is_public: editForm.is_public
-      })
-    })
-    
-    const result = await response.json()
-    
+    const body: any = {
+      name: editForm.name,
+      description: editForm.description || undefined,
+      is_public: editForm.is_public
+    }
+
+    // 如果展开并填写了教材配置，则添加到请求体
+    if (editCurriculumExpanded.value && editCurriculumConfig.grade_level) {
+      body.curriculum_config = {
+        grade_level: editCurriculumConfig.grade_level,
+        grade: editCurriculumConfig.grade,
+        subjects: editCurriculumConfig.subjects,
+        textbook_versions: editCurriculumConfig.textbook_versions,
+        custom_textbooks: editCurriculumConfig.custom_textbooks,
+        current_progress: editCurriculumConfig.current_progress
+      }
+    }
+
+    const result = await updateClass(editingClassId.value, body)
+
     if (result.code === 0) {
       editDialogVisible.value = false
       ElMessage.success('保存成功')
@@ -306,8 +801,8 @@ async function handleEdit() {
     } else {
       ElMessage.error(result.message || '保存失败')
     }
-  } catch (e) {
-    ElMessage.error('保存失败，请重试')
+  } catch (e: any) {
+    ElMessage.error(e?.response?.data?.message || '保存失败，请重试')
   } finally {
     editLoading.value = false
   }
@@ -316,33 +811,38 @@ async function handleEdit() {
 // 创建班级
 async function handleCreate() {
   if (!createFormRef.value) return
-  
+
   try {
     await createFormRef.value.validate()
   } catch {
     return
   }
-  
+
   createLoading.value = true
   try {
-    const response = await fetch('/api/classes', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${localStorage.getItem('token')}`
-      },
-      body: JSON.stringify({
-        name: createForm.name,
-        description: createForm.description || undefined,
-        persona_nickname: createForm.persona_nickname,
-        persona_school: createForm.persona_school,
-        persona_description: createForm.persona_description,
-        is_public: createForm.is_public
-      })
-    })
-    
-    const result = await response.json()
-    
+    const body: any = {
+      name: createForm.name,
+      description: createForm.description || undefined,
+      persona_nickname: createForm.persona_nickname,
+      persona_school: createForm.persona_school,
+      persona_description: createForm.persona_description,
+      is_public: createForm.is_public
+    }
+
+    // 如果展开并填写了教材配置，则添加到请求体
+    if (createCurriculumExpanded.value && createCurriculumConfig.grade_level) {
+      body.curriculum_config = {
+        grade_level: createCurriculumConfig.grade_level,
+        grade: createCurriculumConfig.grade,
+        subjects: createCurriculumConfig.subjects,
+        textbook_versions: createCurriculumConfig.textbook_versions,
+        custom_textbooks: createCurriculumConfig.custom_textbooks,
+        current_progress: createCurriculumConfig.current_progress
+      }
+    }
+
+    const result = await createClass(body)
+
     if (result.code === 0) {
       createDialogVisible.value = false
       createdClassInfo.value = result.data
@@ -351,8 +851,8 @@ async function handleCreate() {
     } else {
       ElMessage.error(result.message || '创建失败')
     }
-  } catch (e) {
-    ElMessage.error('创建失败，请重试')
+  } catch (e: any) {
+    ElMessage.error(e?.response?.data?.message || '创建失败，请重试')
   } finally {
     createLoading.value = false
   }
@@ -376,26 +876,40 @@ function copyShareCode() {
 async function handleDelete(row: any) {
   try {
     await ElMessageBox.confirm(`确定要删除班级 "${row.name}" 吗？`, '提示', { type: 'warning' })
-    // TODO: 调用删除API
-    ElMessage.success('删除成功')
-    loadClasses()
-  } catch (e) {}
+    const result = await deleteClass(row.id)
+    if (result.code === 0) {
+      ElMessage.success('删除成功')
+      loadClasses()
+    } else {
+      ElMessage.error(result.message || '删除失败')
+    }
+  } catch (e: any) {
+    // 用户取消操作不报错
+    if (e !== 'cancel' && !e?.toString().includes('cancel')) {
+      ElMessage.error(e?.response?.data?.message || '删除失败，请重试')
+    }
+  }
 }
 
 // 加载班级列表
+const loading = ref(false)
+const error = ref('')
+
 async function loadClasses() {
+  loading.value = true
+  error.value = ''
   try {
-    const response = await fetch('/api/classes', {
-      headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`
-      }
-    })
-    const result = await response.json()
+    const result = await getClassList()
     if (result.code === 0) {
       classes.value = Array.isArray(result.data) ? result.data : (result.data?.classes || [])
+    } else {
+      error.value = result.message || '加载失败'
     }
   } catch (e) {
+    error.value = '加载班级列表失败，请重试'
     console.error('加载班级列表失败:', e)
+  } finally {
+    loading.value = false
   }
 }
 
@@ -432,5 +946,65 @@ onMounted(() => {
   font-weight: bold;
   color: #409eff;
   letter-spacing: 4px;
+}
+
+// 教材配置样式
+.curriculum-config-section {
+  border: 1px solid #e4e7ed;
+  border-radius: 4px;
+  background-color: #fafafa;
+  margin-bottom: 16px;
+}
+
+.curriculum-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  cursor: pointer;
+  user-select: none;
+  transition: background-color 0.2s;
+
+  &:hover {
+    background-color: #f0f2f5;
+  }
+}
+
+.curriculum-title {
+  font-size: 14px;
+  color: #409eff;
+  font-weight: 500;
+}
+
+.curriculum-arrow {
+  font-size: 16px;
+  color: #909399;
+  transition: transform 0.3s;
+
+  &.is-expanded {
+    transform: rotate(180deg);
+  }
+}
+
+.curriculum-content {
+  padding: 16px;
+  border-top: 1px solid #e4e7ed;
+  background-color: #fff;
+}
+
+.custom-textbook-input {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.custom-textbook-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.custom-textbook-tag {
+  margin-right: 0;
 }
 </style>

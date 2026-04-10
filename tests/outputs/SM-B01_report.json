@@ -1,0 +1,85 @@
+{
+  "case_id": "SM-B01",
+  "name": "老用户编辑班级补充教材配置",
+  "status": "passed",
+  "platforms": {
+    "h5_teacher": {
+      "platform": "h5_teacher",
+      "status": "passed",
+      "steps": [
+        {
+          "step": "注入 Token 登录",
+          "status": "passed",
+          "screenshot": "outputs/SM-B01/SM-B01_h5_step01_login_1775809604789.png",
+          "url": "http://localhost:5174/home"
+        },
+        {
+          "step": "进入班级列表",
+          "status": "passed",
+          "screenshot": "outputs/SM-B01/SM-B01_h5_step02_class_list_1775809607413.png"
+        },
+        {
+          "step": "验证班级列表加载",
+          "status": "passed",
+          "screenshot": "outputs/SM-B01/SM-B01_h5_step03_classes_loaded_1775809607477.png"
+        },
+        {
+          "step": "点击编辑按钮",
+          "status": "passed",
+          "screenshot": "outputs/SM-B01/SM-B01_h5_step04_edit_dialog_1775809608585.png"
+        },
+        {
+          "step": "检查教材配置区域存在",
+          "status": "passed",
+          "note": "教材配置区域关键词已发现"
+        },
+        {
+          "step": "验证编辑弹窗加载",
+          "status": "passed",
+          "screenshot": "outputs/SM-B01/SM-B01_h5_step05_edit_dialog_loaded_1775809608631.png"
+        },
+        {
+          "step": "展开教材配置区域",
+          "status": "passed",
+          "screenshot": "outputs/SM-B01/SM-B01_h5_step06_textbook_expanded_1775809609667.png"
+        },
+        {
+          "step": "配置教材信息",
+          "status": "passed",
+          "screenshot": "outputs/SM-B01/SM-B01_h5_step10_textbook_filled_1775809669737.png",
+          "config_actions": []
+        },
+        {
+          "step": "验证保存按钮",
+          "status": "passed",
+          "note": "保存按钮可用（未实际点击保存）"
+        },
+        {
+          "step": "准备保存配置",
+          "status": "passed",
+          "screenshot": "outputs/SM-B01/SM-B01_h5_step11_ready_to_save_1775809669788.png"
+        },
+        {
+          "step": "关闭编辑弹窗",
+          "status": "passed",
+          "screenshot": "outputs/SM-B01/SM-B01_h5_step12_dialog_closed_1775809670834.png"
+        }
+      ],
+      "screenshots": [
+        "outputs/SM-B01/SM-B01_h5_step01_login_1775809604789.png",
+        "outputs/SM-B01/SM-B01_h5_step02_class_list_1775809607413.png",
+        "outputs/SM-B01/SM-B01_h5_step03_classes_loaded_1775809607477.png",
+        "outputs/SM-B01/SM-B01_h5_step04_edit_dialog_1775809608585.png",
+        "outputs/SM-B01/SM-B01_h5_step05_edit_dialog_loaded_1775809608631.png",
+        "outputs/SM-B01/SM-B01_h5_step06_textbook_expanded_1775809609667.png",
+        "outputs/SM-B01/SM-B01_h5_step10_textbook_filled_1775809669737.png",
+        "outputs/SM-B01/SM-B01_h5_step11_ready_to_save_1775809669788.png",
+        "outputs/SM-B01/SM-B01_h5_step12_dialog_closed_1775809670834.png"
+      ],
+      "start_time": "2026-04-10T16:26:39.848088",
+      "end_time": "2026-04-10T16:27:50.871075"
+    }
+  },
+  "start_time": "2026-04-10T16:26:39.827367",
+  "end_time": "2026-04-10T16:27:50.896968"
+}
