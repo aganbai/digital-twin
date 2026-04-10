@@ -94,3 +94,9 @@ deployments/nginx/ssl/*.key
 
 # 迭代数据
 docs/iterations/
+src/frontend/coverage/
+src/h5-teacher/coverage/
+src/knowledge-service/.coverage
+src/knowledge-service/app/__pycache__/
+
+src/knowledge-service/coverage.json
